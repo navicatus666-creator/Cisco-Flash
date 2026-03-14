@@ -1,0 +1,36 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE/editor state
+.idea/
+.vscode/
+
+# Local runtime and diagnostics
+logs/
+reports/
+transcripts/
+settings/
+
+# Accidental session dumps from local memory tooling
+20*-session.md

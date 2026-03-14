@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ciscoautoflash"
+version = "4.1.0"
+description = "CiscoAutoFlash desktop tool for Cisco 2960-X serial/USB workflows"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "pyserial>=3.5",
+  "ttkbootstrap>=1.20",
+]
+
+[project.optional-dependencies]
+ssh = [
+  "netmiko>=4.6",
+  "paramiko>=4.0",
+  "ntc-templates>=9.0",
+]
+dev = [
+  "bandit>=1.9",
+  "mypy>=1.19",
+  "pip-audit>=2.10",
+  "pre-commit>=4.5",
+  "pytest>=9.0",
+  "types-pyserial>=3.5",
+  "ruff>=0.15",
+  "vulture>=2.15",
+]
+build = [
+  "pyinstaller>=6.19",
+]
+
+[project.scripts]
+ciscoautoflash = "ciscoautoflash.ui.app:main"
+
+[tool.setuptools.packages.find]
+include = ["ciscoautoflash*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["CiscoAutoFlash_GUI_Clean.py", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+]
+
+[tool.mypy]
+python_version = "3.14"
+files = ["ciscoautoflash", "main.py"]
+exclude = ['^tests/', '^CiscoAutoFlash_GUI_Clean\.py$']
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = false
+check_untyped_defs = true
+no_implicit_optional = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist"]
+skips = ["B101"]
+
+[[tool.mypy.overrides]]
+module = ["netmiko", "netmiko.*"]
+ignore_missing_imports = true
+
+[tool.vulture]
+paths = ["ciscoautoflash", "main.py"]
+exclude = ["*tests*", "*CiscoAutoFlash_GUI_Clean.py", "*build*", "*dist*"]
+min_confidence = 80

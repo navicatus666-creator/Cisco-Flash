@@ -1,0 +1,20 @@
+name = "scan_login"
+action = "scan"
+description = "Устройство требует авторизацию."
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Требуется авторизация на устройстве"
+prompt_type = "login"
+connection_state = "login_required"
+recommended_next_action = "Выполните вход вручную по serial и затем повторите сканирование или этап 3."
+error_code = "login_required"
+score = 80
+raw_preview = "User Access Verification\nUsername:"

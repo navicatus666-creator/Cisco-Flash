@@ -1,0 +1,49 @@
+name = "stage3_verify"
+action = "stage3"
+stage1_complete = true
+stage2_complete = true
+description = "Этап 3: проверка и генерация отчёта."
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Коммутатор готов (Switch#)"
+prompt_type = "priv"
+connection_state = "ready"
+recommended_next_action = "Запустите этап 3."
+score = 120
+raw_preview = "Switch#"
+
+[[transports]]
+name = "scan-details"
+default_output = ""
+
+[[transports.read_until]]
+marker = "Switch#"
+buffer = "Switch#"
+
+[transports.commands]
+"terminal length 0" = ""
+"show version" = "Cisco IOS Software, Version 15.2(7)E13\nModel Number                    : WS-C2960X-48FPS-L\n"
+"dir flash:" = "123456789 bytes total (98765432 bytes free)"
+"dir usbflash0:" = "Directory of usbflash0:/\n1  -rw-  c2960x-universalk9-tar.152-7.E13.tar"
+
+[[transports]]
+name = "stage3-primary"
+default_output = "synthetic replay output"
+
+[[transports.read_until]]
+marker = "Switch#"
+buffer = "Switch#"
+
+[transports.commands]
+"terminal length 0" = ""
+"show version" = "Cisco IOS Software, Version 15.2(7)E13\nSystem image file is \"flash:/image.bin\"\nModel Number                    : WS-C2960X-48FPS-L\n"
+"show boot" = "BOOT variable = flash:/image.bin"
+"dir flash:" = "123456789 bytes total (98765432 bytes free)"

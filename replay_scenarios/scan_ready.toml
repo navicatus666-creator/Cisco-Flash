@@ -1,0 +1,19 @@
+name = "scan_ready"
+action = "scan"
+description = "Привилегированный prompt Switch#."
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Коммутатор готов (Switch#)"
+prompt_type = "priv"
+connection_state = "ready"
+recommended_next_action = "Запустите этап 1 или этап 3."
+score = 120
+raw_preview = "Switch#"
