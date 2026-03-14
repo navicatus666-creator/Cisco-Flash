@@ -1,4 +1,4 @@
-# Python bytecode and caches
+# Python caches and bytecode
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,28 +9,26 @@ __pycache__/
 .ruff_cache/
 .coverage
 .coverage.*
-.hypothesis/
 
-# Virtual environments
-.venv/
-venv/
-env/
-ENV/
-
-# Build artifacts
+# Build and packaging outputs
 build/
 dist/
-*.egg-info/
+*.spec.tmp
 
-# IDE/editor state
-.idea/
-.vscode/
-
-# Local runtime and diagnostics
+# Local runtime artifacts
 logs/
-reports/
-transcripts/
-settings/
+memory/
+*.log
+*-session.md
 
-# Accidental session dumps from local memory tooling
-20*-session.md
+# Environment and editor files
+.venv/
+venv/
+.python-version
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
