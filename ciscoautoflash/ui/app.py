@@ -21,8 +21,8 @@ from ..config import (
 from ..core.events import AppEvent
 from ..core.logging_utils import append_session_log, timestamp
 from ..core.models import ScanResult
-from ..core.session_artifacts import export_session_bundle, format_duration, snapshot_settings
 from ..core.serial_transport import SerialTransportFactory
+from ..core.session_artifacts import export_session_bundle, format_duration, snapshot_settings
 from ..core.single_instance import SingleInstanceError, SingleInstanceGuard
 from ..core.workflow import WorkflowController
 from ..profiles import build_c2960x_profile
@@ -912,13 +912,15 @@ class CiscoAutoFlashDesktop:
             widget.configure(state="disabled")
 
     def _tick_session_clock(self) -> None:
-        if getattr(self, "session_started_at_value", None):
-            elapsed = max(0.0, time.time() - self.session_started_at_value)
+        session_started_at = getattr(self, "session_started_at_value", None)
+        if session_started_at is not None:
+            elapsed = max(0.0, time.time() - session_started_at)
             self.session_duration_var.set(format_duration(elapsed))
         else:
             self.session_duration_var.set("00:00:00")
-        if getattr(self, "active_stage_started_at_value", None):
-            elapsed = max(0.0, time.time() - self.active_stage_started_at_value)
+        active_stage_started_at = getattr(self, "active_stage_started_at_value", None)
+        if active_stage_started_at is not None:
+            elapsed = max(0.0, time.time() - active_stage_started_at)
             self.active_stage_duration_var.set(format_duration(elapsed))
         self.window.after(1000, self._tick_session_clock)
 
@@ -1210,9 +1212,11 @@ class CiscoAutoFlashDesktop:
             )
             self.settings_path = Path(str(event.payload.get("settings_path", self.settings_path)))
             self.session.settings_path = self.settings_path
-            self.session.settings_snapshot_path = Path(
-                str(event.payload.get("settings_snapshot_path", self.session.settings_snapshot_path))
+            settings_snapshot_path = event.payload.get(
+                "settings_snapshot_path",
+                self.session.settings_snapshot_path,
             )
+            self.session.settings_snapshot_path = Path(str(settings_snapshot_path))
             self.manifest_path = Path(str(event.payload.get("manifest_path", self.manifest_path)))
             self.bundle_path = Path(str(event.payload.get("bundle_path", self.bundle_path)))
             self.session.manifest_path = self.manifest_path
@@ -1229,7 +1233,8 @@ class CiscoAutoFlashDesktop:
             self.session_started_at_value = float(
                 event.payload.get("session_started_at", self.session_started_at_value or 0.0)
             )
-            self.session_mode_var.set(str(event.payload.get("run_mode", self.session_mode_var.get())))
+            run_mode = event.payload.get("run_mode", self.session_mode_var.get())
+            self.session_mode_var.set(str(run_mode))
             self._refresh_preflight_paths()
         elif event.kind == "log":
             self._append_log(str(event.payload["line"]), str(event.payload.get("level", "info")))

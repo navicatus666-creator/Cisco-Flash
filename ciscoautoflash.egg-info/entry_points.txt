@@ -1,0 +1,2 @@
+[console_scripts]
+ciscoautoflash = ciscoautoflash.ui.app:main

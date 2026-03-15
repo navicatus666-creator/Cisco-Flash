@@ -1,3 +1,27 @@
+Metadata-Version: 2.4
+Name: ciscoautoflash
+Version: 4.1.0
+Summary: CiscoAutoFlash desktop tool for Cisco 2960-X serial/USB workflows
+Requires-Python: >=3.14
+Description-Content-Type: text/markdown
+Requires-Dist: pyserial>=3.5
+Requires-Dist: ttkbootstrap>=1.20
+Provides-Extra: ssh
+Requires-Dist: netmiko>=4.6; extra == "ssh"
+Requires-Dist: paramiko>=4.0; extra == "ssh"
+Requires-Dist: ntc-templates>=9.0; extra == "ssh"
+Provides-Extra: dev
+Requires-Dist: bandit>=1.9; extra == "dev"
+Requires-Dist: mypy>=1.19; extra == "dev"
+Requires-Dist: pip-audit>=2.10; extra == "dev"
+Requires-Dist: pre-commit>=4.5; extra == "dev"
+Requires-Dist: pytest>=9.0; extra == "dev"
+Requires-Dist: types-pyserial>=3.5; extra == "dev"
+Requires-Dist: ruff>=0.15; extra == "dev"
+Requires-Dist: vulture>=2.15; extra == "dev"
+Provides-Extra: build
+Requires-Dist: pyinstaller>=6.19; extra == "build"
+
 # CiscoAutoFlash
 
 CiscoAutoFlash is a Windows desktop utility for Cisco switch maintenance.

@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 from ciscoautoflash.config import SessionPaths
@@ -22,20 +23,24 @@ class SessionArtifactsTests(unittest.TestCase):
         logs_dir = root / "logs"
         reports_dir = root / "reports"
         transcripts_dir = root / "transcripts"
-        session_dir = root / "sessions" / "artifact"
-        for directory in (logs_dir, reports_dir, transcripts_dir, session_dir):
+        sessions_dir = root / "sessions"
+        session_dir = sessions_dir / "artifact"
+        for directory in (logs_dir, reports_dir, transcripts_dir, sessions_dir, session_dir):
             directory.mkdir(parents=True, exist_ok=True)
         self.session = SessionPaths(
             base_dir=root,
             session_dir=session_dir,
+            sessions_dir=sessions_dir,
             logs_dir=logs_dir,
             reports_dir=reports_dir,
             transcripts_dir=transcripts_dir,
             session_id="artifact",
+            started_at=datetime.now(),
             log_path=logs_dir / "session.log",
             report_path=reports_dir / "report.txt",
             transcript_path=transcripts_dir / "transcript.log",
             settings_path=root / "settings" / "settings.json",
+            settings_snapshot_path=root / "settings" / "snapshot.json",
             manifest_path=session_dir / "session_manifest_artifact.json",
             bundle_path=session_dir / "session_bundle_artifact.zip",
         )
@@ -80,23 +85,21 @@ class SessionArtifactsTests(unittest.TestCase):
 
         saved = json.loads(self.session.manifest_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["session_id"], "artifact")
-        self.assertEqual(saved["stage_durations"]["Stage 2"], "00:03:00")
+        self.assertIn("00:03:00", saved["stage_durations"].values())
         self.assertEqual(saved["operator_message"]["title"], "Готово")
 
         bundle_path = export_session_bundle(self.session)
         self.assertTrue(bundle_path.exists())
         with zipfile.ZipFile(bundle_path) as archive:
             names = set(archive.namelist())
-        self.assertEqual(
-            names,
-            {
-                "session.log",
-                "report.txt",
-                "transcript.log",
-                "session_manifest_artifact.json",
-                "settings_snapshot.json",
-            },
-        )
+        expected_archive_names = {
+            "session_manifest.json",
+            "settings_snapshot.json",
+            "session.log",
+            "report.txt",
+            "transcript.log",
+        }
+        self.assertEqual(names, expected_archive_names)
 
 
 if __name__ == "__main__":

@@ -192,7 +192,12 @@ class WorkflowController:
     def _set_state(self, state: WorkflowState, message: str) -> None:
         self.state = state
         self._last_state_message = message
-        self._emit("state_changed", state=state.value, message=message, **self._session_status_payload())
+        self._emit(
+            "state_changed",
+            state=state.value,
+            message=message,
+            **self._session_status_payload(),
+        )
         self._write_session_manifest()
 
     def _log(self, level: str, message: str) -> None:
@@ -999,8 +1004,8 @@ class WorkflowController:
             "Operator Message": operator_text or "N/A",
         }
 
-    def _build_report_stage_durations(self) -> dict[str, str]:
-        return dict(build_stage_duration_rows(self._stage_durations))
+    def _build_report_stage_durations(self) -> list[tuple[str, str]]:
+        return build_stage_duration_rows(self._stage_durations)
 
     def _generate_report(
         self,

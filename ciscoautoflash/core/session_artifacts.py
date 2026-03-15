@@ -11,10 +11,10 @@ from typing import Any
 from ..config import SessionPaths
 
 STAGE_DURATION_LABELS: tuple[tuple[str, str], ...] = (
-    ("scan", "Scan"),
-    ("stage1", "Stage 1"),
-    ("stage2", "Stage 2"),
-    ("stage3", "Stage 3"),
+    ("scan", "Scan Duration"),
+    ("stage1", "Stage 1 Duration"),
+    ("stage2", "Stage 2 Duration"),
+    ("stage3", "Stage 3 Duration"),
 )
 
 
@@ -93,6 +93,7 @@ def build_session_manifest(
             else None
         ),
         "final_state": current_state,
+        "current_state": current_state,
         "current_stage": current_stage,
         "selected_target_id": selected_target_id or "",
         "requested_firmware_name": requested_firmware_name or "",

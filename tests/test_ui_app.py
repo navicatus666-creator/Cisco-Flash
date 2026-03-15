@@ -193,17 +193,25 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.bundle_path = Path("C:/logs/sessions/current/session_bundle.zip")
         app.session_started_at_value = 0.0
         app.active_stage_started_at_value = None
+        sessions_dir = Path("C:/logs/sessions")
+        session_dir = sessions_dir / "current"
+        for directory in (sessions_dir, session_dir):
+            directory.mkdir(parents=True, exist_ok=True)
         app.session = SimpleNamespace(
             logs_dir=Path("C:/logs"),
-            session_dir=Path("C:/logs/sessions/current"),
+            sessions_dir=sessions_dir,
+            session_dir=session_dir,
             session_id="test",
+            started_at=0.0,
             manifest_path=app.manifest_path,
             bundle_path=app.bundle_path,
             settings_path=app.settings_path,
+            settings_snapshot_path=app.settings_path,
             log_path=app.log_path,
             report_path=app.report_path,
             transcript_path=app.transcript_path,
         )
+        app.session_dir = session_dir
         app.settings = AppSettings(preferred_target_id="")
         app.scan_results = {}
         app.demo_mode = False
@@ -313,8 +321,14 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.log_path_var.get(), str(Path("C:/logs/new.log")))
         self.assertEqual(app.report_path_var.get(), str(Path("C:/logs/new-report.txt")))
         self.assertEqual(app.transcript_path_var.get(), str(Path("C:/logs/new-transcript.txt")))
-        self.assertEqual(app.manifest_path_var.get(), "C:/logs/sessions/new/session_manifest.json")
-        self.assertEqual(app.bundle_path_var.get(), "C:/logs/sessions/new/session_bundle.zip")
+        self.assertEqual(
+            app.manifest_path_var.get().replace("\\", "/"),
+            "C:/logs/sessions/new/session_manifest.json",
+        )
+        self.assertEqual(
+            app.bundle_path_var.get().replace("\\", "/"),
+            "C:/logs/sessions/new/session_bundle.zip",
+        )
         self.assertEqual(app.session_id_var.get(), "new-session")
         self.assertEqual(app.session_started_var.get(), "2026-03-15 14:00:00")
         self.assertEqual(app.session_mode_var.get(), "Demo")
@@ -564,7 +578,10 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app._log_demo_ui_action = Mock()
         bundle_path = Path("C:/logs/sessions/current/session_bundle.zip")
 
-        with patch("ciscoautoflash.ui.app.export_session_bundle", return_value=bundle_path) as export:
+        with patch(
+            "ciscoautoflash.ui.app.export_session_bundle",
+            return_value=bundle_path,
+        ) as export:
             app._export_session_bundle()
 
         export.assert_called_once_with(app.session)

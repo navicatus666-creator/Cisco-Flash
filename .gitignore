@@ -17,7 +17,8 @@ dist/
 
 # Local runtime artifacts
 logs/
-memory/
+memory/**
+!memory/README.md
 *.log
 *-session.md
 

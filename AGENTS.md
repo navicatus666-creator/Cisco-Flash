@@ -43,6 +43,21 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 4. **WEB**: `mcp__context-mode__ctx_fetch_and_index(url, source)` then `mcp__context-mode__ctx_search(queries)` — Fetch, chunk, index, query. Raw HTML never enters context.
 5. **INDEX**: `mcp__context-mode__ctx_index(content, source)` — Store content in FTS5 knowledge base for later search.
 
+## Session workflow defaults
+
+- Start non-trivial reasoning with `mcp__sequential-thinking__sequentialthinking` before choosing deeper tool work, then use the rest of the MCP stack according to the task.
+- At session start, load durable project context with `mcp__echovault__memory_context` and run a targeted `mcp__echovault__memory_search` before making assumptions about prior decisions or environment state.
+- Treat `EchoVault` as the primary durable memory. Use `vector-memory` as a supplemental semantic baseline, not as the sole source of truth for recent project decisions.
+- If `vector-memory` is used in a session, read its `cookbook(init)` guidance first, search before storing, and keep `EchoVault` as the canonical durable memory for recent project decisions.
+- For code work, prefer combining `tree-sitter`, `code-graph`, and `repo-map` instead of relying on raw grep alone. Use `tree-sitter` for symbols and file content, `code-graph` for dependency and caller/callee analysis, and `repo-map` for compact repository structure snapshots.
+- If code-intelligence output looks stale, incomplete, or inconsistent with local files, trust direct repository reads first, then refresh/rebuild the relevant MCP index before making structural claims.
+- For docs and external references, use `Context7` first for library and API documentation, `Exa` for broader current web discovery, and `context-mode` web routing for direct page fetch/index/search flows.
+- Fallback order matters: if `Context7` is unavailable use `Exa`; if code-intel MCPs are unavailable use local repository inspection; if `github-mcp` is unavailable or auth-blocked use local `git` and `gh`.
+- When multiple independent local reads or MCP checks are needed, use `multi_tool_use.parallel` to gather them in parallel instead of serial tool calls.
+- Use multi-agents only when the user explicitly asks for delegation or parallel agent work, or when the task clearly has independent sidecar subtasks that do not block the immediate local step. Keep agent scopes narrow and write ownership disjoint.
+- In multi-agent work, one primary agent owns the final merge. Delegated agents should stay read-only or own disjoint files, and each handoff must include touched files, commands or tests run, and unresolved assumptions.
+- Before ending any session with decisions, fixes, or environment changes, save the outcome to `EchoVault` so the next session inherits the working state.
+
 ## Output constraints
 
 - Keep responses under 500 words.
@@ -73,6 +88,8 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Demo artifacts must stay under `%LOCALAPPDATA%\CiscoAutoFlash\demo\`; do not mix them with normal operator runs
 - Each runtime session now has a dedicated folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\<session_id>\` with `session_manifest_*.json` and on-demand `session_bundle_*.zip`
 - The dashboard exposes `Open session folder` and `Export session bundle`; use the bundle as the primary diagnostic package after failures instead of hand-collecting files
+- Active Codex/MCP state currently lives in user-home paths under `C:\Users\MySQL\.codex\` and `C:\Users\MySQL\.memory\`; keep MCP caches and indexes out of `C:\PROJECT\` so repo scans stay clean
+- Operator/runtime artifacts must still stay under `%LOCALAPPDATA%\CiscoAutoFlash\`; do not redirect desktop-app session data into Codex or MCP storage paths
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow
 - Primary first-switch runbook: `docs/pre_hardware/first_hardware_run.md`
 - Additional Cisco families are still planned later; do not assume they already exist in code unless verified

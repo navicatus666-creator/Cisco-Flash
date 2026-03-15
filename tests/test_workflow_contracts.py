@@ -108,7 +108,9 @@ class WorkflowContractTests(unittest.TestCase):
         controller.initialize()
         return controller
 
-    def test_initialize_emits_session_paths_with_transcript_and_session_artifact_paths(self) -> None:
+    def test_initialize_emits_session_paths_with_transcript_and_session_artifact_paths(
+        self,
+    ) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
         factory = ScriptedFactory([target], [ScanResult(target, True, "ready", "priv")])
         self.make_controller(factory)
