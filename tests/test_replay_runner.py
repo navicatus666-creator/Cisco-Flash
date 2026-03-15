@@ -107,6 +107,13 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assert_event_contract(result)
         self.assertEqual(result.final_state, "DONE")
         self.assertTrue(result.report_path.exists())
+        report = result.report_path.read_text(encoding="utf-8")
+        self.assertIn("Run Mode: Demo", report)
+        self.assertIn("Workflow Mode: Verify-only", report)
+        self.assertIn(
+            "INSTALLATION STAGES may remain NOT COMPLETED intentionally",
+            report,
+        )
         transcript = result.transcript_path.read_text(encoding="utf-8")
         self.assertIn("show version", transcript)
         self.assertIn("show boot", transcript)
@@ -115,6 +122,8 @@ class ReplayRunnerTests(unittest.TestCase):
     def test_loader_resolves_bare_scenario_name(self) -> None:
         scenario = load_scenario("scan_ready")
         self.assertEqual(scenario.name, "scan_ready")
+        self.assertEqual(scenario.display_name, "Сканирование: Switch# готов")
+        self.assertEqual(scenario.supported_actions, ("scan",))
         self.assertEqual(scenario.target.id, "COM5")
 
     def test_cli_main_prints_summary_and_events(self) -> None:

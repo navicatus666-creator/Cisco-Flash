@@ -1,5 +1,7 @@
 name = "stage1_reboot_config_dialog"
+display_name = "Этап 1: reboot + config dialog"
 action = "stage1"
+supported_actions = ["scan", "stage1"]
 description = "Этап 1 с initial config dialog после reload."
 
 [target]

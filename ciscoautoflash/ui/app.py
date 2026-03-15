@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import os
+import time
 import tkinter as tk
+from dataclasses import replace
 from pathlib import Path
 from queue import Empty, Queue
 from tkinter import messagebox
@@ -9,28 +12,49 @@ from tkinter.scrolledtext import ScrolledText
 
 import ttkbootstrap as ttk
 
-from ..config import AppConfig, AppSettings, load_settings, save_settings
+from ..config import (
+    AppConfig,
+    AppSettings,
+    load_settings,
+    save_settings,
+)
 from ..core.events import AppEvent
+from ..core.logging_utils import append_session_log, timestamp
 from ..core.models import ScanResult
+from ..core.session_artifacts import export_session_bundle, format_duration, snapshot_settings
 from ..core.serial_transport import SerialTransportFactory
 from ..core.single_instance import SingleInstanceError, SingleInstanceGuard
 from ..core.workflow import WorkflowController
 from ..profiles import build_c2960x_profile
+from ..replay.adapter import DemoReplayController
+from ..replay.loader import ReplayScenario
 
 
 class CiscoAutoFlashDesktop:
     def __init__(
         self,
         config: AppConfig | None = None,
-        controller: WorkflowController | None = None,
+        controller: WorkflowController | DemoReplayController | None = None,
         auto_start_scan: bool = True,
+        demo_mode: bool = False,
+        demo_scenario: str | None = None,
     ):
-        self.config = config or AppConfig()
+        self.demo_mode = demo_mode
+        base_config = config or AppConfig()
+        if self.demo_mode:
+            self.config = replace(base_config, runtime_root=(base_config.runtime_root / "demo"))
+        else:
+            self.config = base_config
         self.session = self.config.create_session_paths()
         self.settings = load_settings(self.session.settings_path)
         self.profile = build_c2960x_profile()
         self.event_queue: Queue[AppEvent] = Queue()
         self.scan_results: dict[str, ScanResult] = {}
+        self._suppress_target_selection_event = False
+        self.demo_scenarios_by_name: dict[str, ReplayScenario] = {}
+        self.demo_display_to_name: dict[str, str] = {}
+        self.demo_name_to_display: dict[str, str] = {}
+        self.selected_demo_scenario_name = demo_scenario or self.settings.demo_scenario_name
 
         self._instance_guard: SingleInstanceGuard | None = None
         if controller is None:
@@ -49,24 +73,54 @@ class CiscoAutoFlashDesktop:
         self.window.geometry(self.settings.window_geometry or "1320x900")
         self.window.minsize(1200, 820)
 
-        self.controller = controller or WorkflowController(
-            profile=self.profile,
-            transport_factory=SerialTransportFactory(
-                self.config.timing, transcript_path=self.session.transcript_path
-            ),
-            session=self.session,
-            event_handler=self._enqueue_event,
-            timing=self.config.timing,
-        )
+        if controller is not None:
+            self.controller = controller
+        elif self.demo_mode:
+            self.controller = DemoReplayController(
+                session=self.session,
+                runtime_root=self.config.runtime_root,
+                event_handler=self._enqueue_event,
+                schedule=self.window.after,
+                scenario_name=self.selected_demo_scenario_name,
+            )
+        else:
+            self.controller = WorkflowController(
+                profile=self.profile,
+                transport_factory=SerialTransportFactory(
+                    self.config.timing, transcript_path=self.session.transcript_path
+                ),
+                session=self.session,
+                event_handler=self._enqueue_event,
+                timing=self.config.timing,
+            )
+
+        if self.demo_mode and isinstance(self.controller, DemoReplayController):
+            demo_scenarios = self.controller.list_scenarios()
+            self.demo_scenarios_by_name = {scenario.name: scenario for scenario in demo_scenarios}
+            self.demo_name_to_display = {
+                scenario.name: scenario.display_name for scenario in demo_scenarios
+            }
+            self.demo_display_to_name = {
+                scenario.display_name: scenario.name for scenario in demo_scenarios
+            }
+            self.selected_demo_scenario_name = self.controller.current_scenario.name
 
         self.log_path = self.session.log_path
         self.report_path = self.session.report_path
         self.transcript_path = self.session.transcript_path
         self.settings_path = self.session.settings_path
+        self.manifest_path = self.session.manifest_path
+        self.bundle_path = self.session.bundle_path
+        self.session_dir = self.session.session_dir
+        self.session_started_at_value = getattr(
+            self.controller, "session_started_at", self.session.started_at.timestamp()
+        )
+        self.active_stage_started_at_value: float | None = None
 
         self.state_var = tk.StringVar(value="Инициализация рабочего места...")
         self.state_badge_var = tk.StringVar(value="ГОТОВНОСТЬ")
         self.transport_mode_var = tk.StringVar(value="Serial/USB")
+        self.demo_badge_var = tk.StringVar(value="DEMO" if self.demo_mode else "")
         self.port_var = tk.StringVar(value="—")
         self.device_status_var = tk.StringVar(value="Ожидание сканирования")
         self.model_var = tk.StringVar(value="Не определена")
@@ -81,6 +135,11 @@ class CiscoAutoFlashDesktop:
         self.firmware_input_var = tk.StringVar(
             value=self.settings.firmware_name or self.profile.default_firmware
         )
+        self.demo_scenario_var = tk.StringVar(
+            value=self.demo_name_to_display.get(self.selected_demo_scenario_name, "")
+        )
+        self.demo_description_var = tk.StringVar(value="")
+        self.demo_actions_var = tk.StringVar(value="")
         self.progress_stage_var = tk.StringVar(value="Ожидание установки")
         self.progress_percent_var = tk.StringVar(value="0%")
         self.progress_meta_var = tk.StringVar(
@@ -95,25 +154,44 @@ class CiscoAutoFlashDesktop:
         self.operator_severity_var = tk.StringVar(value="ИНФО")
         self.selected_target_var = tk.StringVar(value="Не выбрана")
         self.scan_status_var = tk.StringVar(value="Сканирование ещё не запускалось")
+        self.session_id_var = tk.StringVar(value=self.session.session_id)
+        self.session_started_var = tk.StringVar(
+            value=self.session.started_at.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        self.session_duration_var = tk.StringVar(value="00:00:00")
+        self.active_stage_duration_var = tk.StringVar(value="—")
+        self.session_mode_var = tk.StringVar(value="Demo" if self.demo_mode else "Operator")
+        self.current_stage_var = tk.StringVar(value="Ожидание")
+        self.last_scan_time_var = tk.StringVar(value="Ещё не выполнялось")
         self.log_path_var = tk.StringVar(value=str(self.log_path))
         self.report_path_var = tk.StringVar(value=str(self.report_path))
         self.transcript_path_var = tk.StringVar(value=str(self.transcript_path))
         self.settings_path_var = tk.StringVar(value=str(self.settings_path))
+        self.manifest_path_var = tk.StringVar(value=str(self.manifest_path))
+        self.bundle_path_var = tk.StringVar(value=str(self.bundle_path))
         self.log_status_var = tk.StringVar(value="Журнал будет создан по ходу сессии")
         self.report_status_var = tk.StringVar(value="Отчёт появится после этапа проверки")
         self.transcript_status_var = tk.StringVar(
             value="Транскрипт будет писаться в текущей сессии"
         )
         self.settings_status_var = tk.StringVar(value="Настройки будут сохранены при изменениях")
+        self.manifest_status_var = tk.StringVar(value="Manifest будет обновляться по ходу сессии")
+        self.bundle_status_var = tk.StringVar(value="Bundle будет создан по запросу оператора")
 
         self._build_ui()
+        self._refresh_demo_details()
         self._refresh_preflight_paths()
         self._refresh_artifact_statuses()
         self._apply_state_style("IDLE")
         self._apply_operator_style("info")
+        if hasattr(self.controller, "requested_firmware_name"):
+            self.controller.requested_firmware_name = (
+                self.firmware_input_var.get().strip() or self.profile.default_firmware
+            )
         self.controller.initialize()
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.after(100, self._drain_events)
+        self.window.after(1000, self._tick_session_clock)
         if auto_start_scan:
             self.window.after(400, self.controller.scan_devices)
 
@@ -153,6 +231,14 @@ class CiscoAutoFlashDesktop:
             bootstyle="info",
         )
         self.state_badge.pack(anchor="e")
+        if self.demo_mode:
+            self.demo_badge = ttk.Label(
+                self.state_card,
+                textvariable=self.demo_badge_var,
+                font=("Segoe UI", 9, "bold"),
+                bootstyle="warning",
+            )
+            self.demo_badge.pack(anchor="e", pady=(6, 0))
         ttk.Label(
             self.state_card, textvariable=self.transport_mode_var, bootstyle="secondary"
         ).pack(anchor="e", pady=(6, 0))
@@ -228,6 +314,36 @@ class CiscoAutoFlashDesktop:
         ).pack(anchor="w")
         ttk.Entry(firmware_card, textvariable=self.firmware_input_var).pack(fill="x", pady=(6, 0))
 
+        if self.demo_mode:
+            demo_card = ttk.Labelframe(controls, text="Demo-сценарий", padding=12)
+            demo_card.pack(side="left", fill="x", padx=(12, 0))
+            ttk.Label(
+                demo_card,
+                text="Dev-only проигрывание сценариев без оборудования",
+                bootstyle="secondary",
+            ).pack(anchor="w")
+            self.demo_selector = ttk.Combobox(
+                demo_card,
+                textvariable=self.demo_scenario_var,
+                state="readonly",
+                values=list(self.demo_display_to_name),
+            )
+            self.demo_selector.pack(fill="x", pady=(6, 8))
+            self.demo_selector.bind("<<ComboboxSelected>>", self._on_demo_scenario_selected)
+            ttk.Label(
+                demo_card,
+                textvariable=self.demo_description_var,
+                bootstyle="secondary",
+                justify="left",
+                wraplength=320,
+            ).pack(anchor="w")
+            ttk.Label(
+                demo_card,
+                textvariable=self.demo_actions_var,
+                justify="left",
+                wraplength=320,
+            ).pack(anchor="w", pady=(8, 0))
+
         action_card = ttk.Labelframe(controls, text="Основные действия", padding=12)
         action_card.pack(side="left", padx=(12, 0))
         for column in range(5):
@@ -271,7 +387,7 @@ class CiscoAutoFlashDesktop:
 
         utility_card = ttk.Labelframe(root, text="Файлы и артефакты сессии", padding=12)
         utility_card.pack(fill="x", pady=(0, 12))
-        for column in range(4):
+        for column in range(6):
             utility_card.columnconfigure(column, weight=1)
         self.log_button = ttk.Button(
             utility_card,
@@ -295,19 +411,34 @@ class CiscoAutoFlashDesktop:
             command=self._open_transcript,
         )
         self.transcript_button.grid(row=0, column=2, padx=4, pady=4, sticky="ew")
-        ttk.Button(
+        self.logs_dir_button = ttk.Button(
             utility_card,
             text="Открыть папку логов",
             bootstyle="secondary",
             command=self._open_logs_dir,
-        ).grid(row=0, column=3, padx=4, pady=4, sticky="ew")
+        )
+        self.logs_dir_button.grid(row=0, column=3, padx=4, pady=4, sticky="ew")
+        self.session_folder_button = ttk.Button(
+            utility_card,
+            text="Открыть папку сессии",
+            bootstyle="secondary",
+            command=self._open_session_folder,
+        )
+        self.session_folder_button.grid(row=0, column=4, padx=4, pady=4, sticky="ew")
+        self.bundle_export_button = ttk.Button(
+            utility_card,
+            text="Экспортировать bundle",
+            bootstyle="secondary",
+            command=self._export_session_bundle,
+        )
+        self.bundle_export_button.grid(row=0, column=5, padx=4, pady=4, sticky="ew")
 
         paned = ttk.Panedwindow(root, orient="horizontal", bootstyle="info")
         paned.pack(fill="both", expand=True)
 
         left_panel = ttk.Frame(paned, padding=2)
         left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(3, weight=1)
+        left_panel.rowconfigure(4, weight=1)
         paned.add(left_panel)
 
         right_panel = ttk.Frame(paned, padding=2)
@@ -334,13 +465,34 @@ class CiscoAutoFlashDesktop:
         )
         self._build_preflight_value(preflight_card, 3, 2, "Файл настроек", self.settings_path_var)
 
+        session_card = ttk.Labelframe(left_panel, text="Сводка сессии", padding=12)
+        session_card.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        for column in (1, 3):
+            session_card.columnconfigure(column, weight=1)
+        self._build_preflight_value(session_card, 0, 0, "ID сессии", self.session_id_var)
+        self._build_preflight_value(session_card, 0, 2, "Старт", self.session_started_var)
+        self._build_preflight_value(session_card, 1, 0, "Длительность", self.session_duration_var)
+        self._build_preflight_value(
+            session_card, 1, 2, "Длительность этапа", self.active_stage_duration_var
+        )
+        self._build_preflight_value(session_card, 2, 0, "Режим", self.session_mode_var)
+        self._build_preflight_value(session_card, 2, 2, "Текущий этап", self.current_stage_var)
+        self._build_preflight_value(
+            session_card, 3, 0, "Выбранная цель", self.selected_target_var
+        )
+        self._build_preflight_value(session_card, 3, 2, "Firmware", self.firmware_input_var)
+        self._build_preflight_value(
+            session_card, 4, 0, "Последний scan", self.last_scan_time_var
+        )
+        self._build_preflight_value(session_card, 4, 2, "Статус", self.state_badge_var)
+
         self.operator_card = ttk.Labelframe(
             left_panel,
             text="Операторская подсказка",
             padding=14,
             bootstyle="info",
         )
-        self.operator_card.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        self.operator_card.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         operator_header = ttk.Frame(self.operator_card)
         operator_header.pack(fill="x")
         ttk.Label(
@@ -382,7 +534,7 @@ class CiscoAutoFlashDesktop:
         )
 
         progress_card = ttk.Labelframe(left_panel, text="Прогресс установки", padding=14)
-        progress_card.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        progress_card.grid(row=3, column=0, sticky="ew", pady=(0, 10))
         ttk.Label(
             progress_card,
             textvariable=self.progress_stage_var,
@@ -412,7 +564,7 @@ class CiscoAutoFlashDesktop:
         ).pack(anchor="w", pady=(6, 0))
 
         targets_card = ttk.Labelframe(left_panel, text="Найденные устройства", padding=10)
-        targets_card.grid(row=3, column=0, sticky="nsew")
+        targets_card.grid(row=4, column=0, sticky="nsew")
         targets_card.rowconfigure(1, weight=1)
         targets_card.columnconfigure(0, weight=1)
         ttk.Label(targets_card, textvariable=self.scan_status_var, bootstyle="secondary").grid(
@@ -536,12 +688,34 @@ class CiscoAutoFlashDesktop:
             lambda: self._open_path(self.settings_path),
             button_text="Открыть",
         )
+        self._build_artifact_row(
+            artifacts_tab,
+            5,
+            "Manifest",
+            self.manifest_path_var,
+            self.manifest_status_var,
+            "Ищите сводку сессии, длительности этапов, финальный state и operator message.",
+            self._open_manifest,
+            button_text="Открыть",
+        )
+        self._build_artifact_row(
+            artifacts_tab,
+            6,
+            "Bundle",
+            self.bundle_path_var,
+            self.bundle_status_var,
+            "ZIP-пакет для баг-репорта: log, report, transcript, settings snapshot и manifest.",
+            self._open_bundle,
+            button_text="Открыть",
+            button_attr="artifact_bundle_button",
+            enabled=False,
+        )
         ttk.Button(
             artifacts_tab,
             text="Открыть папку логов",
             bootstyle="secondary",
             command=self._open_logs_dir,
-        ).grid(row=5, column=3, sticky="e", pady=(6, 0))
+        ).grid(row=7, column=3, sticky="e", pady=(6, 0))
 
         runbook_tab = ttk.Frame(diagnostics, padding=10)
         diagnostics.add(runbook_tab, text="Памятка")
@@ -656,6 +830,8 @@ class CiscoAutoFlashDesktop:
             ("report_path_var", self.report_path),
             ("transcript_path_var", self.transcript_path),
             ("settings_path_var", self.settings_path),
+            ("manifest_path_var", self.manifest_path),
+            ("bundle_path_var", self.bundle_path),
         )
         for attr, path in path_map:
             var = getattr(self, attr, None)
@@ -680,6 +856,21 @@ class CiscoAutoFlashDesktop:
             if self.settings_path.exists()
             else "Настройки будут сохранены при изменениях"
         )
+        self.manifest_status_var.set(
+            "Manifest готов"
+            if self.manifest_path.exists()
+            else "Manifest будет обновляться по ходу сессии"
+        )
+        self.bundle_status_var.set(
+            "Bundle готов"
+            if self.bundle_path.exists()
+            else "Bundle будет создан по запросу оператора"
+        )
+        artifact_bundle_button = getattr(self, "artifact_bundle_button", None)
+        if artifact_bundle_button is not None:
+            artifact_bundle_button.configure(
+                state="normal" if self.bundle_path.exists() else "disabled"
+            )
 
     def _load_runbook_text(self) -> str:
         docs_dir = self.config.project_root / "docs" / "pre_hardware"
@@ -720,9 +911,32 @@ class CiscoAutoFlashDesktop:
         if readonly:
             widget.configure(state="disabled")
 
+    def _tick_session_clock(self) -> None:
+        if getattr(self, "session_started_at_value", None):
+            elapsed = max(0.0, time.time() - self.session_started_at_value)
+            self.session_duration_var.set(format_duration(elapsed))
+        else:
+            self.session_duration_var.set("00:00:00")
+        if getattr(self, "active_stage_started_at_value", None):
+            elapsed = max(0.0, time.time() - self.active_stage_started_at_value)
+            self.active_stage_duration_var.set(format_duration(elapsed))
+        self.window.after(1000, self._tick_session_clock)
+
     def _update_selected_target(self, target_id: str) -> None:
         value = target_id or "Не выбрана"
         self.selected_target_var.set(value)
+
+    def _set_tree_selection(self, target_id: str, *, ensure_visible: bool = True) -> None:
+        if not target_id or not hasattr(self, "targets_tree"):
+            return
+        self._suppress_target_selection_event = True
+        try:
+            self.targets_tree.selection_set(target_id)
+            self.targets_tree.focus(target_id)
+            if ensure_visible:
+                self.targets_tree.see(target_id)
+        finally:
+            self._suppress_target_selection_event = False
 
     def _update_scan_status(self, results: list[ScanResult], selected_target_id: str) -> None:
         if not results:
@@ -849,9 +1063,15 @@ class CiscoAutoFlashDesktop:
 
     def _on_scan(self) -> None:
         self._persist_settings()
+        self._log_demo_ui_action("Запущен Scan")
         self.controller.scan_devices()
 
     def _on_stage1(self) -> None:
+        if self.demo_mode:
+            self._persist_settings()
+            self._log_demo_ui_action("Запущен Stage 1")
+            self.controller.run_stage1()
+            return
         confirmed = messagebox.askyesno(
             "Этап 1: сброс",
             "Этап 1 выполнит write erase, удалит vlan.dat и перезагрузит устройство. Продолжить?",
@@ -864,6 +1084,14 @@ class CiscoAutoFlashDesktop:
         if not self.firmware_input_var.get().strip():
             messagebox.showwarning("Этап 2: установка", "Укажите имя файла прошивки.")
             return
+        if self.demo_mode:
+            self._persist_settings()
+            self._log_demo_ui_action(
+                "Запущен Stage 2",
+                f"Файл: {self.firmware_input_var.get().strip()}",
+            )
+            self.controller.run_stage2(self.firmware_input_var.get().strip())
+            return
         confirmed = messagebox.askyesno(
             "Этап 2: установка",
             "USB-накопитель вставлен в свитч и на нём лежит нужный tar-образ?",
@@ -874,30 +1102,85 @@ class CiscoAutoFlashDesktop:
 
     def _on_stage3(self) -> None:
         self._persist_settings()
+        self._log_demo_ui_action("Запущен Stage 3")
         self.controller.run_stage3()
 
     def _on_stop(self) -> None:
+        self._log_demo_ui_action("Нажат Stop")
         self.controller.stop()
 
     def _on_target_selected(self, _event: object) -> None:
+        if self._suppress_target_selection_event:
+            return
         selection = self.targets_tree.selection()
         if not selection:
             return
         target_id = str(selection[0])
+        if target_id == self.selected_target_var.get():
+            return
         if self.controller.select_target(target_id):
             self._persist_settings(preferred_target_id=target_id)
+            self._log_demo_ui_action("Выбрана цель", target_id)
+
+    def _on_demo_scenario_selected(self, _event: object) -> None:
+        if not self.demo_mode or not isinstance(self.controller, DemoReplayController):
+            return
+        scenario_display = self.demo_scenario_var.get()
+        scenario_name = self.demo_display_to_name.get(scenario_display, "")
+        if not scenario_name:
+            return
+        if self.controller.set_scenario(scenario_name):
+            self.selected_demo_scenario_name = scenario_name
+            self._refresh_demo_details()
+            self._persist_settings()
+            self._log_demo_ui_action("Выбран сценарий", scenario_display)
+
+    def _log_demo_ui_action(self, action: str, detail: str = "", level: str = "info") -> None:
+        if not self.demo_mode:
+            return
+        message = f"[DEMO][UI] {action}"
+        if detail:
+            message = f"{message}: {detail}"
+        line = f"[{timestamp()}] {message}"
+        append_session_log(self.log_path, line)
+        self._enqueue_event(AppEvent("log", {"line": line, "level": level}))
 
     def _open_log(self) -> None:
+        self._log_demo_ui_action("Открыт журнал", str(self.log_path))
         self._open_path(self.log_path)
 
     def _open_report(self) -> None:
+        self._log_demo_ui_action("Открыт отчёт", str(self.report_path))
         self._open_path(self.report_path)
 
     def _open_transcript(self) -> None:
+        self._log_demo_ui_action("Открыт транскрипт", str(self.transcript_path))
         self._open_path(self.transcript_path)
 
     def _open_logs_dir(self) -> None:
+        self._log_demo_ui_action("Открыта папка логов", str(self.session.logs_dir))
         self._open_path(self.session.logs_dir)
+
+    def _open_manifest(self) -> None:
+        self._log_demo_ui_action("Открыт manifest", str(self.manifest_path))
+        self._open_path(self.manifest_path)
+
+    def _open_bundle(self) -> None:
+        self._log_demo_ui_action("Открыт session bundle", str(self.bundle_path))
+        self._open_path(self.bundle_path)
+
+    def _open_session_folder(self) -> None:
+        self._log_demo_ui_action("Открыта папка сессии", str(self.session_dir))
+        self._open_path(self.session_dir)
+
+    def _export_session_bundle(self) -> None:
+        self._persist_settings()
+        bundle_path = export_session_bundle(self.session)
+        self.bundle_path = bundle_path
+        self.bundle_path_var.set(str(bundle_path))
+        self._refresh_artifact_statuses()
+        self.footer_var.set(f"Session bundle сохранён: {bundle_path.name}")
+        self._log_demo_ui_action("Экспортирован session bundle", str(bundle_path))
 
     def _open_path(self, path: Path) -> None:
         if not Path(path).exists():
@@ -926,6 +1209,27 @@ class CiscoAutoFlashDesktop:
                 str(event.payload.get("transcript_path", self.transcript_path))
             )
             self.settings_path = Path(str(event.payload.get("settings_path", self.settings_path)))
+            self.session.settings_path = self.settings_path
+            self.session.settings_snapshot_path = Path(
+                str(event.payload.get("settings_snapshot_path", self.session.settings_snapshot_path))
+            )
+            self.manifest_path = Path(str(event.payload.get("manifest_path", self.manifest_path)))
+            self.bundle_path = Path(str(event.payload.get("bundle_path", self.bundle_path)))
+            self.session.manifest_path = self.manifest_path
+            self.session.bundle_path = self.bundle_path
+            self.session_dir = Path(str(event.payload.get("session_dir", self.session_dir)))
+            self.session.session_dir = self.session_dir
+            self.session.log_path = self.log_path
+            self.session.report_path = self.report_path
+            self.session.transcript_path = self.transcript_path
+            self.session_id_var.set(str(event.payload.get("session_id", self.session.session_id)))
+            self.session_started_var.set(
+                str(event.payload.get("session_started_label", self.session_started_var.get()))
+            )
+            self.session_started_at_value = float(
+                event.payload.get("session_started_at", self.session_started_at_value or 0.0)
+            )
+            self.session_mode_var.set(str(event.payload.get("run_mode", self.session_mode_var.get())))
             self._refresh_preflight_paths()
         elif event.kind == "log":
             self._append_log(str(event.payload["line"]), str(event.payload.get("level", "info")))
@@ -935,6 +1239,30 @@ class CiscoAutoFlashDesktop:
             self.state_var.set(message)
             self.footer_var.set(message)
             self._apply_state_style(state_name)
+            self.current_stage_var.set(
+                str(event.payload.get("current_stage", self.current_stage_var.get()))
+            )
+            self.last_scan_time_var.set(
+                str(event.payload.get("last_scan_completed_at", self.last_scan_time_var.get()))
+                or "Ещё не выполнялось"
+            )
+            session_elapsed = event.payload.get("session_elapsed_seconds")
+            if session_elapsed is not None:
+                self.session_duration_var.set(format_duration(float(session_elapsed)))
+            stage_started_at = event.payload.get("stage_started_at")
+            self.active_stage_started_at_value = (
+                float(stage_started_at) if stage_started_at is not None else None
+            )
+            stage_elapsed = event.payload.get("stage_elapsed_seconds")
+            if self.active_stage_started_at_value is None:
+                self.active_stage_duration_var.set(
+                    format_duration(float(stage_elapsed)) if stage_elapsed is not None else "—"
+                )
+            requested_firmware = str(
+                event.payload.get("requested_firmware_name", self.firmware_input_var.get())
+            )
+            if requested_firmware and not self.firmware_input_var.get().strip():
+                self.firmware_input_var.set(requested_firmware)
             if state_name == "DISCOVERING":
                 self.scan_status_var.set("Идёт сканирование COM-портов...")
         elif event.kind == "actions_changed":
@@ -1013,9 +1341,7 @@ class CiscoAutoFlashDesktop:
             self._update_selected_target(target_id)
             self.manual_override_var.set(self._friendly_manual_override(manual_override))
             if target_id and hasattr(self, "targets_tree"):
-                self.targets_tree.selection_set(target_id)
-                self.targets_tree.focus(target_id)
-                self.targets_tree.see(target_id)
+                self._set_tree_selection(target_id)
                 self._persist_settings(preferred_target_id=target_id)
         elif event.kind == "report_ready":
             self.report_path = Path(str(event.payload["report_path"]))
@@ -1047,13 +1373,10 @@ class CiscoAutoFlashDesktop:
                 )
         preferred = selected_target_id or self.settings.preferred_target_id
         if preferred and self.targets_tree.exists(preferred):
-            self.targets_tree.selection_set(preferred)
-            self.targets_tree.focus(preferred)
-            self.targets_tree.see(preferred)
+            self._set_tree_selection(preferred)
         elif results:
             first = results[0].target.id
-            self.targets_tree.selection_set(first)
-            self.targets_tree.focus(first)
+            self._set_tree_selection(first, ensure_visible=False)
 
     def _set_button_state(self, button: ttk.Button, enabled: bool) -> None:
         button.configure(state="normal" if enabled else "disabled")
@@ -1079,10 +1402,16 @@ class CiscoAutoFlashDesktop:
             if preferred_target_id is not None
             else existing.preferred_target_id,
             selected_transport="serial",
+            demo_scenario_name=self.selected_demo_scenario_name or existing.demo_scenario_name,
             window_geometry=window_geometry,
         )
         self.settings = current
         save_settings(self.settings_path, current)
+        snapshot_settings(self.settings_path, self.session.settings_snapshot_path)
+        if hasattr(self.controller, "requested_firmware_name"):
+            self.controller.requested_firmware_name = (
+                self.firmware_input_var.get().strip() or self.profile.default_firmware
+            )
         self._refresh_artifact_statuses()
 
     def _on_close(self) -> None:
@@ -1096,11 +1425,54 @@ class CiscoAutoFlashDesktop:
     def run(self) -> None:
         self.window.mainloop()
 
+    def _friendly_demo_actions(self, actions: tuple[str, ...]) -> str:
+        labels = {
+            "scan": "Scan",
+            "stage1": "Stage 1",
+            "stage2": "Stage 2",
+            "stage3": "Stage 3",
+        }
+        return "Доступно: " + ", ".join(labels.get(action, action) for action in actions)
 
-def main() -> None:
-    app = CiscoAutoFlashDesktop()
+    def _refresh_demo_details(self) -> None:
+        if not self.demo_mode:
+            return
+        scenario = self.demo_scenarios_by_name.get(self.selected_demo_scenario_name)
+        if scenario is None and self.demo_scenarios_by_name:
+            scenario = next(iter(self.demo_scenarios_by_name.values()))
+            self.selected_demo_scenario_name = scenario.name
+        if scenario is None:
+            self.demo_scenario_var.set("")
+            self.demo_description_var.set("Сценарии demo mode не найдены.")
+            self.demo_actions_var.set("Доступно: —")
+            return
+        self.demo_scenario_var.set(self.demo_name_to_display.get(scenario.name, scenario.name))
+        self.demo_description_var.set(
+            scenario.description or "Сценарий готов для click-smoke без оборудования."
+        )
+        self.demo_actions_var.set(self._friendly_demo_actions(scenario.supported_actions))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="CiscoAutoFlash desktop app")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the UI in dev-only replay mode without real hardware.",
+    )
+    parser.add_argument(
+        "--demo-scenario",
+        help="Optional replay scenario name to preselect in demo mode.",
+    )
+    args = parser.parse_args(argv)
+
+    app = CiscoAutoFlashDesktop(
+        demo_mode=args.demo,
+        demo_scenario=args.demo_scenario,
+    )
     app.run()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

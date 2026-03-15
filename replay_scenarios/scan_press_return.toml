@@ -1,5 +1,7 @@
 name = "scan_press_return"
+display_name = "Сканирование: Press RETURN"
 action = "scan"
+supported_actions = ["scan"]
 description = "Устройство ждёт ENTER после загрузки."
 
 [target]

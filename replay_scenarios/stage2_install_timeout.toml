@@ -1,5 +1,7 @@
 name = "stage2_install_timeout"
+display_name = "Этап 2: timeout установки"
 action = "stage2"
+supported_actions = ["scan", "stage2"]
 description = "Этап 2: timeout во время install loop."
 firmware_name = "c2960x-universalk9-tar.152-7.E13.tar"
 stage1_complete = true

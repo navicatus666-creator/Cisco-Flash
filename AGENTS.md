@@ -64,11 +64,15 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Main test command: `python -m unittest discover -s C:\PROJECT\tests -v`
 - Current stack: Python 3.14, `ttkbootstrap`, `pyserial`, `Netmiko`, `Paramiko`, `ntc-templates`
 - Current operator-facing workflow: Cisco 2960-X over Serial/USB
-- Current dev UI is a Russian-first ttkbootstrap dashboard with preflight, operator status, target selection, notebook diagnostics, and session artifact actions
+- Current dev UI is a Russian-first ttkbootstrap dashboard with preflight, operator status, target selection, notebook diagnostics, session artifact actions, and a dev-only `--demo` replay mode
 - Backend-only SSH/SCP transport in `ciscoautoflash/core/ssh_transport.py` is integration-ready for hidden verify/report/transcript flow and SCP upload helper work, but the UI is still serial-first and does not expose SSH yet
 - Internal SSH target metadata contract: required `host`, `username`, `password`; optional `secret`, `device_type`, `port`, `timeout`, `banner_timeout`, `auth_timeout`, `session_timeout`, `file_system`
 - SCP prerequisite on the switch: `ip scp server enable`
 - Internal replay harness exists in `ciscoautoflash/replay/` with canned fixtures in `replay_scenarios/`; use it for pre-hardware regression checks before touching a real switch
+- Demo UI entrypoint for click-smoke without hardware: `python C:\PROJECT\main.py --demo`
+- Demo artifacts must stay under `%LOCALAPPDATA%\CiscoAutoFlash\demo\`; do not mix them with normal operator runs
+- Each runtime session now has a dedicated folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\<session_id>\` with `session_manifest_*.json` and on-demand `session_bundle_*.zip`
+- The dashboard exposes `Open session folder` and `Export session bundle`; use the bundle as the primary diagnostic package after failures instead of hand-collecting files
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow
 - Primary first-switch runbook: `docs/pre_hardware/first_hardware_run.md`
 - Additional Cisco families are still planned later; do not assume they already exist in code unless verified

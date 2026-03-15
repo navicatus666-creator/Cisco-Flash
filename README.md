@@ -27,6 +27,21 @@ Current limits:
 python C:\PROJECT\main.py
 ```
 
+## Demo Mode
+
+Dev-only demo playback is available directly in the desktop UI:
+
+```powershell
+python C:\PROJECT\main.py --demo
+python C:\PROJECT\main.py --demo --demo-scenario stage2_install_success
+```
+
+Demo mode reuses replay fixtures under `replay_scenarios/`, writes artifacts into `%LOCALAPPDATA%\CiscoAutoFlash\demo\`, and exists only for click-smoke without real hardware.
+
+Each session now also keeps a per-session folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...` with:
+- `session_manifest_*.json`
+- `session_bundle_*.zip` after export
+
 ## Replay Harness
 
 Internal pre-hardware replay lives under `ciscoautoflash/replay` with canned scenarios in `replay_scenarios/`.
@@ -38,7 +53,7 @@ python -m ciscoautoflash.replay scan_ready --show-events
 python -m ciscoautoflash.replay stage2_install_success
 ```
 
-This is a dev-only tool. It is not operator-facing UI and does not replace real hardware smoke.
+This is a dev-only tool. The desktop demo mode is built on top of the same fixtures, but neither replaces real hardware smoke.
 
 ## Hidden SSH Backend
 
@@ -110,6 +125,7 @@ Expected runtime contents:
 - `logs\`
 - `reports\`
 - `transcripts\`
+- `sessions\<session_id>\`
 - `settings\settings.json`
 
 This keeps packaged builds writable on Windows and avoids writing operator data back into the repo root.

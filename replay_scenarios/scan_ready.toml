@@ -1,5 +1,7 @@
 name = "scan_ready"
+display_name = "Сканирование: Switch# готов"
 action = "scan"
+supported_actions = ["scan"]
 description = "Привилегированный prompt Switch#."
 
 [target]

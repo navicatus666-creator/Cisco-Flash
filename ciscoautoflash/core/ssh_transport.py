@@ -132,9 +132,7 @@ class SshTransport(Transport):
         connection = self._require_connection()
         _, file_transfer, _, _ = _load_netmiko()
         destination = dest_file or Path(source_file).name
-        resolved_file_system = file_system or str(
-            self.target.metadata.get("file_system", "flash:")
-        )
+        resolved_file_system = file_system or str(self.target.metadata.get("file_system", "flash:"))
         try:
             result = file_transfer(
                 connection,

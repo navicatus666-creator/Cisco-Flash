@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from ciscoautoflash.config import SessionPaths, WorkflowTiming
@@ -67,18 +68,26 @@ class WorkflowContractTests(unittest.TestCase):
         logs_dir = root / "logs"
         reports_dir = root / "reports"
         transcripts_dir = root / "transcripts"
-        for directory in (logs_dir, reports_dir, transcripts_dir):
+        sessions_dir = root / "sessions"
+        session_dir = root / "sessions" / "contract"
+        for directory in (logs_dir, reports_dir, transcripts_dir, sessions_dir, session_dir):
             directory.mkdir(parents=True, exist_ok=True)
         self.session = SessionPaths(
             base_dir=root,
+            sessions_dir=sessions_dir,
+            session_dir=session_dir,
             logs_dir=logs_dir,
             reports_dir=reports_dir,
             transcripts_dir=transcripts_dir,
             session_id="contract",
+            started_at=datetime(2026, 3, 15, 12, 0, 0),
             log_path=logs_dir / "session.log",
             report_path=reports_dir / "report.txt",
             transcript_path=transcripts_dir / "transcript.log",
             settings_path=root / "settings.json",
+            settings_snapshot_path=session_dir / "settings_snapshot.json",
+            manifest_path=session_dir / "session_manifest_contract.json",
+            bundle_path=session_dir / "session_bundle_contract.zip",
         )
 
     def tearDown(self) -> None:
@@ -99,7 +108,7 @@ class WorkflowContractTests(unittest.TestCase):
         controller.initialize()
         return controller
 
-    def test_initialize_emits_session_paths_with_transcript_path(self) -> None:
+    def test_initialize_emits_session_paths_with_transcript_and_session_artifact_paths(self) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
         factory = ScriptedFactory([target], [ScanResult(target, True, "ready", "priv")])
         self.make_controller(factory)
@@ -113,6 +122,9 @@ class WorkflowContractTests(unittest.TestCase):
             str(self.session.transcript_path),
         )
         self.assertEqual(session_event.payload["settings_path"], str(self.session.settings_path))
+        self.assertEqual(session_event.payload["manifest_path"], str(self.session.manifest_path))
+        self.assertEqual(session_event.payload["bundle_path"], str(self.session.bundle_path))
+        self.assertEqual(session_event.payload["session_dir"], str(self.session.session_dir))
 
     def test_scan_devices_emits_scan_results_event(self) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})

@@ -14,8 +14,10 @@ VALID_ACTIONS = {"scan", "stage1", "stage2", "stage3", "full"}
 @dataclass(slots=True)
 class ReplayScenario:
     name: str
+    display_name: str
     action: str
     description: str
+    supported_actions: tuple[str, ...]
     target: ConnectionTarget
     probe_result: ScanResult
     transport_plans: list[ReplayTransportPlan]
@@ -62,6 +64,35 @@ def _as_outputs(mapping: object) -> dict[str, list[str]]:
         else:
             raise ValueError(f"Unsupported command output payload for {key!r}")
     return outputs
+
+
+def _default_supported_actions(action: str) -> tuple[str, ...]:
+    if action == "scan":
+        return ("scan",)
+    if action == "stage1":
+        return ("scan", "stage1")
+    if action == "stage2":
+        return ("scan", "stage2")
+    if action == "stage3":
+        return ("scan", "stage3")
+    if action == "full":
+        return ("scan", "stage1", "stage2", "stage3")
+    return ("scan",)
+
+
+def _normalize_supported_actions(value: object, action: str) -> tuple[str, ...]:
+    items = _as_string_list(value)
+    if not items:
+        return _default_supported_actions(action)
+    allowed = VALID_ACTIONS - {"full"}
+    normalized: list[str] = []
+    for item in items:
+        action_name = item.strip().lower()
+        if action_name not in allowed:
+            raise ValueError(f"Unsupported supported_actions value: {item}")
+        if action_name not in normalized:
+            normalized.append(action_name)
+    return tuple(normalized)
 
 
 def load_scenario(value: str | Path) -> ReplayScenario:
@@ -126,8 +157,10 @@ def load_scenario(value: str | Path) -> ReplayScenario:
 
     return ReplayScenario(
         name=str(data.get("name", path.stem)),
+        display_name=str(data.get("display_name", data.get("name", path.stem))),
         action=action,
         description=str(data.get("description", "")),
+        supported_actions=_normalize_supported_actions(data.get("supported_actions"), action),
         target=target,
         probe_result=probe_result,
         transport_plans=transport_plans,
@@ -135,3 +168,7 @@ def load_scenario(value: str | Path) -> ReplayScenario:
         stage1_complete=bool(data.get("stage1_complete", False)),
         stage2_complete=bool(data.get("stage2_complete", False)),
     )
+
+
+def load_scenarios(directory: Path = DEFAULT_SCENARIO_DIR) -> list[ReplayScenario]:
+    return [load_scenario(path) for path in sorted(directory.glob("*.toml"))]

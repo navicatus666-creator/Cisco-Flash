@@ -1,5 +1,7 @@
 name = "scan_user_prompt"
+display_name = "Сканирование: Switch>"
 action = "scan"
+supported_actions = ["scan"]
 description = "Пользовательский prompt Switch>."
 
 [target]

@@ -12,7 +12,7 @@
 - Target selection: auto / manual
 - Firmware filename:
 - USB slot used:
-- Run mode: source / portable
+- Run mode: source
 
 ## Observed behavior
 - Stage:
@@ -23,6 +23,7 @@
 - Prompt after reboot:
 - UI state/message:
 - Operator severity:
+- Final operator message:
 - Final dashboard state:
 - What happened:
 - Expected behavior:
@@ -31,6 +32,8 @@
 - Log path:
 - Transcript path:
 - Report path:
+- Manifest path:
+- Session bundle path:
 - Screenshot path:
 
 ## Notes

@@ -1,5 +1,7 @@
 name = "scan_config_dialog"
+display_name = "Сканирование: Config dialog"
 action = "scan"
+supported_actions = ["scan"]
 description = "Активен initial config dialog."
 
 [target]

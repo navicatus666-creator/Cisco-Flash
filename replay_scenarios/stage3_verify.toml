@@ -1,5 +1,7 @@
 name = "stage3_verify"
+display_name = "Этап 3: verify"
 action = "stage3"
+supported_actions = ["scan", "stage3"]
 stage1_complete = true
 stage2_complete = true
 description = "Этап 3: проверка и генерация отчёта."

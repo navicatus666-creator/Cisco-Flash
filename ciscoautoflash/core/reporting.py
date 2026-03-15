@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from ..config import SessionPaths
@@ -21,6 +21,11 @@ def build_install_report(
     boot_output: str,
     dir_output: str,
     audit_results: Iterable[dict[str, str]],
+    run_mode: str = "Operator",
+    workflow_mode: str = "Install+Verify",
+    workflow_note: str = "",
+    session_summary: Mapping[str, str] | None = None,
+    stage_durations: Iterable[tuple[str, str]] = (),
 ) -> str:
     lines: list[str] = []
     lines.append("=" * 80)
@@ -32,7 +37,38 @@ def build_install_report(
     lines.append(f"Port: {selected_target_id or 'N/A'}")
     lines.append(f"Log file: {session.log_path}")
     lines.append(f"Transcript: {session.transcript_path}")
+    lines.append(f"Run Mode: {run_mode}")
+    lines.append(f"Workflow Mode: {workflow_mode}")
+    if workflow_note:
+        lines.append(f"Workflow Note: {workflow_note}")
     lines.append("")
+
+    if session_summary:
+        lines.append("-" * 80)
+        lines.append("SESSION SUMMARY")
+        lines.append("-" * 80)
+        ordered_fields = (
+            ("Session ID", session_summary.get("session_id", "")),
+            ("Started At", session_summary.get("started_at", "")),
+            ("Session Duration", session_summary.get("session_duration", "")),
+            ("Current State", session_summary.get("final_state", "")),
+            ("Current Stage", session_summary.get("current_stage", "")),
+            ("Selected Target", session_summary.get("selected_target_id", "")),
+            ("Requested Firmware", session_summary.get("requested_firmware_name", "")),
+            ("Last Scan", session_summary.get("last_scan_at", "")),
+            ("Operator Severity", session_summary.get("operator_severity", "")),
+            ("Operator Message", session_summary.get("operator_message", "")),
+        )
+        for title, value in ordered_fields:
+            lines.append(f"{title}: {value or 'N/A'}")
+        duration_rows = list(stage_durations)
+        if duration_rows:
+            lines.append("")
+            lines.append("STAGE DURATIONS")
+            for stage_name, duration_text in duration_rows:
+                lines.append(f"{stage_name}: {duration_text}")
+        lines.append("")
+
     lines.append("-" * 80)
     lines.append("SYSTEM INFORMATION")
     lines.append("-" * 80)

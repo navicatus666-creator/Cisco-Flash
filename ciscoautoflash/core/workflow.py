@@ -25,6 +25,13 @@ from .operator_messages import (
     message_from_scan_result,
 )
 from .reporting import build_install_report, write_install_report
+from .session_artifacts import (
+    build_session_manifest,
+    build_stage_duration_rows,
+    format_duration,
+    snapshot_settings,
+    write_session_manifest,
+)
 from .snapshots import empty_snapshot, snapshot_from_scan_result
 from .state import WorkflowState
 from .transport import Transport, TransportError, TransportFactory
@@ -59,6 +66,7 @@ class WorkflowController:
             "Выполните сканирование, затем выберите устройство и нужный этап.",
             "Начните со сканирования.",
         )
+        self._last_state_message = "Готов к работе"
         self.install_status = InstallStatus()
         self.stage1_complete = False
         self.stage2_complete = False
@@ -68,6 +76,20 @@ class WorkflowController:
         self._active_transport: Transport | None = None
         self._active_thread: Thread | None = None
         self._lock = Lock()
+        self.requested_firmware_name = self.profile.default_firmware
+        self.session_started_at = self.session.started_at.timestamp()
+        self.session_started_label = self.session.started_at.strftime("%Y-%m-%d %H:%M:%S")
+        self.last_scan_completed_at = ""
+        self._current_job_name: str | None = None
+        self._current_job_started_at: float | None = None
+        self._last_completed_stage_name = "Ожидание"
+        self._last_completed_stage_duration: float | None = None
+        self._stage_durations: dict[str, float | None] = {
+            "scan": None,
+            "stage1": None,
+            "stage2": None,
+            "stage3": None,
+        }
 
     @property
     def privileged_prompt(self) -> str:
@@ -92,6 +114,14 @@ class WorkflowController:
             report_path=str(self.session.report_path),
             transcript_path=str(self.session.transcript_path),
             settings_path=str(self.session.settings_path),
+            settings_snapshot_path=str(self.session.settings_snapshot_path),
+            manifest_path=str(self.session.manifest_path),
+            bundle_path=str(self.session.bundle_path),
+            session_dir=str(self.session.session_dir),
+            session_id=self.session.session_id,
+            session_started_at=self.session_started_at,
+            session_started_label=self.session_started_label,
+            run_mode=self._run_mode(),
         )
         self._emit("device_snapshot", snapshot=self.device_snapshot)
         self._emit("operator_message", message=self.operator_message)
@@ -100,6 +130,7 @@ class WorkflowController:
         self._set_state(WorkflowState.IDLE, "Готов к работе")
         self._log("info", f"Лог сессии: {self.session.log_path}")
         self._log("info", f"Транскрипт сессии: {self.session.transcript_path}")
+        self._write_session_manifest()
 
     def scan_devices(self, background: bool = True) -> bool:
         return self._start_job("scan", self._scan_devices_job, background=background)
@@ -111,6 +142,7 @@ class WorkflowController:
         firmware = (
             firmware_name or self.profile.default_firmware
         ).strip() or self.profile.default_firmware
+        self.requested_firmware_name = firmware
         return self._start_job("stage2", lambda: self._stage2_job(firmware), background=background)
 
     def run_stage3(self, background: bool = True) -> bool:
@@ -159,7 +191,9 @@ class WorkflowController:
 
     def _set_state(self, state: WorkflowState, message: str) -> None:
         self.state = state
-        self._emit("state_changed", state=state.value, message=message)
+        self._last_state_message = message
+        self._emit("state_changed", state=state.value, message=message, **self._session_status_payload())
+        self._write_session_manifest()
 
     def _log(self, level: str, message: str) -> None:
         line = f"[{timestamp()}] {message}"
@@ -169,6 +203,7 @@ class WorkflowController:
     def _set_operator_message(self, message: OperatorMessage) -> None:
         self.operator_message = message
         self._emit("operator_message", message=message)
+        self._write_session_manifest()
 
     def _emit_scan_results(self) -> None:
         self._emit(
@@ -183,6 +218,7 @@ class WorkflowController:
             target_id=self.selected_target.id if self.selected_target else "",
             manual_override=self.device_snapshot.is_manual_override,
         )
+        self._write_session_manifest()
 
     def _start_job(self, job_name: str, func: Callable[[], None], background: bool) -> bool:
         with self._lock:
@@ -191,6 +227,7 @@ class WorkflowController:
                 return False
             self._busy = True
             self._stop_requested = False
+            self._begin_stage_tracking(job_name)
             self._emit_actions()
 
         def runner() -> None:
@@ -214,6 +251,14 @@ class WorkflowController:
                 with self._lock:
                     self._busy = False
                     self._active_thread = None
+                self._finish_stage_tracking(job_name)
+                self._emit(
+                    "state_changed",
+                    state=self.state.value,
+                    message=self._last_state_message,
+                    **self._session_status_payload(),
+                )
+                self._write_session_manifest()
                 self._emit_actions()
 
         if background:
@@ -838,6 +883,125 @@ class WorkflowController:
         )
         self._log("info", f"Прогресс этапа 2: {stage_name}")
 
+    def _run_mode(self) -> str:
+        base_dir_name = self.session.base_dir.name.lower()
+        return "Demo" if base_dir_name == "demo" or "replay" in base_dir_name else "Operator"
+
+    def _friendly_job_name(self, job_name: str | None) -> str:
+        mapping = {
+            "scan": "Сканирование",
+            "stage1": "Этап 1",
+            "stage2": "Этап 2",
+            "stage3": "Этап 3",
+        }
+        if not job_name:
+            return "Ожидание"
+        return mapping.get(job_name, job_name)
+
+    def _begin_stage_tracking(self, job_name: str) -> None:
+        self._current_job_name = job_name
+        self._current_job_started_at = time.time()
+        self._last_completed_stage_name = self._friendly_job_name(job_name)
+        self._last_completed_stage_duration = None
+
+    def _finish_stage_tracking(self, job_name: str) -> None:
+        if self._current_job_name != job_name or self._current_job_started_at is None:
+            return
+        duration = time.time() - self._current_job_started_at
+        self._stage_durations[job_name] = duration
+        self._last_completed_stage_name = self._friendly_job_name(job_name)
+        self._last_completed_stage_duration = duration
+        if job_name == "scan":
+            self.last_scan_completed_at = timestamp()
+        self._current_job_name = None
+        self._current_job_started_at = None
+
+    def _session_elapsed_seconds(self) -> float:
+        return time.time() - self.session_started_at
+
+    def _active_stage_elapsed_seconds(self) -> float | None:
+        if self._current_job_started_at is not None:
+            return time.time() - self._current_job_started_at
+        return self._last_completed_stage_duration
+
+    def _current_stage_label(self) -> str:
+        if self._current_job_name is not None:
+            return self._friendly_job_name(self._current_job_name)
+        return self._last_completed_stage_name
+
+    def _session_status_payload(self) -> dict[str, object]:
+        active_stage_elapsed = self._active_stage_elapsed_seconds()
+        return {
+            "session_id": self.session.session_id,
+            "session_started_at": self.session_started_at,
+            "session_started_label": self.session_started_label,
+            "session_elapsed_seconds": round(self._session_elapsed_seconds(), 2),
+            "current_stage": self._current_stage_label(),
+            "stage_started_at": self._current_job_started_at,
+            "stage_elapsed_seconds": (
+                round(active_stage_elapsed, 2) if active_stage_elapsed is not None else None
+            ),
+            "last_scan_completed_at": self.last_scan_completed_at,
+            "requested_firmware_name": self.requested_firmware_name,
+            "run_mode": self._run_mode(),
+        }
+
+    def _build_session_manifest_content(self) -> dict[str, object]:
+        return build_session_manifest(
+            session=self.session,
+            profile_name=self.profile.display_name,
+            run_mode=self._run_mode(),
+            started_at=self.session_started_label,
+            last_updated_at=timestamp(),
+            session_elapsed_seconds=self._session_elapsed_seconds(),
+            active_stage_elapsed_seconds=self._active_stage_elapsed_seconds(),
+            current_state=self.state.value,
+            current_stage=self._current_stage_label(),
+            selected_target_id=self.selected_target.id if self.selected_target else "",
+            requested_firmware_name=self.requested_firmware_name,
+            observed_firmware_version=getattr(self.device_snapshot, "firmware", ""),
+            last_scan_completed_at=self.last_scan_completed_at,
+            operator_message={
+                "severity": getattr(self.operator_message, "severity", ""),
+                "title": getattr(self.operator_message, "title", ""),
+                "detail": getattr(self.operator_message, "detail", ""),
+                "next_step": getattr(self.operator_message, "next_step", ""),
+            },
+            stage_durations=self._stage_durations,
+        )
+
+    def _write_session_manifest(self) -> None:
+        snapshot_settings(self.session.settings_path, self.session.settings_snapshot_path)
+        write_session_manifest(self.session.manifest_path, self._build_session_manifest_content())
+
+    def _build_report_session_summary(self) -> dict[str, str]:
+        operator_text = " | ".join(
+            value.strip()
+            for value in (
+                getattr(self.operator_message, "title", ""),
+                getattr(self.operator_message, "detail", ""),
+                getattr(self.operator_message, "next_step", ""),
+            )
+            if value.strip()
+        )
+        return {
+            "Session ID": self.session.session_id,
+            "Started": self.session_started_label,
+            "Session Duration": format_duration(self._session_elapsed_seconds()),
+            "Run Mode": self._run_mode(),
+            "Final State": self.state.value,
+            "State Message": self._last_state_message,
+            "Current Stage": self._current_stage_label(),
+            "Selected Target": self.selected_target.id if self.selected_target else "N/A",
+            "Requested Firmware": self.requested_firmware_name or "N/A",
+            "Observed Firmware": getattr(self.device_snapshot, "firmware", "") or "N/A",
+            "Last Scan": self.last_scan_completed_at or "N/A",
+            "Operator Message": operator_text or "N/A",
+        }
+
+    def _build_report_stage_durations(self) -> dict[str, str]:
+        return dict(build_stage_duration_rows(self._stage_durations))
+
     def _generate_report(
         self,
         version_info: VersionInfo,
@@ -847,6 +1011,16 @@ class WorkflowController:
         dir_output: str,
         audit_results: list[dict[str, str]],
     ) -> None:
+        workflow_mode = "Install+Verify"
+        workflow_note = ""
+        if not any(completed for _, completed in self.install_status.as_rows()):
+            workflow_mode = "Verify-only"
+            workflow_note = (
+                "INSTALLATION STAGES may remain NOT COMPLETED intentionally for "
+                "standalone Stage 3 verification."
+            )
+        base_dir_name = self.session.base_dir.name.lower()
+        run_mode = "Demo" if base_dir_name == "demo" or "replay" in base_dir_name else "Operator"
         content = build_install_report(
             session=self.session,
             profile=self.profile,
@@ -858,5 +1032,11 @@ class WorkflowController:
             boot_output=boot_output,
             dir_output=dir_output,
             audit_results=audit_results,
+            run_mode=run_mode,
+            workflow_mode=workflow_mode,
+            workflow_note=workflow_note,
+            session_summary=self._build_report_session_summary(),
+            stage_durations=self._build_report_stage_durations(),
         )
         write_install_report(self.session.report_path, content)
+        self._write_session_manifest()

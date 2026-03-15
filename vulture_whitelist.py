@@ -11,6 +11,7 @@ install_strategy = None
 strip_prompt = None
 strip_command = None
 
+
 class _:
     focused = None
     interrupted = None

@@ -31,11 +31,17 @@ class SessionPaths:
     logs_dir: Path
     reports_dir: Path
     transcripts_dir: Path
+    sessions_dir: Path
+    session_dir: Path
     session_id: str
+    started_at: datetime
     log_path: Path
     report_path: Path
     transcript_path: Path
     settings_path: Path
+    settings_snapshot_path: Path
+    manifest_path: Path
+    bundle_path: Path
 
 
 @dataclass(slots=True)
@@ -43,6 +49,7 @@ class AppSettings:
     firmware_name: str = ""
     preferred_target_id: str = ""
     selected_transport: str = "serial"
+    demo_scenario_name: str = ""
     window_geometry: str = ""
 
 
@@ -59,20 +66,37 @@ class AppConfig:
         logs_dir = self.runtime_root / "logs"
         reports_dir = self.runtime_root / "reports"
         transcripts_dir = self.runtime_root / "transcripts"
+        sessions_dir = self.runtime_root / "sessions"
         settings_dir = self.runtime_root / "settings"
-        for path in (self.runtime_root, logs_dir, reports_dir, transcripts_dir, settings_dir):
+        for path in (
+            self.runtime_root,
+            logs_dir,
+            reports_dir,
+            transcripts_dir,
+            sessions_dir,
+            settings_dir,
+        ):
             path.mkdir(parents=True, exist_ok=True)
-        session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        started_at = datetime.now()
+        session_id = started_at.strftime("%Y%m%d_%H%M%S")
+        session_dir = sessions_dir / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
         return SessionPaths(
             base_dir=self.runtime_root,
             logs_dir=logs_dir,
             reports_dir=reports_dir,
             transcripts_dir=transcripts_dir,
+            sessions_dir=sessions_dir,
+            session_dir=session_dir,
             session_id=session_id,
+            started_at=started_at,
             log_path=logs_dir / f"ciscoautoflash_{session_id}.log",
             report_path=reports_dir / f"install_report_{session_id}.txt",
             transcript_path=transcripts_dir / f"transcript_{session_id}.log",
             settings_path=settings_dir / "settings.json",
+            settings_snapshot_path=session_dir / "settings_snapshot.json",
+            manifest_path=session_dir / "session_manifest.json",
+            bundle_path=session_dir / f"session_bundle_{session_id}.zip",
         )
 
 
@@ -94,6 +118,7 @@ def load_settings(path: Path) -> AppSettings:
         firmware_name=str(data.get("firmware_name", "")),
         preferred_target_id=str(data.get("preferred_target_id", "")),
         selected_transport=str(data.get("selected_transport", "serial")),
+        demo_scenario_name=str(data.get("demo_scenario_name", "")),
         window_geometry=str(data.get("window_geometry", "")),
     )
 

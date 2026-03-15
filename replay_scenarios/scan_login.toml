@@ -1,5 +1,7 @@
 name = "scan_login"
+display_name = "Сканирование: Login required"
 action = "scan"
+supported_actions = ["scan"]
 description = "Устройство требует авторизацию."
 
 [target]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from ciscoautoflash.config import SessionPaths, WorkflowTiming
@@ -130,18 +131,26 @@ class WorkflowControllerTests(unittest.TestCase):
         logs_dir = root / "logs"
         reports_dir = root / "reports"
         transcripts_dir = root / "transcripts"
-        for directory in (logs_dir, reports_dir, transcripts_dir):
+        sessions_dir = root / "sessions"
+        session_dir = root / "sessions" / "test"
+        for directory in (logs_dir, reports_dir, transcripts_dir, sessions_dir, session_dir):
             directory.mkdir(parents=True, exist_ok=True)
         self.session = SessionPaths(
             base_dir=root,
+            sessions_dir=sessions_dir,
+            session_dir=session_dir,
             logs_dir=logs_dir,
             reports_dir=reports_dir,
             transcripts_dir=transcripts_dir,
             session_id="test",
+            started_at=datetime(2026, 3, 15, 12, 0, 0),
             log_path=logs_dir / "session.log",
             report_path=reports_dir / "report.txt",
             transcript_path=transcripts_dir / "transcript.log",
             settings_path=root / "settings.json",
+            settings_snapshot_path=session_dir / "settings_snapshot.json",
+            manifest_path=session_dir / "session_manifest_test.json",
+            bundle_path=session_dir / "session_bundle_test.zip",
         )
 
     def tearDown(self) -> None:
@@ -423,6 +432,20 @@ class WorkflowControllerTests(unittest.TestCase):
 
         self.assertEqual(controller.state, WorkflowState.DONE)
         self.assertTrue(self.session.report_path.exists())
+        self.assertTrue(self.session.manifest_path.exists())
+        report = self.session.report_path.read_text(encoding="utf-8")
+        self.assertIn("Run Mode: Operator", report)
+        self.assertIn("Workflow Mode: Verify-only", report)
+        self.assertIn(
+            "INSTALLATION STAGES may remain NOT COMPLETED intentionally",
+            report,
+        )
+        self.assertIn("SESSION SUMMARY", report)
+        self.assertIn("Scan Duration:", report)
+        self.assertIn("Stage 3 Duration:", report)
+        manifest = self.session.manifest_path.read_text(encoding="utf-8")
+        self.assertIn('"session_id": "test"', manifest)
+        self.assertIn('"current_state": "DONE"', manifest)
 
     def test_stage3_writes_transcript(self) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})

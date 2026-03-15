@@ -1,5 +1,7 @@
 name = "scan_rommon"
+display_name = "Сканирование: ROMMON"
 action = "scan"
+supported_actions = ["scan"]
 description = "Устройство в ROMMON режиме."
 
 [target]

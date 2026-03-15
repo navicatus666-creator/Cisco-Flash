@@ -19,6 +19,7 @@ python C:\PROJECT\main.py
 ## Before connecting the switch
 
 - Confirm runtime data is written to `%LOCALAPPDATA%\CiscoAutoFlash\`.
+- Confirm the session folder is created under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...`.
 - Confirm the expected firmware tar filename is known.
 - Confirm a console cable and USB flash drive are available.
 - Keep these supporting docs nearby:
@@ -55,7 +56,8 @@ python C:\PROJECT\main.py
 12. If Stage 2 fails, stop the run and capture artifacts immediately.
 13. Start `Этап 3: Проверка`.
 14. Confirm the report is generated and visible through the diagnostics pane.
-15. Record Stage 3 duration and final dashboard state.
+15. Open the session folder and export the session bundle.
+16. Record Stage 3 duration and final dashboard state.
 
 ## Stop conditions
 
@@ -74,8 +76,11 @@ Stop the run and capture artifacts immediately if any of these happen:
 - `log` path
 - `transcript` path
 - `report` path
+- `manifest` path
+- `session bundle` path
 - screenshot of the final dashboard state on failure
 - final operator message and severity
+- final stage durations from the report/manifest
 - whether target selection was automatic or manual
 
 ## Compare against expectations
