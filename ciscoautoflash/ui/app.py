@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import time
 import tkinter as tk
@@ -30,6 +31,28 @@ from ..replay.adapter import DemoReplayController
 from ..replay.loader import ReplayScenario
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"", "0", "false", "no", "off"}:
+        return False
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    return default
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except ValueError:
+        return default
+
+
 class CiscoAutoFlashDesktop:
     def __init__(
         self,
@@ -40,11 +63,26 @@ class CiscoAutoFlashDesktop:
         demo_scenario: str | None = None,
     ):
         self.demo_mode = demo_mode
+        self.smoke_mode = self.demo_mode and _env_flag("CISCOAUTOFLASH_SMOKE_MODE", False)
+        self.demo_playback_delay_ms = max(1, _env_int("CISCOAUTOFLASH_DEMO_DELAY_MS", 70))
+        self.auto_start_scan = _env_flag("CISCOAUTOFLASH_AUTO_START_SCAN", auto_start_scan)
+        self.last_smoke_open_path: Path | None = None
         base_config = config or AppConfig()
         if self.demo_mode:
             self.config = replace(base_config, runtime_root=(base_config.runtime_root / "demo"))
         else:
             self.config = base_config
+        self.automation_overlay_enabled = self.demo_mode and _env_flag(
+            "CISCOAUTOFLASH_AUTOMATION_OVERLAY", False
+        )
+        self.automation_map_enabled = self.demo_mode and (
+            _env_flag("CISCOAUTOFLASH_AUTOMATION_MAP", False) or self.automation_overlay_enabled
+        )
+        self.automation_map_path = (
+            self.config.runtime_root / "smoke_artifacts" / "current" / "automation_map.json"
+        )
+        self._automation_overlay: tk.Toplevel | None = None
+        self._automation_overlay_canvas: tk.Canvas | None = None
         self.session = self.config.create_session_paths()
         self.settings = load_settings(self.session.settings_path)
         self.profile = build_c2960x_profile()
@@ -82,6 +120,7 @@ class CiscoAutoFlashDesktop:
                 event_handler=self._enqueue_event,
                 schedule=self.window.after,
                 scenario_name=self.selected_demo_scenario_name,
+                playback_delay_ms=self.demo_playback_delay_ms,
             )
         else:
             self.controller = WorkflowController(
@@ -184,6 +223,7 @@ class CiscoAutoFlashDesktop:
         self._refresh_artifact_statuses()
         self._apply_state_style("IDLE")
         self._apply_operator_style("info")
+        self._refresh_automation_map()
         if hasattr(self.controller, "requested_firmware_name"):
             self.controller.requested_firmware_name = (
                 self.firmware_input_var.get().strip() or self.profile.default_firmware
@@ -192,7 +232,7 @@ class CiscoAutoFlashDesktop:
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.after(100, self._drain_events)
         self.window.after(1000, self._tick_session_clock)
-        if auto_start_scan:
+        if self.auto_start_scan:
             self.window.after(400, self.controller.scan_devices)
 
     def _enqueue_event(self, event: AppEvent) -> None:
@@ -596,11 +636,11 @@ class CiscoAutoFlashDesktop:
         tree_scroll.grid(row=1, column=1, sticky="ns")
         self.targets_tree.configure(yscrollcommand=tree_scroll.set)
 
-        diagnostics = ttk.Notebook(right_panel, bootstyle="info")
-        diagnostics.grid(row=0, column=0, sticky="nsew")
+        self.diagnostics_notebook = ttk.Notebook(right_panel, bootstyle="info")
+        self.diagnostics_notebook.grid(row=0, column=0, sticky="nsew")
 
-        log_tab = ttk.Frame(diagnostics, padding=10)
-        diagnostics.add(log_tab, text="Журнал")
+        log_tab = ttk.Frame(self.diagnostics_notebook, padding=10)
+        self.diagnostics_notebook.add(log_tab, text="Журнал")
         legend = ttk.Frame(log_tab)
         legend.pack(fill="x", pady=(0, 8))
         for label, style in (
@@ -635,8 +675,8 @@ class CiscoAutoFlashDesktop:
         self.log_box.tag_config("error", foreground="#fca5a5")
         self.log_box.tag_config("debug", foreground="#93c5fd")
 
-        artifacts_tab = ttk.Frame(diagnostics, padding=12)
-        diagnostics.add(artifacts_tab, text="Артефакты сессии")
+        artifacts_tab = ttk.Frame(self.diagnostics_notebook, padding=12)
+        self.diagnostics_notebook.add(artifacts_tab, text="Артефакты сессии")
         artifacts_tab.columnconfigure(1, weight=1)
         artifacts_tab.columnconfigure(2, weight=1)
         ttk.Label(
@@ -717,8 +757,9 @@ class CiscoAutoFlashDesktop:
             command=self._open_logs_dir,
         ).grid(row=7, column=3, sticky="e", pady=(6, 0))
 
-        runbook_tab = ttk.Frame(diagnostics, padding=10)
-        diagnostics.add(runbook_tab, text="Памятка")
+        runbook_tab = ttk.Frame(self.diagnostics_notebook, padding=10)
+        self.diagnostics_notebook.add(runbook_tab, text="Памятка")
+        self.diagnostics_notebook.bind("<<NotebookTabChanged>>", self._on_diagnostics_tab_changed)
         ttk.Label(
             runbook_tab,
             text=(
@@ -824,6 +865,278 @@ class CiscoAutoFlashDesktop:
         if button_attr:
             setattr(self, button_attr, button)
 
+    def _widget_bounds(self, widget: object) -> dict[str, int] | None:
+        if widget is None:
+            return None
+        try:
+            left = int(widget.winfo_rootx())
+            top = int(widget.winfo_rooty())
+            width = int(widget.winfo_width())
+            height = int(widget.winfo_height())
+        except Exception:
+            return None
+        if width <= 0 or height <= 0:
+            return None
+        return {
+            "left": left,
+            "top": top,
+            "width": width,
+            "height": height,
+            "right": left + width,
+            "bottom": top + height,
+        }
+
+    @staticmethod
+    def _click_point_from_bounds(bounds: dict[str, int]) -> dict[str, int]:
+        return {
+            "x": int(bounds["left"] + bounds["width"] / 2),
+            "y": int(bounds["top"] + bounds["height"] / 2),
+        }
+
+    def _control_payload(self, widget: object, *, name: str) -> dict[str, object] | None:
+        bounds = self._widget_bounds(widget)
+        if bounds is None:
+            return None
+        try:
+            state = str(widget.cget("state"))
+        except Exception:
+            state = ""
+        try:
+            text = str(widget.cget("text"))
+        except Exception:
+            text = name
+        return {
+            "name": name,
+            "text": text,
+            "state": state,
+            "bounds": bounds,
+            "click_point": self._click_point_from_bounds(bounds),
+        }
+
+    def _build_notebook_tabs_payload(self) -> dict[str, dict[str, object]]:
+        notebook = getattr(self, "diagnostics_notebook", None)
+        bounds = self._widget_bounds(notebook)
+        if notebook is None or bounds is None:
+            return {}
+        try:
+            tab_count = int(notebook.index("end"))
+            selected_tab = str(notebook.tab(notebook.select(), "text"))
+        except Exception:
+            return {}
+        probe_y = max(1, min(10, bounds["height"] - 1))
+        runs: dict[int, list[int]] = {}
+        last_index: int | None = None
+        run_start = 0
+        for x_pos in range(max(1, bounds["width"])):
+            try:
+                index = int(notebook.index(f"@{x_pos},{probe_y}"))
+            except Exception:
+                index = -1
+            if index < 0 or index >= tab_count:
+                index = -1
+            if index != last_index:
+                if last_index is not None and last_index >= 0:
+                    runs[last_index] = [run_start, x_pos - 1]
+                run_start = x_pos
+                last_index = index
+        if last_index is not None and last_index >= 0:
+            runs[last_index] = [run_start, max(0, bounds["width"] - 1)]
+        payload: dict[str, dict[str, object]] = {}
+        tab_height = min(28, bounds["height"])
+        for index, (start_x, end_x) in runs.items():
+            try:
+                tab_text = str(notebook.tab(index, "text"))
+            except Exception:
+                continue
+            tab_bounds = {
+                "left": bounds["left"] + start_x,
+                "top": bounds["top"],
+                "width": max(1, end_x - start_x + 1),
+                "height": tab_height,
+                "right": bounds["left"] + end_x + 1,
+                "bottom": bounds["top"] + tab_height,
+            }
+            payload[tab_text] = {
+                "index": index,
+                "selected": tab_text == selected_tab,
+                "bounds": tab_bounds,
+                "click_point": {
+                    "x": int(tab_bounds["left"] + tab_bounds["width"] / 2),
+                    "y": int(tab_bounds["top"] + min(12, max(6, tab_height // 2))),
+                },
+            }
+        return payload
+
+    def _build_automation_map(self) -> dict[str, object]:
+        self.window.update_idletasks()
+        window_bounds = self._widget_bounds(self.window)
+        if window_bounds is None:
+            raise RuntimeError("Window bounds are not available for automation map.")
+        controls: dict[str, dict[str, object]] = {}
+        control_map = (
+            ("scan", getattr(self, "scan_button", None)),
+            ("stage1", getattr(self, "stage1_button", None)),
+            ("stage2", getattr(self, "stage2_button", None)),
+            ("stage3", getattr(self, "stage3_button", None)),
+            ("stop", getattr(self, "stop_button", None)),
+            ("open_log", getattr(self, "log_button", None)),
+            ("open_report", getattr(self, "report_button", None)),
+            ("open_transcript", getattr(self, "transcript_button", None)),
+            ("open_logs_dir", getattr(self, "logs_dir_button", None)),
+            ("open_session_dir", getattr(self, "session_folder_button", None)),
+            ("export_bundle", getattr(self, "bundle_export_button", None)),
+        )
+        for name, widget in control_map:
+            payload = self._control_payload(widget, name=name)
+            if payload is not None:
+                controls[name] = payload
+
+        selector_bounds = self._widget_bounds(getattr(self, "demo_selector", None))
+        selector_payload: dict[str, object] = {
+            "current_display": self.demo_scenario_var.get(),
+            "current_name": self.selected_demo_scenario_name,
+            "items": list(self.demo_display_to_name),
+        }
+        if selector_bounds is not None:
+            selector_payload["bounds"] = selector_bounds
+            selector_payload["click_point"] = self._click_point_from_bounds(selector_bounds)
+            selector_payload["arrow_click_point"] = {
+                "x": max(selector_bounds["left"] + 6, selector_bounds["right"] - 12),
+                "y": int(selector_bounds["top"] + selector_bounds["height"] / 2),
+            }
+
+        notebook = getattr(self, "diagnostics_notebook", None)
+        notebook_bounds = self._widget_bounds(notebook)
+        tabs_payload = self._build_notebook_tabs_payload()
+        state_payload = {
+            "state_text": self.state_var.get(),
+            "state_badge": self.state_badge_var.get(),
+            "current_stage": self.current_stage_var.get(),
+            "selected_target": self.selected_target_var.get(),
+            "connection": self.connection_var.get(),
+            "prompt": self.prompt_var.get(),
+            "footer": self.footer_var.get(),
+            "selected_tab": next(
+                (name for name, item in tabs_payload.items() if bool(item.get("selected"))),
+                "",
+            ),
+            "artifact_states": {
+                name: str(payload.get("state", ""))
+                for name, payload in controls.items()
+                if name.startswith("open_") or name == "export_bundle"
+            },
+        }
+        session_payload = {
+            "session_id": self.session.session_id,
+            "session_dir": str(self.session_dir),
+            "log_path": str(self.log_path),
+            "report_path": str(self.report_path),
+            "transcript_path": str(self.transcript_path),
+            "settings_path": str(self.settings_path),
+            "manifest_path": str(self.manifest_path),
+            "bundle_path": str(self.bundle_path),
+        }
+        return {
+            "generated_at": timestamp(),
+            "window": {
+                "title": self.window.title(),
+                "bounds": window_bounds,
+                "click_point": self._click_point_from_bounds(window_bounds),
+            },
+            "controls": controls,
+            "tabs": {
+                "container": notebook_bounds,
+                "items": tabs_payload,
+            },
+            "selector": selector_payload,
+            "state": state_payload,
+            "session": session_payload,
+        }
+
+    def _refresh_automation_overlay(self, payload: dict[str, object] | None = None) -> None:
+        if not self.automation_overlay_enabled:
+            return
+        if payload is None:
+            payload = self._build_automation_map()
+        window_payload = payload.get("window", {})
+        window_bounds = window_payload.get("bounds") if isinstance(window_payload, dict) else None
+        if not isinstance(window_bounds, dict):
+            return
+        overlay = self._automation_overlay
+        canvas = self._automation_overlay_canvas
+        if overlay is None or canvas is None or not overlay.winfo_exists():
+            overlay = tk.Toplevel(self.window)
+            overlay.overrideredirect(True)
+            overlay.attributes("-topmost", True)
+            try:
+                overlay.attributes("-alpha", 0.22)
+            except Exception:
+                pass
+            canvas = tk.Canvas(overlay, highlightthickness=0, bg="black")
+            canvas.pack(fill="both", expand=True)
+            self._automation_overlay = overlay
+            self._automation_overlay_canvas = canvas
+        overlay.geometry(
+            f"{window_bounds['width']}x{window_bounds['height']}+{window_bounds['left']}+{window_bounds['top']}"
+        )
+        canvas.configure(width=window_bounds["width"], height=window_bounds["height"])
+        canvas.delete("all")
+
+        def draw_target(label: str, bounds: dict[str, int], color: str) -> None:
+            left = bounds["left"] - window_bounds["left"]
+            top = bounds["top"] - window_bounds["top"]
+            right = bounds["right"] - window_bounds["left"]
+            bottom = bounds["bottom"] - window_bounds["top"]
+            canvas.create_rectangle(left, top, right, bottom, outline=color, width=2)
+            center_x = int((left + right) / 2)
+            center_y = int((top + bottom) / 2)
+            canvas.create_oval(
+                center_x - 3,
+                center_y - 3,
+                center_x + 3,
+                center_y + 3,
+                fill=color,
+                outline=color,
+            )
+            canvas.create_text(left + 4, max(8, top + 8), text=label, anchor="w", fill=color)
+
+        controls = payload.get("controls", {})
+        if isinstance(controls, dict):
+            for name, item in controls.items():
+                if isinstance(item, dict):
+                    bounds = item.get("bounds")
+                    if isinstance(bounds, dict):
+                        draw_target(str(name), bounds, "#7dd3fc")
+        tabs = payload.get("tabs", {})
+        if isinstance(tabs, dict):
+            tab_items = tabs.get("items", {})
+            if isinstance(tab_items, dict):
+                for name, item in tab_items.items():
+                    if isinstance(item, dict):
+                        bounds = item.get("bounds")
+                        if isinstance(bounds, dict):
+                            draw_target(f"tab:{name}", bounds, "#86efac")
+        selector = payload.get("selector", {})
+        if isinstance(selector, dict):
+            bounds = selector.get("bounds")
+            if isinstance(bounds, dict):
+                draw_target("selector", bounds, "#fca5a5")
+
+    def _refresh_automation_map(self) -> None:
+        if not self.automation_map_enabled and not self.automation_overlay_enabled:
+            return
+        try:
+            payload = self._build_automation_map()
+        except Exception:
+            return
+        if self.automation_map_enabled:
+            self.automation_map_path.parent.mkdir(parents=True, exist_ok=True)
+            self.automation_map_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        self._refresh_automation_overlay(payload)
+
     def _refresh_preflight_paths(self) -> None:
         path_map = (
             ("log_path_var", self.log_path),
@@ -871,10 +1184,12 @@ class CiscoAutoFlashDesktop:
             artifact_bundle_button.configure(
                 state="normal" if self.bundle_path.exists() else "disabled"
             )
+        self._refresh_automation_map()
 
     def _load_runbook_text(self) -> str:
         docs_dir = self.config.project_root / "docs" / "pre_hardware"
         sections = [
+            ("Гейт перед железом", docs_dir / "pre_hardware_readiness_gate.md"),
             ("Аппаратный чек-лист", docs_dir / "hardware_smoke_checklist.md"),
             ("Ожидаемые результаты", docs_dir / "expected_outcomes.md"),
             ("Матрица сценариев", docs_dir / "scenario_matrix.md"),
@@ -1137,6 +1452,21 @@ class CiscoAutoFlashDesktop:
             self._persist_settings()
             self._log_demo_ui_action("Выбран сценарий", scenario_display)
 
+    def _on_diagnostics_tab_changed(self, event: object) -> None:
+        if not self.demo_mode:
+            return
+        notebook = getattr(event, "widget", getattr(self, "diagnostics_notebook", None))
+        if notebook is None:
+            return
+        try:
+            tab_id = notebook.select()
+            tab_text = str(notebook.tab(tab_id, "text"))
+        except Exception:
+            return
+        if tab_text:
+            self._log_demo_ui_action("Открыта вкладка", tab_text, level="debug")
+            self._refresh_automation_map()
+
     def _log_demo_ui_action(self, action: str, detail: str = "", level: str = "info") -> None:
         if not self.demo_mode:
             return
@@ -1188,6 +1518,11 @@ class CiscoAutoFlashDesktop:
         if not Path(path).exists():
             messagebox.showinfo("Артефакт пока не создан", f"Путь ещё не существует:\n{path}")
             return
+        if self.smoke_mode:
+            self.last_smoke_open_path = Path(path)
+            self.footer_var.set(f"Smoke check: путь подтверждён -> {Path(path).name}")
+            self._log_demo_ui_action("Smoke-mode open suppressed", str(path), level="debug")
+            return
         try:
             # Intentional local file open in desktop UI.
             os.startfile(str(path))  # nosec
@@ -1195,12 +1530,16 @@ class CiscoAutoFlashDesktop:
             messagebox.showinfo("Путь к артефакту", str(path))
 
     def _drain_events(self) -> None:
+        handled_any = False
         while True:
             try:
                 event = self.event_queue.get_nowait()
             except Empty:
                 break
             self._handle_event(event)
+            handled_any = True
+        if handled_any:
+            self._refresh_automation_map()
         self.window.after(100, self._drain_events)
 
     def _handle_event(self, event: AppEvent) -> None:
@@ -1450,12 +1789,14 @@ class CiscoAutoFlashDesktop:
             self.demo_scenario_var.set("")
             self.demo_description_var.set("Сценарии demo mode не найдены.")
             self.demo_actions_var.set("Доступно: —")
+            self._refresh_automation_map()
             return
         self.demo_scenario_var.set(self.demo_name_to_display.get(scenario.name, scenario.name))
         self.demo_description_var.set(
             scenario.description or "Сценарий готов для click-smoke без оборудования."
         )
         self.demo_actions_var.set(self._friendly_demo_actions(scenario.supported_actions))
+        self._refresh_automation_map()
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import sys
 import types
 import unittest
 from pathlib import Path
 from queue import Queue
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
 
@@ -52,6 +54,48 @@ class DummyButton:
     def configure(self, **kwargs) -> None:
         if "state" in kwargs:
             self.state = kwargs["state"]
+
+
+class DummyGeometryWidget(DummyButton):
+    def __init__(
+        self,
+        *,
+        x: int = 0,
+        y: int = 0,
+        width: int = 120,
+        height: int = 24,
+        state: str = "normal",
+        text: str = "",
+    ) -> None:
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.state = state
+        self.text = text
+
+    def winfo_rootx(self) -> int:
+        return self.x
+
+    def winfo_rooty(self) -> int:
+        return self.y
+
+    def winfo_width(self) -> int:
+        return self.width
+
+    def winfo_height(self) -> int:
+        return self.height
+
+    def cget(self, option: str) -> str:
+        if option == "state":
+            return self.state
+        if option == "text":
+            return self.text
+        raise KeyError(option)
+
+    def get(self) -> str:
+        return self.text
 
 
 class DummyProgress:
@@ -114,6 +158,11 @@ class DummyWindow:
     def __init__(self) -> None:
         self.after_calls: list[tuple[int, object]] = []
         self.destroyed = False
+        self.geometry_text = "1320x900"
+        self.x = 0
+        self.y = 0
+        self.width = 1320
+        self.height = 900
 
     def after(self, delay: int, callback) -> None:
         self.after_calls.append((delay, callback))
@@ -121,19 +170,93 @@ class DummyWindow:
     def destroy(self) -> None:
         self.destroyed = True
 
+    def geometry(self) -> str:
+        return self.geometry_text
+
+    def winfo_rootx(self) -> int:
+        return self.x
+
+    def winfo_rooty(self) -> int:
+        return self.y
+
+    def winfo_width(self) -> int:
+        return self.width
+
+    def winfo_height(self) -> int:
+        return self.height
+
+
+class DummyNotebook:
+    def __init__(self) -> None:
+        self.current = "log"
+        self.labels = {
+            "log": "Журнал",
+            "artifacts": "Артефакты сессии",
+            "runbook": "Памятка",
+        }
+        self.x = 640
+        self.y = 480
+        self.width = 480
+        self.height = 240
+        self.tab_boxes = {
+            "log": (0, 0, 80, 24),
+            "artifacts": (80, 0, 140, 24),
+            "runbook": (220, 0, 90, 24),
+        }
+
+    def select(self) -> str:
+        return self.current
+
+    def tab(self, tab_id: str, option: str) -> str:
+        if option != "text":
+            raise KeyError(option)
+        return self.labels[tab_id]
+
+    def tabs(self) -> tuple[str, ...]:
+        return tuple(self.labels)
+
+    def bbox(self, tab_id: str):
+        return self.tab_boxes[tab_id]
+
+    def winfo_rootx(self) -> int:
+        return self.x
+
+    def winfo_rooty(self) -> int:
+        return self.y
+
+    def winfo_width(self) -> int:
+        return self.width
+
+    def winfo_height(self) -> int:
+        return self.height
+
 
 class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
     def make_app_shell(self) -> CiscoAutoFlashDesktop:
         app = object.__new__(CiscoAutoFlashDesktop)
         app.window = DummyWindow()
+        app.diagnostics_notebook = DummyNotebook()
         app.event_queue = Queue()
-        app.scan_button = DummyButton()
-        app.stage1_button = DummyButton()
-        app.stage2_button = DummyButton()
-        app.stage3_button = DummyButton()
-        app.stop_button = DummyButton()
-        app.report_button = DummyButton()
-        app.artifact_bundle_button = DummyButton()
+        app.scan_button = DummyGeometryWidget(x=900, y=200, text="Сканировать")
+        app.stage1_button = DummyGeometryWidget(x=1020, y=200, text="Этап 1: Сброс")
+        app.stage2_button = DummyGeometryWidget(x=1140, y=200, text="Этап 2: Установка")
+        app.stage3_button = DummyGeometryWidget(x=1260, y=200, text="Этап 3: Проверка")
+        app.stop_button = DummyGeometryWidget(x=1380, y=200, width=70, text="Стоп")
+        app.log_button = DummyGeometryWidget(x=40, y=320, width=180, text="Открыть лог")
+        app.report_button = DummyGeometryWidget(x=230, y=320, width=180, state="disabled", text="Открыть отчёт")
+        app.transcript_button = DummyGeometryWidget(x=420, y=320, width=180, text="Открыть транскрипт")
+        app.logs_dir_button = DummyGeometryWidget(x=610, y=320, width=180, text="Открыть папку логов")
+        app.session_folder_button = DummyGeometryWidget(x=800, y=320, width=220, text="Открыть папку сессии")
+        app.bundle_export_button = DummyGeometryWidget(x=1030, y=320, width=220, text="Экспортировать bundle")
+        app.artifact_bundle_button = app.bundle_export_button
+        app.demo_selector = DummyGeometryWidget(
+            x=760,
+            y=160,
+            width=260,
+            height=28,
+            state="readonly",
+            text="Сканирование: Switch# готов",
+        )
         app.progress = DummyProgress()
         app.log_box = DummyLogBox()
         app.targets_tree = DummyTree()
@@ -215,6 +338,12 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.settings = AppSettings(preferred_target_id="")
         app.scan_results = {}
         app.demo_mode = False
+        app.smoke_mode = False
+        app.automation_map_enabled = False
+        app.automation_overlay_enabled = False
+        app.automation_map_path = session_dir / "automation_map.json"
+        app._automation_overlay = None
+        app.last_smoke_open_path = None
         app._suppress_target_selection_event = False
         app.selected_demo_scenario_name = ""
         app.demo_display_to_name = {}
@@ -453,6 +582,18 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(event.payload["level"], "info")
         self.assertIn("[DEMO][UI] Запущен Stage 3: Проверка", event.payload["line"])
 
+    def test_diagnostics_tab_change_logs_selected_tab_in_demo(self) -> None:
+        app = self.make_app_shell()
+        app.demo_mode = True
+        app._log_demo_ui_action = Mock()
+        app.diagnostics_notebook.current = "artifacts"
+
+        app._on_diagnostics_tab_changed(SimpleNamespace(widget=app.diagnostics_notebook))
+
+        app._log_demo_ui_action.assert_called_once_with(
+            "Открыта вкладка", "Артефакты сессии", level="debug"
+        )
+
     def test_demo_action_buttons_log_ui_actions(self) -> None:
         app = self.make_app_shell()
         app.demo_mode = True
@@ -519,12 +660,16 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app = self.make_app_shell()
         handled: list[str] = []
         app._handle_event = lambda event: handled.append(event.kind)
+        if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
+            app._refresh_automation_map = Mock()
         app.event_queue.put(AppEvent("log", {"line": "a"}))
         app.event_queue.put(AppEvent("progress", {"percent": 10}))
 
         app._drain_events()
 
         self.assertEqual(handled, ["log", "progress"])
+        if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
+            app._refresh_automation_map.assert_called_once_with()
         self.assertEqual(app.window.after_calls[0][0], 100)
 
     def test_open_helpers_delegate_to_open_path(self) -> None:
@@ -616,6 +761,85 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         with patch("ciscoautoflash.ui.app.os.startfile") as startfile:
             app._open_path(existing)
             startfile.assert_called_once_with(str(existing))
+
+    def test_open_path_in_smoke_mode_skips_startfile_and_tracks_path(self) -> None:
+        app = self.make_app_shell()
+        app.demo_mode = True
+        app.smoke_mode = True
+        app._log_demo_ui_action = Mock()
+        existing = Path(__file__)
+
+        with patch("ciscoautoflash.ui.app.os.startfile") as startfile:
+            app._open_path(existing)
+            startfile.assert_not_called()
+
+        self.assertEqual(app.last_smoke_open_path, existing)
+        self.assertIn(existing.name, app.footer_var.get())
+        app._log_demo_ui_action.assert_called_once_with(
+            "Smoke-mode open suppressed", str(existing), level="debug"
+        )
+
+    def test_build_automation_map_collects_bounds_and_state(self) -> None:
+        build_map = getattr(CiscoAutoFlashDesktop, "_build_automation_map", None)
+        if build_map is None:
+            self.skipTest("automation map builder is not implemented yet")
+        app = self.make_app_shell()
+        app.demo_mode = True
+        app.smoke_mode = True
+        app.selected_target_var.set("COM5")
+        app.state_var.set("СКАНИРОВАНИЕ")
+        app.current_stage_var.set("Этап 3")
+        app.demo_scenario_var.set("Этап 3: verify")
+        app._build_automation_map = build_map.__get__(app, CiscoAutoFlashDesktop)
+
+        data = app._build_automation_map()
+
+        self.assertEqual(data["window"]["width"], 1320)
+        self.assertEqual(data["controls"]["scan"]["click"]["x"], 960)
+        self.assertEqual(data["controls"]["report"]["state"], "disabled")
+        self.assertEqual(data["selector"]["display_value"], "Этап 3: verify")
+        self.assertEqual(data["tabs"]["artifacts"]["label"], "Артефакты сессии")
+        self.assertEqual(data["state"]["selected_target_id"], "COM5")
+        self.assertEqual(data["state"]["current_state"], "СКАНИРОВАНИЕ")
+        self.assertEqual(data["session"]["session_dir"], str(app.session_dir))
+        self.assertIn("generated_at", data)
+
+    def test_refresh_automation_map_writes_json_only_when_enabled(self) -> None:
+        refresh_map = getattr(CiscoAutoFlashDesktop, "_refresh_automation_map", None)
+        if refresh_map is None:
+            self.skipTest("automation map refresh is not implemented yet")
+        app = self.make_app_shell()
+        payload = {"window": {"width": 1320}, "generated_at": "2026-03-19T22:00:00"}
+        app._build_automation_map = Mock(return_value=payload)
+        app._refresh_automation_map = refresh_map.__get__(app, CiscoAutoFlashDesktop)
+
+        with TemporaryDirectory() as temp_dir:
+            app.automation_map_path = Path(temp_dir) / "current" / "automation_map.json"
+
+            app.automation_map_enabled = False
+            app._refresh_automation_map()
+            self.assertFalse(app.automation_map_path.exists())
+
+            app.automation_map_enabled = True
+            app._refresh_automation_map()
+            self.assertTrue(app.automation_map_path.exists())
+            saved = json.loads(app.automation_map_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved, payload)
+
+    def test_refresh_automation_overlay_is_noop_when_disabled(self) -> None:
+        refresh_overlay = getattr(CiscoAutoFlashDesktop, "_refresh_automation_overlay", None)
+        if refresh_overlay is None:
+            self.skipTest("automation overlay refresh is not implemented yet")
+        app = self.make_app_shell()
+        app.automation_overlay_enabled = False
+        app._automation_overlay = None
+        app._build_automation_map = Mock(return_value={"window": {"width": 1320}})
+        app._refresh_automation_overlay = refresh_overlay.__get__(app, CiscoAutoFlashDesktop)
+
+        app._refresh_automation_overlay()
+
+        self.assertIsNone(app._automation_overlay)
+        app._build_automation_map.assert_not_called()
 
     def test_on_close_disposes_controller_and_window(self) -> None:
         app = self.make_app_shell()

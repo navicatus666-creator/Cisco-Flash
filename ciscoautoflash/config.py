@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -58,7 +59,7 @@ class AppConfig:
     app_name: str = "CiscoAutoFlash"
     app_version: str = "4.1"
     theme_name: str = "litera"
-    project_root: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent)
+    project_root: Path = field(default_factory=lambda: default_project_root())
     runtime_root: Path = field(default_factory=lambda: default_runtime_root())
     timing: WorkflowTiming = field(default_factory=WorkflowTiming)
 
@@ -105,6 +106,15 @@ def default_runtime_root() -> Path:
     if local_appdata:
         return Path(local_appdata) / "CiscoAutoFlash"
     return Path.home() / ".ciscoautoflash"
+
+
+def default_project_root() -> Path:
+    if getattr(sys, "frozen", False):
+        bundle_root = getattr(sys, "_MEIPASS", "")
+        if bundle_root:
+            return Path(bundle_root)
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
 
 
 def load_settings(path: Path) -> AppSettings:

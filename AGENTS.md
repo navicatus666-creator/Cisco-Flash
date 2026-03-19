@@ -49,6 +49,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - At session start, load durable project context with `mcp__echovault__memory_context` and run a targeted `mcp__echovault__memory_search` before making assumptions about prior decisions or environment state.
 - Treat `EchoVault` as the primary durable memory. Use `vector-memory` as a supplemental semantic baseline, not as the sole source of truth for recent project decisions.
 - If `vector-memory` is used in a session, read its `cookbook(init)` guidance first, search before storing, and keep `EchoVault` as the canonical durable memory for recent project decisions.
+- If `EchoVault` save is unhealthy or unavailable, checkpoint the same outcome into `vector-memory` before ending the session, and treat `vector-memory` as the temporary fallback until `EchoVault` is healthy again.
 - For code work, prefer combining `tree-sitter`, `code-graph`, and `repo-map` instead of relying on raw grep alone. Use `tree-sitter` for symbols and file content, `code-graph` for dependency and caller/callee analysis, and `repo-map` for compact repository structure snapshots.
 - If code-intelligence output looks stale, incomplete, or inconsistent with local files, trust direct repository reads first, then refresh/rebuild the relevant MCP index before making structural claims.
 - For docs and external references, use `Context7` first for library and API documentation, `Exa` for broader current web discovery, and `context-mode` web routing for direct page fetch/index/search flows.
@@ -56,6 +57,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - When multiple independent local reads or MCP checks are needed, use `multi_tool_use.parallel` to gather them in parallel instead of serial tool calls.
 - Use multi-agents only when the user explicitly asks for delegation or parallel agent work, or when the task clearly has independent sidecar subtasks that do not block the immediate local step. Keep agent scopes narrow and write ownership disjoint.
 - In multi-agent work, one primary agent owns the final merge. Delegated agents should stay read-only or own disjoint files, and each handoff must include touched files, commands or tests run, and unresolved assumptions.
+- During Codex runtime instability or allocator crashes, prefer short sequential MCP steps over `request_user_input` bursts, broad status polling, or unnecessary fan-out until the session is stable again.
 - Before ending any session with decisions, fixes, or environment changes, save the outcome to `EchoVault` so the next session inherits the working state.
 
 ## Output constraints

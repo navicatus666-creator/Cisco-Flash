@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -26,10 +27,15 @@ SCENARIO_DIR = Path(r"C:\PROJECT\replay_scenarios")
 
 
 class ReplayRunnerTests(unittest.TestCase):
-    def run_named_scenario(self, name: str):
+    def run_named_scenario_with_runtime(self, name: str) -> tuple[Path, object]:
         scenario = load_scenario(name)
         runtime_root = Path(tempfile.mkdtemp(prefix="ciscoautoflash-replay-test-"))
-        return ReplayRunner(scenario, runtime_root=runtime_root).run()
+        result = ReplayRunner(scenario, runtime_root=runtime_root).run()
+        return runtime_root, result
+
+    def run_named_scenario(self, name: str):
+        _, result = self.run_named_scenario_with_runtime(name)
+        return result
 
     def assert_event_contract(self, result) -> None:
         self.assertTrue(set(result.event_counts).issubset(ALLOWED_EVENT_KINDS))
@@ -119,12 +125,49 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertIn("show boot", transcript)
         self.assertIn("dir flash:", transcript)
 
+    def test_full_install_verify_scenario_runs_end_to_end_and_writes_manifest(self) -> None:
+        runtime_root, result = self.run_named_scenario_with_runtime("full_install_verify")
+
+        self.assert_event_contract(result)
+        self.assertEqual(result.final_state, "DONE")
+        self.assertTrue(result.stage1_complete)
+        self.assertTrue(result.stage2_complete)
+        self.assertTrue(result.report_path.exists())
+        report = result.report_path.read_text(encoding="utf-8")
+        self.assertIn("Run Mode: Demo", report)
+        self.assertIn("Workflow Mode: Install+Verify", report)
+        transcript = result.transcript_path.read_text(encoding="utf-8")
+        self.assertIn("reload", transcript)
+        self.assertIn("archive download-sw /overwrite /reload usbflash0:", transcript)
+        self.assertIn("show version", transcript)
+
+        manifest_paths = sorted(runtime_root.rglob("session_manifest*.json"))
+        self.assertEqual(len(manifest_paths), 1)
+        manifest = json.loads(manifest_paths[0].read_text(encoding="utf-8"))
+        self.assertEqual(manifest["current_state"], "DONE")
+        self.assertEqual(manifest["final_state"], "DONE")
+        self.assertEqual(manifest["current_stage"], "Этап 3")
+        self.assertEqual(manifest["selected_target_id"], "COM5")
+        self.assertEqual(
+            manifest["requested_firmware_name"],
+            "c2960x-universalk9-tar.152-7.E13.tar",
+        )
+        self.assertEqual(manifest["run_mode"], "Demo")
+        self.assertTrue(any(value != "—" for value in manifest["stage_durations"].values()))
+
     def test_loader_resolves_bare_scenario_name(self) -> None:
         scenario = load_scenario("scan_ready")
         self.assertEqual(scenario.name, "scan_ready")
         self.assertEqual(scenario.display_name, "Сканирование: Switch# готов")
         self.assertEqual(scenario.supported_actions, ("scan",))
         self.assertEqual(scenario.target.id, "COM5")
+
+    def test_loader_resolves_full_install_verify_scenario(self) -> None:
+        scenario = load_scenario("full_install_verify")
+        self.assertEqual(scenario.name, "full_install_verify")
+        self.assertEqual(scenario.action, "full")
+        self.assertEqual(scenario.supported_actions, ("scan", "stage1", "stage2", "stage3"))
+        self.assertEqual(scenario.firmware_name, "c2960x-universalk9-tar.152-7.E13.tar")
 
     def test_cli_main_prints_summary_and_events(self) -> None:
         runtime_root = Path(tempfile.mkdtemp(prefix="ciscoautoflash-replay-cli-"))
@@ -157,6 +200,7 @@ class ReplayRunnerTests(unittest.TestCase):
             "stage2_install_success.toml",
             "stage2_install_timeout.toml",
             "stage3_verify.toml",
+            "full_install_verify.toml",
         }
         self.assertTrue(expected.issubset({path.name for path in SCENARIO_DIR.glob("*.toml")}))
 

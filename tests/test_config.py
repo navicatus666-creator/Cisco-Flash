@@ -5,10 +5,20 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from ciscoautoflash import config as config_module
 from ciscoautoflash.config import AppConfig
 
 
 class AppConfigTests(unittest.TestCase):
+    def test_default_project_root_uses_meipass_when_frozen(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with (
+                patch.object(config_module.sys, "frozen", True, create=True),
+                patch.object(config_module.sys, "_MEIPASS", tempdir, create=True),
+            ):
+                self.assertEqual(config_module.default_project_root(), Path(tempdir))
+                self.assertEqual(AppConfig().project_root, Path(tempdir))
+
     def test_create_session_paths_uses_localappdata_runtime_root(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             local_appdata = str(Path(tempdir) / "LocalAppData")
