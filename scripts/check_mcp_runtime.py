@@ -402,6 +402,9 @@ def _build_report() -> dict[str, Any]:
         "generated_at": _iso_now(),
         "project_root": str(PROJECT_ROOT),
         "config_path": str(CODEX_CONFIG),
+        "manual_prerequisites": [
+            "Start Ollama manually before relying on full EchoVault readiness."
+        ],
         "binary_checks": binary_checks,
         "probes": {
             "ollama": _probe_ollama(),
@@ -433,6 +436,7 @@ def _format_summary(report: dict[str, Any]) -> str:
     lines = [
         f"overall_ok: {'yes' if report['overall_ok'] else 'no'}",
         f"generated_at: {report['generated_at']}",
+        "manual_prerequisite: start Ollama manually before relying on full EchoVault readiness",
     ]
     for name, probe in report["probes"].items():
         lines.append(f"- {name}: {'OK' if probe['ok'] else 'FAIL'} | {probe['summary']}")

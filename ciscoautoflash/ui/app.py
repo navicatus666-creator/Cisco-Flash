@@ -10,6 +10,7 @@ from pathlib import Path
 from queue import Empty, Queue
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
+from typing import Any
 
 import ttkbootstrap as ttk
 
@@ -865,7 +866,7 @@ class CiscoAutoFlashDesktop:
         if button_attr:
             setattr(self, button_attr, button)
 
-    def _widget_bounds(self, widget: object) -> dict[str, int] | None:
+    def _widget_bounds(self, widget: Any) -> dict[str, int] | None:
         if widget is None:
             return None
         try:
@@ -893,7 +894,7 @@ class CiscoAutoFlashDesktop:
             "y": int(bounds["top"] + bounds["height"] / 2),
         }
 
-    def _control_payload(self, widget: object, *, name: str) -> dict[str, object] | None:
+    def _control_payload(self, widget: Any, *, name: str) -> dict[str, object] | None:
         bounds = self._widget_bounds(widget)
         if bounds is None:
             return None
@@ -968,10 +969,20 @@ class CiscoAutoFlashDesktop:
         return payload
 
     def _build_automation_map(self) -> dict[str, object]:
-        self.window.update_idletasks()
+        update_idletasks = getattr(self.window, "update_idletasks", None)
+        if callable(update_idletasks):
+            update_idletasks()
         window_bounds = self._widget_bounds(self.window)
         if window_bounds is None:
             raise RuntimeError("Window bounds are not available for automation map.")
+        window_title = ""
+        title = getattr(self.window, "title", None)
+        if callable(title):
+            window_title = str(title())
+        else:
+            window_text = getattr(self.window, "window_text", None)
+            if callable(window_text):
+                window_title = str(window_text())
         controls: dict[str, dict[str, object]] = {}
         control_map = (
             ("scan", getattr(self, "scan_button", None)),
@@ -1039,7 +1050,7 @@ class CiscoAutoFlashDesktop:
         return {
             "generated_at": timestamp(),
             "window": {
-                "title": self.window.title(),
+                "title": window_title,
                 "bounds": window_bounds,
                 "click_point": self._click_point_from_bounds(window_bounds),
             },
@@ -1127,7 +1138,9 @@ class CiscoAutoFlashDesktop:
             return
         try:
             payload = self._build_automation_map()
-        except Exception:
+        except Exception as exc:
+            if self.smoke_mode and self.demo_mode:
+                self._log_demo_ui_action("Automation map refresh failed", repr(exc), level="debug")
             return
         if self.automation_map_enabled:
             self.automation_map_path.parent.mkdir(parents=True, exist_ok=True)

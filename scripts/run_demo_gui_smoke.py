@@ -316,14 +316,14 @@ class DemoGuiSmokeRunner:
         return (x, y)
 
     def _lookup_control_point(self, name: str) -> tuple[int, int] | None:
-        payload = self._refresh_automation_map(timeout=1.5, raise_on_timeout=False)
+        payload = self._refresh_automation_map(timeout=1.5)
         controls = payload.get("controls")
         if not isinstance(controls, dict):
             return None
         return self._point_from_payload(controls.get(name))
 
     def _lookup_tab_point(self, tab_name: str) -> tuple[int, int] | None:
-        payload = self._refresh_automation_map(timeout=1.5, raise_on_timeout=False)
+        payload = self._refresh_automation_map(timeout=1.5)
         tabs = payload.get("tabs")
         if not isinstance(tabs, dict):
             return None
@@ -333,7 +333,7 @@ class DemoGuiSmokeRunner:
         return self._point_from_payload(items.get(tab_name))
 
     def _selector_payload(self) -> dict[str, object]:
-        payload = self._refresh_automation_map(timeout=1.5, raise_on_timeout=False)
+        payload = self._refresh_automation_map(timeout=1.5)
         selector = payload.get("selector")
         return selector if isinstance(selector, dict) else {}
 
@@ -364,7 +364,16 @@ class DemoGuiSmokeRunner:
             self._click_tab(tab_name)
 
         def verify() -> list[str]:
-            return [self._wait_for_new_log_marker(f"[DEMO][UI] Открыта вкладка: {tab_name}")]
+            payload = self._refresh_automation_map()
+            state = payload.get("state")
+            if not isinstance(state, dict):
+                raise SmokeFailure("Automation map did not provide state payload after tab click.")
+            selected_tab = str(state.get("selected_tab", ""))
+            if selected_tab != tab_name:
+                raise SmokeFailure(
+                    f"Selected tab mismatch after click: expected {tab_name}, got {selected_tab}"
+                )
+            return [f"Selected tab: {selected_tab}"]
 
         self._run_step(f"tab_{TAB_STEP_ALIASES[tab_name]}", verify, action=action)
 
@@ -374,10 +383,19 @@ class DemoGuiSmokeRunner:
 
         def verify() -> list[str]:
             scenario_display = self.scenario_display_by_name[scenario_name]
-            log_line = self._wait_for_new_log_marker(
-                f"[DEMO][UI] Выбран сценарий: {scenario_display}"
-            )
-            return [log_line, f"Scenario active: {scenario_name} -> {scenario_display}"]
+            payload = self._refresh_automation_map()
+            selector = payload.get("selector")
+            if not isinstance(selector, dict):
+                raise SmokeFailure("Automation map did not provide selector payload after change.")
+            current_name = str(selector.get("current_name", ""))
+            current_display = str(selector.get("current_display", ""))
+            if current_name != scenario_name or current_display != scenario_display:
+                raise SmokeFailure(
+                    "Scenario selector mismatch after change: "
+                    f"expected {scenario_name}/{scenario_display}, got "
+                    f"{current_name}/{current_display}"
+                )
+            return [f"Scenario active: {current_name} -> {current_display}"]
 
         self._run_step(f"scenario_{scenario_name}", verify, action=action)
 
@@ -495,7 +513,7 @@ class DemoGuiSmokeRunner:
 
     def _verify_smoke_open(self, expected_path: Path) -> list[str]:
         path = expected_path.resolve()
-        self._wait_for_new_log_marker("Smoke-mode open suppressed")
+        self._wait_for_new_log_marker(f"Smoke-mode open suppressed: {path}")
         self._refresh_paths()
         if path.exists():
             return [f"Smoke open confirmed: {path}"]
@@ -540,18 +558,16 @@ class DemoGuiSmokeRunner:
 
     def _click_button(self, name: str) -> None:
         point = self._lookup_control_point(name)
-        if point is not None:
-            self._click_absolute(*point)
-            return
-        self._click_ratio(BUTTON_RATIOS[name])
+        if point is None:
+            raise SmokeFailure(f"Automation map does not provide click point for control: {name}")
+        self._click_absolute(*point)
 
     def _click_tab(self, tab_name: str) -> None:
         marker = f"[DEMO][UI] Открыта вкладка: {tab_name}"
         point = self._lookup_tab_point(tab_name)
-        if point is not None:
-            self._retry_click_point_with_marker(point, TAB_RETRY_OFFSETS, marker)
-            return
-        self._retry_click_with_marker(TAB_RATIOS[tab_name], TAB_RETRY_OFFSETS, marker)
+        if point is None:
+            raise SmokeFailure(f"Automation map does not provide click point for tab: {tab_name}")
+        self._retry_click_point_with_marker(point, TAB_RETRY_OFFSETS, marker)
 
     def _select_scenario(self, scenario_name: str) -> None:
         if scenario_name not in self.combo_order:
@@ -568,30 +584,17 @@ class DemoGuiSmokeRunner:
             raise SmokeFailure(
                 f"Scenario display is not available in selector items: {target_display}"
             )
-        current_display = str(selector.get("current_display", ""))
-        current_index = combo_items.index(current_display) if current_display in combo_items else 0
         target_index = combo_items.index(target_display)
-        delta = target_index - current_index
         arrow_point = self._point_from_payload(selector, "arrow_click_point")
         selector_point = self._point_from_payload(selector)
+        if arrow_point is None and selector_point is None:
+            raise SmokeFailure("Automation map does not provide selector click points.")
         for x_offset, y_offset in SELECTOR_RETRY_OFFSETS:
             if arrow_point is not None:
                 self._click_absolute(arrow_point[0] + x_offset, arrow_point[1] + y_offset)
-            elif selector_point is not None:
-                self._click_absolute(selector_point[0] + x_offset, selector_point[1] + y_offset)
             else:
-                self._click_ratio(SELECTOR_ARROW_RATIO, x_offset, y_offset)
-            if self._try_selector_sequence(delta, marker):
-                return
-            pyautogui.press("escape")
-            time.sleep(0.1)
-            if selector_point is not None:
                 self._click_absolute(selector_point[0] + x_offset, selector_point[1] + y_offset)
-                pyautogui.hotkey("alt", "down")
-                time.sleep(0.12)
-            else:
-                self._click_ratio(SELECTOR_ARROW_RATIO, x_offset, y_offset)
-            if self._try_selector_sequence(delta, marker):
+            if self._try_selector_sequence(target_index, marker):
                 return
             pyautogui.press("escape")
             time.sleep(0.1)
@@ -599,13 +602,16 @@ class DemoGuiSmokeRunner:
 
     def _try_selector_sequence(
         self,
-        delta: int,
+        target_index: int,
         marker: str,
     ) -> bool:
         time.sleep(0.12)
-        key = "down" if delta >= 0 else "up"
-        for _ in range(abs(delta)):
-            pyautogui.press(key)
+        pyautogui.hotkey("alt", "down")
+        time.sleep(0.12)
+        pyautogui.press("home")
+        time.sleep(0.05)
+        for _ in range(target_index):
+            pyautogui.press("down")
             time.sleep(0.05)
         pyautogui.press("enter")
         time.sleep(0.6)
@@ -684,9 +690,12 @@ class DemoGuiSmokeRunner:
         deadline = time.time() + timeout
         while time.time() < deadline:
             contents = self._read_log_delta(self._step_log_cursor)
+            next_cursor = self._snapshot_log_cursor()
             for line in contents.splitlines():
                 if marker in line:
+                    self._step_log_cursor = next_cursor
                     return line
+            self._step_log_cursor = next_cursor
             time.sleep(0.2)
         if raise_on_timeout:
             raise SmokeFailure(f"Log did not contain expected fresh marker: {marker}")

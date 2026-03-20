@@ -243,11 +243,21 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.stage3_button = DummyGeometryWidget(x=1260, y=200, text="Этап 3: Проверка")
         app.stop_button = DummyGeometryWidget(x=1380, y=200, width=70, text="Стоп")
         app.log_button = DummyGeometryWidget(x=40, y=320, width=180, text="Открыть лог")
-        app.report_button = DummyGeometryWidget(x=230, y=320, width=180, state="disabled", text="Открыть отчёт")
-        app.transcript_button = DummyGeometryWidget(x=420, y=320, width=180, text="Открыть транскрипт")
-        app.logs_dir_button = DummyGeometryWidget(x=610, y=320, width=180, text="Открыть папку логов")
-        app.session_folder_button = DummyGeometryWidget(x=800, y=320, width=220, text="Открыть папку сессии")
-        app.bundle_export_button = DummyGeometryWidget(x=1030, y=320, width=220, text="Экспортировать bundle")
+        app.report_button = DummyGeometryWidget(
+            x=230, y=320, width=180, state="disabled", text="Открыть отчёт"
+        )
+        app.transcript_button = DummyGeometryWidget(
+            x=420, y=320, width=180, text="Открыть транскрипт"
+        )
+        app.logs_dir_button = DummyGeometryWidget(
+            x=610, y=320, width=180, text="Открыть папку логов"
+        )
+        app.session_folder_button = DummyGeometryWidget(
+            x=800, y=320, width=220, text="Открыть папку сессии"
+        )
+        app.bundle_export_button = DummyGeometryWidget(
+            x=1030, y=320, width=220, text="Экспортировать bundle"
+        )
         app.artifact_bundle_button = app.bundle_export_button
         app.demo_selector = DummyGeometryWidget(
             x=760,
@@ -794,13 +804,14 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
 
         data = app._build_automation_map()
 
-        self.assertEqual(data["window"]["width"], 1320)
-        self.assertEqual(data["controls"]["scan"]["click"]["x"], 960)
-        self.assertEqual(data["controls"]["report"]["state"], "disabled")
-        self.assertEqual(data["selector"]["display_value"], "Этап 3: verify")
-        self.assertEqual(data["tabs"]["artifacts"]["label"], "Артефакты сессии")
-        self.assertEqual(data["state"]["selected_target_id"], "COM5")
-        self.assertEqual(data["state"]["current_state"], "СКАНИРОВАНИЕ")
+        self.assertEqual(data["window"]["bounds"]["width"], 1320)
+        self.assertEqual(data["controls"]["scan"]["click_point"]["x"], 960)
+        self.assertEqual(data["controls"]["open_report"]["state"], "disabled")
+        self.assertEqual(data["selector"]["current_display"], "Этап 3: verify")
+        self.assertEqual(data["tabs"]["container"]["width"], 480)
+        self.assertEqual(data["tabs"]["items"], {})
+        self.assertEqual(data["state"]["selected_target"], "COM5")
+        self.assertEqual(data["state"]["state_text"], "СКАНИРОВАНИЕ")
         self.assertEqual(data["session"]["session_dir"], str(app.session_dir))
         self.assertIn("generated_at", data)
 
