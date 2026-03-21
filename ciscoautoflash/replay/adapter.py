@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..config import SessionPaths
 from ..core.events import AppEvent
+from ..core.logging_utils import append_session_log, timestamp
 from ..core.models import OperatorMessage
 from ..core.operator_messages import info_message
 from ..core.snapshots import empty_snapshot
@@ -158,6 +159,7 @@ class DemoReplayController:
         )
         self._emit("log", line="[DEMO] Проигрывание остановлено.", level="warn")
         self._emit_actions()
+        self._emit_idle_ready("stopped")
 
     def select_target(self, target_id: str) -> bool:
         if target_id != self.current_scenario.target.id:
@@ -215,6 +217,19 @@ class DemoReplayController:
             stage3_enabled=not self._busy and "stage3" in supported,
             stop_enabled=self._busy,
         )
+
+    def _emit_idle_ready(self, reason: str) -> None:
+        marker = f"[DEMO] Controller idle: {self.current_scenario.name} ({reason})"
+        append_session_log(self.session.log_path, f"[{timestamp()}] {marker}")
+        self._emit(
+            "demo_idle_ready",
+            scenario_name=self.current_scenario.name,
+            scenario_display=self.current_scenario.display_name,
+            reason=reason,
+            busy=False,
+            marker=marker,
+        )
+        self._emit("log", line=marker, level="debug")
 
     def _start_action(self, action: str, firmware_name: str | None = None) -> bool:
         if self._busy:
@@ -280,5 +295,6 @@ class DemoReplayController:
                 return
             self._busy = False
             self._emit_actions()
+            self._emit_idle_ready("completed")
 
         return callback

@@ -24,25 +24,6 @@ DEFAULT_SCENARIOS = (
     "stage2_install_timeout",
     "stage3_verify",
 )
-BUTTON_RATIOS: dict[str, tuple[float, float]] = {
-    "scan": (0.731663, 0.467080),
-    "stage1": (0.786932, 0.467080),
-    "stage2": (0.848657, 0.467080),
-    "stage3": (0.915289, 0.467080),
-    "stop": (0.964101, 0.467080),
-    "open_log": (0.090651, 0.588263),
-    "open_report": (0.234762, 0.588263),
-    "open_transcript": (0.390238, 0.588263),
-    "open_logs_dir": (0.555269, 0.588263),
-    "open_session_dir": (0.722882, 0.588263),
-    "export_bundle": (0.893595, 0.588263),
-}
-TAB_RATIOS: dict[str, tuple[float, float]] = {
-    "Журнал": (0.570506, 0.642176),
-    "Артефакты сессии": (0.616994, 0.642176),
-    "Памятка": (0.663740, 0.642176),
-}
-SELECTOR_ARROW_RATIO: tuple[float, float] = (0.677686, 0.453721)
 TAB_RETRY_OFFSETS = (
     (0, 0),
     (-14, 0),
@@ -118,7 +99,9 @@ class DemoGuiSmokeRunner:
         self.manifest_path: Path | None = None
         self.bundle_path: Path | None = None
         self._step_log_cursor = 0
+        self._step_recent_log_offsets: dict[Path, int] = {}
         self.run_started_at = 0.0
+        self._last_marker_line = ""
 
     def run(self) -> int:
         if len(self.scenario_names) < 5:
@@ -205,6 +188,33 @@ class DemoGuiSmokeRunner:
         raise SmokeFailure("Demo window was not found before timeout.")
 
     def _refresh_paths(self) -> None:
+        payload = self._refresh_automation_map(timeout=0.5, raise_on_timeout=False)
+        session_payload = payload.get("session") if isinstance(payload, dict) else None
+        if isinstance(session_payload, dict):
+            session_dir = session_payload.get("session_dir")
+            log_path = session_payload.get("log_path")
+            report_path = session_payload.get("report_path")
+            transcript_path = session_payload.get("transcript_path")
+            manifest_path = session_payload.get("manifest_path")
+            bundle_path = session_payload.get("bundle_path")
+            if (
+                isinstance(session_dir, str)
+                and isinstance(log_path, str)
+                and isinstance(report_path, str)
+                and isinstance(transcript_path, str)
+                and isinstance(manifest_path, str)
+                and isinstance(bundle_path, str)
+                and session_dir
+                and log_path
+            ):
+                self.session_dir = Path(session_dir)
+                self.log_path = Path(log_path)
+                self.report_path = Path(report_path)
+                self.transcript_path = Path(transcript_path)
+                self.manifest_path = Path(manifest_path)
+                self.bundle_path = Path(bundle_path)
+                return
+
         sessions_dir = self.demo_root / "sessions"
         logs_dir = self.demo_root / "logs"
         reports_dir = self.demo_root / "reports"
@@ -275,6 +285,7 @@ class DemoGuiSmokeRunner:
                 and self.session_dir is not None
                 and self.session_dir != previous_session_dir
             ):
+                self._refresh_paths()
                 return
             time.sleep(0.2)
         raise SmokeFailure("Demo session did not roll over after Scan.")
@@ -337,6 +348,13 @@ class DemoGuiSmokeRunner:
         selector = payload.get("selector")
         return selector if isinstance(selector, dict) else {}
 
+    def _lookup_selector_button_point(self, scenario_name: str) -> tuple[int, int] | None:
+        selector = self._selector_payload()
+        buttons = selector.get("buttons")
+        if not isinstance(buttons, dict):
+            return None
+        return self._point_from_payload(buttons.get(scenario_name))
+
     def _baseline_step(self) -> None:
         def verify() -> list[str]:
             self._refresh_paths()
@@ -373,12 +391,16 @@ class DemoGuiSmokeRunner:
                 raise SmokeFailure(
                     f"Selected tab mismatch after click: expected {tab_name}, got {selected_tab}"
                 )
-            return [f"Selected tab: {selected_tab}"]
+            evidence = [f"Selected tab: {selected_tab}"]
+            if self._last_marker_line:
+                evidence.append(self._last_marker_line)
+            return evidence
 
         self._run_step(f"tab_{TAB_STEP_ALIASES[tab_name]}", verify, action=action)
 
     def _scenario_selector_step(self, scenario_name: str) -> None:
         def action() -> None:
+            self._wait_for_demo_idle_if_needed()
             self._select_scenario(scenario_name)
 
         def verify() -> list[str]:
@@ -395,7 +417,10 @@ class DemoGuiSmokeRunner:
                     f"expected {scenario_name}/{scenario_display}, got "
                     f"{current_name}/{current_display}"
                 )
-            return [f"Scenario active: {current_name} -> {current_display}"]
+            evidence = [f"Scenario active: {current_name} -> {current_display}"]
+            if self._last_marker_line:
+                evidence.append(self._last_marker_line)
+            return evidence
 
         self._run_step(f"scenario_{scenario_name}", verify, action=action)
 
@@ -412,9 +437,11 @@ class DemoGuiSmokeRunner:
                 lambda data: data.get("selected_target_id") == "COM5",
                 "selected_target_id == COM5",
             )
+            idle_evidence = self._wait_for_demo_idle()
             return [
                 f"Selected target: {manifest.get('selected_target_id', '')}",
                 self._wait_for_log_marker_from_start("Выбрана цель"),
+                *idle_evidence,
             ]
 
         self._run_step("scan", verify, action=action)
@@ -429,9 +456,12 @@ class DemoGuiSmokeRunner:
                 "Would you like to enter the initial configuration dialog",
             )
             transcript = self._wait_for_file_contains(self.transcript_path, "| no")
+            stage_marker = self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 1")
+            idle_evidence = self._wait_for_demo_idle()
             return [
                 transcript,
-                self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 1"),
+                stage_marker,
+                *idle_evidence,
             ]
 
         self._run_step("stage1", verify, action=action)
@@ -445,9 +475,12 @@ class DemoGuiSmokeRunner:
                 self.transcript_path,
                 "all software images installed",
             )
+            stage_marker = self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 2")
+            idle_evidence = self._wait_for_demo_idle()
             return [
                 transcript,
-                self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 2"),
+                stage_marker,
+                *idle_evidence,
             ]
 
         self._run_step("stage2_success", verify, action=action)
@@ -460,12 +493,15 @@ class DemoGuiSmokeRunner:
 
         def verify() -> list[str]:
             manifest = self._wait_for_manifest(
-                lambda data: data.get("final_state") == "IDLE",
-                "final_state == IDLE after stop",
+                lambda data: data.get("final_state") == "FAILED",
+                "final_state == FAILED after stop",
             )
+            stop_marker = self._wait_for_new_log_marker("Проигрывание остановлено")
+            idle_evidence = self._wait_for_demo_idle()
             return [
-                self._wait_for_new_log_marker("Проигрывание остановлено"),
+                stop_marker,
                 f"State after stop: {manifest.get('final_state', '')}",
+                *idle_evidence,
             ]
 
         self._run_step("stop_during_busy_demo", verify, action=action)
@@ -513,10 +549,20 @@ class DemoGuiSmokeRunner:
 
     def _verify_smoke_open(self, expected_path: Path) -> list[str]:
         path = expected_path.resolve()
-        self._wait_for_new_log_marker(f"Smoke-mode open suppressed: {path}")
+        marker_line = self._wait_for_new_log_marker(f"Smoke-mode open suppressed: {path}")
+        payload = self._refresh_automation_map()
+        state = payload.get("state") if isinstance(payload, dict) else None
+        last_smoke_open_path = ""
+        if isinstance(state, dict):
+            last_smoke_open_path = str(state.get("last_smoke_open_path", ""))
+        if last_smoke_open_path != str(path):
+            raise SmokeFailure(
+                "Automation map last_smoke_open_path mismatch: "
+                f"expected {path}, got {last_smoke_open_path or '<empty>'}"
+            )
         self._refresh_paths()
         if path.exists():
-            return [f"Smoke open confirmed: {path}"]
+            return [marker_line, f"Smoke open confirmed: {path}"]
         raise SmokeFailure(f"Expected open target does not exist: {path}")
 
     def _verify_bundle_export(self) -> list[str]:
@@ -536,8 +582,11 @@ class DemoGuiSmokeRunner:
     ) -> None:
         before = self._capture(name, "before")
         self._step_log_cursor = self._snapshot_log_cursor()
+        self._step_recent_log_offsets = self._snapshot_recent_log_offsets()
+        self._last_marker_line = ""
         if action is not None:
             action()
+        self._refresh_paths()
         evidence = verify()
         after = self._capture(name, "after")
         self.results.append(
@@ -549,6 +598,52 @@ class DemoGuiSmokeRunner:
                 screenshot_after=str(after),
                 produced_paths=[str(path) for path in (produced_paths or []) if path is not None],
             )
+        )
+
+    def _state_payload(self) -> dict[str, object]:
+        payload = self._refresh_automation_map(timeout=1.5, raise_on_timeout=False)
+        state = payload.get("state") if isinstance(payload, dict) else None
+        return state if isinstance(state, dict) else {}
+
+    @staticmethod
+    def _state_bool(state: dict[str, object], key: str) -> bool:
+        return bool(state.get(key, False))
+
+    def _wait_for_demo_idle_if_needed(self, timeout: float = 15.0) -> list[str]:
+        state = self._state_payload()
+        if not state:
+            return []
+        if not self._state_bool(state, "demo_busy") and not self._state_bool(state, "stop_enabled"):
+            return []
+        return self._wait_for_demo_idle(timeout=timeout)
+
+    def _wait_for_demo_idle(self, timeout: float = 15.0) -> list[str]:
+        deadline = time.time() + timeout
+        marker_line = ""
+        while time.time() < deadline:
+            if not marker_line:
+                marker_line = self._wait_for_new_log_marker(
+                    "[DEMO] Controller idle:",
+                    timeout=0.6,
+                    raise_on_timeout=False,
+                )
+            state = self._state_payload()
+            if state:
+                demo_busy = self._state_bool(state, "demo_busy")
+                stop_enabled = self._state_bool(state, "stop_enabled")
+                last_idle_marker = str(state.get("last_demo_idle_marker", "")).strip()
+                if marker_line and not demo_busy and not stop_enabled and last_idle_marker:
+                    if last_idle_marker in marker_line:
+                        return [
+                            marker_line,
+                            (
+                                "Demo idle confirmed: "
+                                f"busy={demo_busy}, stop_enabled={stop_enabled}"
+                            ),
+                        ]
+            time.sleep(0.1)
+        raise SmokeFailure(
+            "Demo controller did not become idle before the next scenario switch."
         )
 
     def _capture(self, name: str, phase: str) -> Path:
@@ -567,55 +662,88 @@ class DemoGuiSmokeRunner:
         point = self._lookup_tab_point(tab_name)
         if point is None:
             raise SmokeFailure(f"Automation map does not provide click point for tab: {tab_name}")
-        self._retry_click_point_with_marker(point, TAB_RETRY_OFFSETS, marker)
+        self._last_marker_line = self._retry_click_point_with_marker(
+            point,
+            TAB_RETRY_OFFSETS,
+            marker,
+        )
 
     def _select_scenario(self, scenario_name: str) -> None:
         if scenario_name not in self.combo_order:
             raise SmokeFailure(f"Scenario is not available in combo order: {scenario_name}")
         marker = f"[DEMO][UI] Выбран сценарий: {self.scenario_display_by_name[scenario_name]}"
-        selector = self._selector_payload()
-        items = selector.get("items")
-        if isinstance(items, list) and items:
-            combo_items = [str(item) for item in items]
-        else:
-            combo_items = list(self.scenario_display_by_name.values())
+        scenario_button_point = self._lookup_selector_button_point(scenario_name)
+        if scenario_button_point is not None:
+            self._last_marker_line = self._retry_click_point_with_marker(
+                scenario_button_point,
+                ((0, 0), (-8, 0), (8, 0), (0, -4), (0, 4)),
+                marker,
+            )
+            return
+        combo_items = self._selector_items()
         target_display = self.scenario_display_by_name[scenario_name]
         if target_display not in combo_items:
             raise SmokeFailure(
                 f"Scenario display is not available in selector items: {target_display}"
             )
         target_index = combo_items.index(target_display)
-        arrow_point = self._point_from_payload(selector, "arrow_click_point")
-        selector_point = self._point_from_payload(selector)
-        if arrow_point is None and selector_point is None:
-            raise SmokeFailure("Automation map does not provide selector click points.")
         for x_offset, y_offset in SELECTOR_RETRY_OFFSETS:
+            selector = self._selector_payload()
+            current_index = self._selector_current_index(combo_items, selector)
+            arrow_point = self._point_from_payload(selector, "arrow_click_point")
+            selector_point = self._point_from_payload(selector)
+            if arrow_point is None and selector_point is None:
+                raise SmokeFailure("Automation map does not provide selector click points.")
             if arrow_point is not None:
                 self._click_absolute(arrow_point[0] + x_offset, arrow_point[1] + y_offset)
             else:
                 self._click_absolute(selector_point[0] + x_offset, selector_point[1] + y_offset)
-            if self._try_selector_sequence(target_index, marker):
+            marker_line = self._try_selector_sequence(current_index, target_index, marker)
+            if marker_line:
+                self._last_marker_line = marker_line
                 return
             pyautogui.press("escape")
             time.sleep(0.1)
         raise SmokeFailure(f"Scenario selector did not switch to {scenario_name}.")
 
+    def _selector_items(self) -> list[str]:
+        selector = self._selector_payload()
+        items = selector.get("items")
+        if isinstance(items, list) and items:
+            return [str(item) for item in items]
+        return list(self.scenario_display_by_name.values())
+
+    @staticmethod
+    def _selector_current_index(combo_items: list[str], selector: dict[str, object]) -> int | None:
+        current_display = str(selector.get("current_display", ""))
+        if current_display in combo_items:
+            return combo_items.index(current_display)
+        return None
+
     def _try_selector_sequence(
         self,
+        current_index: int | None,
         target_index: int,
         marker: str,
-    ) -> bool:
+    ) -> str:
         time.sleep(0.12)
         pyautogui.hotkey("alt", "down")
         time.sleep(0.12)
-        pyautogui.press("home")
-        time.sleep(0.05)
-        for _ in range(target_index):
-            pyautogui.press("down")
+        if current_index is None:
+            pyautogui.press("home")
+            time.sleep(0.05)
+            key = "down"
+            count = target_index
+        else:
+            delta = target_index - current_index
+            key = "down" if delta >= 0 else "up"
+            count = abs(delta)
+        for _ in range(count):
+            pyautogui.press(key)
             time.sleep(0.05)
         pyautogui.press("enter")
         time.sleep(0.6)
-        return bool(self._wait_for_new_log_marker(marker, timeout=1.8, raise_on_timeout=False))
+        return self._wait_for_new_log_marker(marker, timeout=1.8, raise_on_timeout=False)
 
     def _click_absolute(self, x: int, y: int) -> None:
         if self.window is None:
@@ -629,38 +757,16 @@ class DemoGuiSmokeRunner:
         point: tuple[int, int],
         offsets: tuple[tuple[int, int], ...],
         marker: str,
-    ) -> None:
+    ) -> str:
         for x_offset, y_offset in offsets:
             self._click_absolute(point[0] + x_offset, point[1] + y_offset)
-            if self._wait_for_new_log_marker(marker, timeout=1.0, raise_on_timeout=False):
-                return
-        raise SmokeFailure(f"Target did not emit expected log marker: {marker}")
-
-    def _click_ratio(
-        self,
-        ratio: tuple[float, float],
-        x_offset: int = 0,
-        y_offset: int = 0,
-    ) -> None:
-        if self.window is None:
-            raise SmokeFailure("Demo window is not attached.")
-        self.window.set_focus()
-        rect = self.window.rectangle()
-        x = int(rect.left + rect.width() * ratio[0] + x_offset)
-        y = int(rect.top + rect.height() * ratio[1] + y_offset)
-        pyautogui.click(x, y)
-        time.sleep(0.3)
-
-    def _retry_click_with_marker(
-        self,
-        ratio: tuple[float, float],
-        offsets: tuple[tuple[int, int], ...],
-        marker: str,
-    ) -> None:
-        for x_offset, y_offset in offsets:
-            self._click_ratio(ratio, x_offset, y_offset)
-            if self._wait_for_new_log_marker(marker, timeout=1.0, raise_on_timeout=False):
-                return
+            marker_line = self._wait_for_new_log_marker(
+                marker,
+                timeout=1.0,
+                raise_on_timeout=False,
+            )
+            if marker_line:
+                return marker_line
         raise SmokeFailure(f"Target did not emit expected log marker: {marker}")
 
     def _read_log_text(self) -> str:
@@ -672,6 +778,34 @@ class DemoGuiSmokeRunner:
         if self.log_path is None or not self.log_path.exists():
             return 0
         return self.log_path.stat().st_size
+
+    def _recent_logs(self) -> list[Path]:
+        logs_dir = self.demo_root / "logs"
+        if not logs_dir.exists():
+            return []
+        return sorted(
+            [
+                path
+                for path in logs_dir.glob("ciscoautoflash_*.log")
+                if path.stat().st_mtime >= self.run_started_at
+            ],
+            key=lambda path: path.stat().st_mtime,
+        )
+
+    def _snapshot_recent_log_offsets(self) -> dict[Path, int]:
+        return {
+            path: path.stat().st_size
+            for path in self._recent_logs()
+            if path.exists()
+        }
+
+    @staticmethod
+    def _read_log_delta_for_path(path: Path, cursor: int) -> str:
+        if not path.exists():
+            return ""
+        with path.open("rb") as handle:
+            handle.seek(cursor)
+            return handle.read().decode("utf-8", errors="ignore")
 
     def _read_log_delta(self, cursor: int) -> str:
         if self.log_path is None or not self.log_path.exists():
@@ -689,24 +823,35 @@ class DemoGuiSmokeRunner:
     ) -> str:
         deadline = time.time() + timeout
         while time.time() < deadline:
-            contents = self._read_log_delta(self._step_log_cursor)
-            next_cursor = self._snapshot_log_cursor()
-            for line in contents.splitlines():
-                if marker in line:
-                    self._step_log_cursor = next_cursor
-                    return line
-            self._step_log_cursor = next_cursor
+            found_logs = False
+            for path in self._recent_logs():
+                found_logs = True
+                cursor = self._step_recent_log_offsets.get(path, 0)
+                contents = self._read_log_delta_for_path(path, cursor)
+                next_cursor = path.stat().st_size if path.exists() else cursor
+                for line in contents.splitlines():
+                    if marker in line:
+                        self._step_recent_log_offsets[path] = next_cursor
+                        if path == self.log_path:
+                            self._step_log_cursor = next_cursor
+                        return line
+                self._step_recent_log_offsets[path] = next_cursor
+            if not found_logs:
+                self._step_recent_log_offsets = {}
             time.sleep(0.2)
         if raise_on_timeout:
             raise SmokeFailure(f"Log did not contain expected fresh marker: {marker}")
         return ""
 
     def _wait_for_log_marker_from_start(self, marker: str, timeout: float = 15.0) -> str:
+        previous_recent_offsets = dict(self._step_recent_log_offsets)
         previous_cursor = self._step_log_cursor
+        self._step_recent_log_offsets = {path: 0 for path in self._recent_logs()}
         self._step_log_cursor = 0
         try:
             return self._wait_for_new_log_marker(marker, timeout=timeout)
         finally:
+            self._step_recent_log_offsets = previous_recent_offsets
             self._step_log_cursor = previous_cursor
 
     def _wait_for_file_exists(self, path: Path | None, timeout: float = 15.0) -> Path:

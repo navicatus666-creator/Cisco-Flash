@@ -267,6 +267,23 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
             state="readonly",
             text="Сканирование: Switch# готов",
         )
+        app.demo_scenario_buttons = {
+            "scan_ready": DummyGeometryWidget(
+                x=760, y=200, width=180, height=28, text="Сканирование: Switch# готов"
+            ),
+            "stage1_reboot_config_dialog": DummyGeometryWidget(
+                x=950, y=200, width=220, height=28, text="Этап 1: reboot + config dialog"
+            ),
+            "stage2_install_success": DummyGeometryWidget(
+                x=760, y=236, width=180, height=28, text="Этап 2: успешная установка"
+            ),
+            "stage2_install_timeout": DummyGeometryWidget(
+                x=950, y=236, width=220, height=28, text="Этап 2: timeout установки"
+            ),
+            "stage3_verify": DummyGeometryWidget(
+                x=760, y=272, width=180, height=28, text="Этап 3: verify"
+            ),
+        }
         app.progress = DummyProgress()
         app.log_box = DummyLogBox()
         app.targets_tree = DummyTree()
@@ -354,9 +371,19 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.automation_map_path = session_dir / "automation_map.json"
         app._automation_overlay = None
         app.last_smoke_open_path = None
+        app.last_demo_idle_marker = ""
+        app.demo_busy = False
+        app._demo_action_state = {
+            "scan_enabled": False,
+            "stage1_enabled": False,
+            "stage2_enabled": False,
+            "stage3_enabled": False,
+            "stop_enabled": False,
+        }
         app._suppress_target_selection_event = False
         app.selected_demo_scenario_name = ""
         app.demo_display_to_name = {}
+        app.demo_name_to_display = {}
         app.controller = Mock()
         app._persist_settings = Mock()
         return app
@@ -429,6 +456,38 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.stage2_button.state, "disabled")
         self.assertEqual(app.stage3_button.state, "normal")
         self.assertEqual(app.stop_button.state, "normal")
+        self.assertTrue(app.demo_busy)
+        self.assertEqual(
+            app._demo_action_state,
+            {
+                "scan_enabled": False,
+                "stage1_enabled": True,
+                "stage2_enabled": False,
+                "stage3_enabled": True,
+                "stop_enabled": True,
+            },
+        )
+
+    def test_handle_event_demo_idle_ready_tracks_marker_and_busy_state(self) -> None:
+        app = self.make_app_shell()
+        app.demo_mode = True
+        app.demo_busy = True
+
+        app._handle_event(
+            AppEvent(
+                "demo_idle_ready",
+                {
+                    "marker": "[DEMO] Controller idle: stage2_install_success (completed)",
+                    "busy": False,
+                },
+            )
+        )
+
+        self.assertFalse(app.demo_busy)
+        self.assertEqual(
+            app.last_demo_idle_marker,
+            "[DEMO] Controller idle: stage2_install_success (completed)",
+        )
 
     def test_handle_event_tracks_paths_and_preflight_when_session_paths_arrive(self) -> None:
         app = self.make_app_shell()
@@ -557,6 +616,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.demo_mode = True
         app.demo_scenario_var = DummyVar("Этап 2: успешная установка")
         app.demo_display_to_name = {"Этап 2: успешная установка": "stage2_install_success"}
+        app.demo_name_to_display = {"stage2_install_success": "Этап 2: успешная установка"}
         app.selected_demo_scenario_name = "scan_ready"
         app.controller = object.__new__(DemoReplayController)
         app.controller.set_scenario = Mock(return_value=True)
@@ -567,6 +627,28 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
 
         app.controller.set_scenario.assert_called_once_with("stage2_install_success")
         self.assertEqual(app.selected_demo_scenario_name, "stage2_install_success")
+        app._refresh_demo_details.assert_called_once_with()
+        app._persist_settings.assert_called_once_with()
+        app._log_demo_ui_action.assert_called_once_with(
+            "Выбран сценарий", "Этап 2: успешная установка"
+        )
+
+    def test_demo_scenario_button_updates_controller_and_settings(self) -> None:
+        app = self.make_app_shell()
+        app.demo_mode = True
+        app.demo_display_to_name = {"Этап 2: успешная установка": "stage2_install_success"}
+        app.demo_name_to_display = {"stage2_install_success": "Этап 2: успешная установка"}
+        app.selected_demo_scenario_name = "scan_ready"
+        app.controller = object.__new__(DemoReplayController)
+        app.controller.set_scenario = Mock(return_value=True)
+        app._refresh_demo_details = Mock()
+        app._log_demo_ui_action = Mock()
+
+        app._on_demo_scenario_button("stage2_install_success")
+
+        app.controller.set_scenario.assert_called_once_with("stage2_install_success")
+        self.assertEqual(app.selected_demo_scenario_name, "stage2_install_success")
+        self.assertEqual(app.demo_scenario_var.get(), "Этап 2: успешная установка")
         app._refresh_demo_details.assert_called_once_with()
         app._persist_settings.assert_called_once_with()
         app._log_demo_ui_action.assert_called_once_with(
@@ -777,6 +859,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.demo_mode = True
         app.smoke_mode = True
         app._log_demo_ui_action = Mock()
+        app._refresh_automation_map = Mock()
         existing = Path(__file__)
 
         with patch("ciscoautoflash.ui.app.os.startfile") as startfile:
@@ -788,6 +871,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app._log_demo_ui_action.assert_called_once_with(
             "Smoke-mode open suppressed", str(existing), level="debug"
         )
+        app._refresh_automation_map.assert_called_once_with()
 
     def test_build_automation_map_collects_bounds_and_state(self) -> None:
         build_map = getattr(CiscoAutoFlashDesktop, "_build_automation_map", None)
@@ -808,10 +892,18 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(data["controls"]["scan"]["click_point"]["x"], 960)
         self.assertEqual(data["controls"]["open_report"]["state"], "disabled")
         self.assertEqual(data["selector"]["current_display"], "Этап 3: verify")
+        self.assertEqual(
+            data["selector"]["buttons"]["stage3_verify"]["click_point"]["x"],
+            850,
+        )
         self.assertEqual(data["tabs"]["container"]["width"], 480)
         self.assertEqual(data["tabs"]["items"], {})
         self.assertEqual(data["state"]["selected_target"], "COM5")
         self.assertEqual(data["state"]["state_text"], "СКАНИРОВАНИЕ")
+        self.assertFalse(data["state"]["demo_busy"])
+        self.assertFalse(data["state"]["stage2_enabled"])
+        self.assertEqual(data["state"]["last_demo_idle_marker"], "")
+        self.assertEqual(data["state"]["last_smoke_open_path"], "")
         self.assertEqual(data["session"]["session_dir"], str(app.session_dir))
         self.assertIn("generated_at", data)
 

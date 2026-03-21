@@ -24,6 +24,8 @@ class ScriptedTransport(Transport):
         command_outputs=None,
         default_output="",
         transcript_path: Path | None = None,
+        on_read_available=None,
+        on_send_command=None,
     ):
         self.read_until_results = list(read_until_results or [])
         self.read_available_chunks = list(read_available_chunks or [])
@@ -33,6 +35,8 @@ class ScriptedTransport(Transport):
         }
         self.default_output = default_output
         self.transcript_path = transcript_path
+        self.on_read_available = on_read_available
+        self.on_send_command = on_send_command
         self.connected = False
         self.interrupted = False
         self.writes: list[str] = []
@@ -52,6 +56,8 @@ class ScriptedTransport(Transport):
         self._transcript("WRITE", data if data else "<ENTER>")
 
     def read_available(self) -> str:
+        if callable(self.on_read_available):
+            self.on_read_available(self)
         if self.read_available_chunks:
             chunk = self.read_available_chunks.pop(0)
             self._transcript("READ", chunk)
@@ -68,6 +74,8 @@ class ScriptedTransport(Transport):
     def send_command(self, command: str, wait: float = 1.0) -> str:
         self.writes.append(command)
         self._transcript("WRITE", command)
+        if callable(self.on_send_command):
+            self.on_send_command(self, command)
         if command in self.command_outputs and self.command_outputs[command]:
             output = self.command_outputs[command].pop(0)
             self._transcript("READ", output)
@@ -105,16 +113,20 @@ class DisconnectAfterReloadTransport(ScriptedTransport):
 class ScriptedFactory(TransportFactory):
     transport_type = TransportType.SERIAL
 
-    def __init__(self, targets, probe_results, transports):
+    def __init__(self, targets, probe_results, transports, on_probe=None):
         self.targets = list(targets)
         self.probe_results = {result.target.id: result for result in probe_results}
         self.transports = list(transports)
+        self.on_probe = on_probe
 
     def list_targets(self):
         return list(self.targets)
 
     def probe(self, target, markers, timeout: float):
-        return self.probe_results[target.id]
+        result = self.probe_results[target.id]
+        if callable(self.on_probe):
+            self.on_probe(target, result)
+        return result
 
     def create(self, target):
         if not self.transports:
@@ -403,6 +415,114 @@ class WorkflowControllerTests(unittest.TestCase):
 
         transcript = self.session.transcript_path.read_text(encoding="utf-8")
         self.assertIn("archive download-sw /overwrite /reload usbflash0:", transcript)
+
+    def test_scan_stop_requested_sets_failed_state(self) -> None:
+        targets = [
+            ConnectionTarget("COM5", "COM5", {"description": "USB Serial"}),
+            ConnectionTarget("COM6", "COM6", {"description": "USB Serial"}),
+        ]
+        results = [
+            ScanResult(targets[0], True, "ready", "priv"),
+            ScanResult(targets[1], True, "ready", "priv"),
+        ]
+        stop_once = {"done": False}
+        controller: WorkflowController | None = None
+
+        def on_probe(_target, _result) -> None:
+            if not stop_once["done"] and controller is not None:
+                stop_once["done"] = True
+                controller.stop()
+
+        factory = ScriptedFactory(targets, results, [], on_probe=on_probe)
+        controller = self.make_controller(factory)
+
+        controller.scan_devices(background=False)
+
+        self.assertEqual(controller.state, WorkflowState.FAILED)
+        self.assertFalse(controller.stage1_complete)
+        log_text = self.session.log_path.read_text(encoding="utf-8")
+        self.assertIn("Запрошена остановка текущей операции.", log_text)
+        self.assertIn("Операция остановлена пользователем.", log_text)
+
+    def test_stage2_stop_requested_interrupts_transport_and_sets_failed(self) -> None:
+        target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
+        controller: WorkflowController | None = None
+        stop_once = {"done": False}
+
+        def on_read_available(_transport: ScriptedTransport) -> None:
+            if not stop_once["done"] and controller is not None:
+                stop_once["done"] = True
+                controller.stop()
+
+        transport = ScriptedTransport(
+            read_until_results=[("Switch#", "Switch#"), ("Switch#", "Switch#")],
+            read_available_chunks=["installing\n"],
+            command_outputs={
+                "show flash:": "123456789 bytes total (98765432 bytes free)",
+                "dir usbflash0:": (
+                    "Directory of usbflash0:/\n1  -rw-  c2960x-universalk9-tar.152-7.E13.tar"
+                ),
+            },
+            on_read_available=on_read_available,
+        )
+        factory = ScriptedFactory(
+            [target],
+            [ScanResult(target, True, "ready", "priv")],
+            [transport],
+        )
+        controller = self.make_controller(factory)
+        controller.selected_target = target
+        controller.stage1_complete = True
+
+        controller.run_stage2(self.profile.default_firmware, background=False)
+
+        self.assertEqual(controller.state, WorkflowState.FAILED)
+        self.assertFalse(controller.stage2_complete)
+        self.assertTrue(transport.interrupted)
+        log_text = self.session.log_path.read_text(encoding="utf-8")
+        self.assertIn("Операция остановлена пользователем.", log_text)
+
+    def test_stage3_stop_requested_before_verify_commands_skips_report(self) -> None:
+        target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
+        controller: WorkflowController | None = None
+        stop_once = {"done": False}
+
+        def on_send_command(_transport: ScriptedTransport, command: str) -> None:
+            if command == "show version" and not stop_once["done"] and controller is not None:
+                stop_once["done"] = True
+                controller.stop()
+
+        transport = ScriptedTransport(
+            read_until_results=[("Switch#", "Switch#")],
+            command_outputs={
+                "terminal length 0": "",
+                "show version": (
+                    "Cisco IOS Software, Version 15.2(7)E13\n"
+                    'System image file is "flash:/image.bin"\n'
+                    "Model Number                    : WS-C2960X-48FPS-L\n"
+                ),
+                "show boot": "BOOT variable = flash:/image.bin",
+                "dir flash:": "123456789 bytes total (98765432 bytes free)",
+            },
+            default_output=lambda command: f"output for {command}",
+            on_send_command=on_send_command,
+        )
+        factory = ScriptedFactory(
+            [target],
+            [ScanResult(target, True, "ready", "priv")],
+            [transport],
+        )
+        controller = self.make_controller(factory)
+        controller.selected_target = target
+
+        controller.run_stage3(background=False)
+
+        self.assertEqual(controller.state, WorkflowState.FAILED)
+        self.assertFalse(self.session.report_path.exists())
+        self.assertTrue(transport.interrupted)
+        log_text = self.session.log_path.read_text(encoding="utf-8")
+        self.assertIn("Запрошена остановка текущей операции.", log_text)
+        self.assertIn("Операция остановлена пользователем.", log_text)
 
     def test_stage3_generates_report(self) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})

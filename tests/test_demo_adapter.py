@@ -65,6 +65,10 @@ class DemoReplayControllerTests(unittest.TestCase):
         event_kinds = [event.kind for event in events]
         self.assertIn("scan_results", event_kinds)
         self.assertIn("selected_target_changed", event_kinds)
+        self.assertIn("demo_idle_ready", event_kinds)
+        idle_event = [event for event in events if event.kind == "demo_idle_ready"][-1]
+        self.assertEqual(idle_event.payload["scenario_name"], "scan_ready")
+        self.assertEqual(idle_event.payload["reason"], "completed")
         self.assertEqual(controller.select_target("COM5"), True)
 
     def test_stop_cancels_pending_playback(self) -> None:
@@ -79,6 +83,33 @@ class DemoReplayControllerTests(unittest.TestCase):
         state_events = [event for event in events if event.kind == "state_changed"]
         self.assertTrue(any(event.payload.get("state") == "IDLE" for event in state_events))
         self.assertTrue(any(event.kind == "operator_message" for event in events))
+        idle_events = [event for event in events if event.kind == "demo_idle_ready"]
+        self.assertTrue(idle_events)
+        self.assertEqual(idle_events[-1].payload["reason"], "stopped")
+
+    def test_set_scenario_is_blocked_while_busy_and_allowed_after_finish(self) -> None:
+        controller, events, scheduler = self.make_controller("stage2_install_success")
+
+        controller.initialize()
+        events.clear()
+
+        self.assertTrue(controller.run_stage2("c2960x-universalk9-tar.152-7.E13.tar"))
+        self.assertFalse(controller.set_scenario("stage2_install_timeout"))
+
+        scheduler.run_all()
+
+        self.assertTrue(controller.set_scenario("stage2_install_timeout"))
+        idle_events = [event for event in events if event.kind == "demo_idle_ready"]
+        self.assertTrue(idle_events)
+        self.assertEqual(idle_events[-1].payload["reason"], "completed")
+        self.assertTrue(
+            any(
+                event.kind == "log"
+                and "[DEMO] Controller idle: stage2_install_success (completed)"
+                in str(event.payload.get("line", ""))
+                for event in events
+            )
+        )
 
     def test_unsupported_action_emits_warning_message(self) -> None:
         controller, events, _scheduler = self.make_controller("scan_ready")

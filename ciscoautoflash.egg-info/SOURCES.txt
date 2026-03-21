@@ -22,6 +22,8 @@ ciscoautoflash/core/ssh_transport.py
 ciscoautoflash/core/state.py
 ciscoautoflash/core/transport.py
 ciscoautoflash/core/workflow.py
+ciscoautoflash/devtools/__init__.py
+ciscoautoflash/devtools/mcp_runtime_health.py
 ciscoautoflash/profiles/__init__.py
 ciscoautoflash/profiles/c2960x.py
 ciscoautoflash/replay/__init__.py
@@ -35,7 +37,9 @@ ciscoautoflash/ui/app.py
 tests/test_c2960x_profile.py
 tests/test_config.py
 tests/test_demo_adapter.py
+tests/test_mcp_runtime_health.py
 tests/test_replay_runner.py
+tests/test_run_demo_gui_smoke.py
 tests/test_serial_transport.py
 tests/test_session_artifacts.py
 tests/test_ssh_transport.py

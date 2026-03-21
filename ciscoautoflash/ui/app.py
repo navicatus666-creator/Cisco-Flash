@@ -94,6 +94,15 @@ class CiscoAutoFlashDesktop:
         self.demo_display_to_name: dict[str, str] = {}
         self.demo_name_to_display: dict[str, str] = {}
         self.selected_demo_scenario_name = demo_scenario or self.settings.demo_scenario_name
+        self._demo_action_state = {
+            "scan_enabled": False,
+            "stage1_enabled": False,
+            "stage2_enabled": False,
+            "stage3_enabled": False,
+            "stop_enabled": False,
+        }
+        self.demo_busy = False
+        self.last_demo_idle_marker = ""
 
         self._instance_guard: SingleInstanceGuard | None = None
         if controller is None:
@@ -371,6 +380,28 @@ class CiscoAutoFlashDesktop:
             )
             self.demo_selector.pack(fill="x", pady=(6, 8))
             self.demo_selector.bind("<<ComboboxSelected>>", self._on_demo_scenario_selected)
+            self.demo_scenario_buttons: dict[str, ttk.Button] = {}
+            buttons_frame = ttk.Frame(demo_card)
+            buttons_frame.pack(fill="x", pady=(0, 8))
+            buttons_frame.columnconfigure(0, weight=1)
+            buttons_frame.columnconfigure(1, weight=1)
+            for index, scenario in enumerate(self.demo_scenarios_by_name.values()):
+                button = ttk.Button(
+                    buttons_frame,
+                    text=scenario.display_name,
+                    bootstyle="secondary",
+                    command=lambda scenario_name=scenario.name: self._on_demo_scenario_button(
+                        scenario_name
+                    ),
+                )
+                button.grid(
+                    row=index // 2,
+                    column=index % 2,
+                    padx=4,
+                    pady=4,
+                    sticky="ew",
+                )
+                self.demo_scenario_buttons[scenario.name] = button
             ttk.Label(
                 demo_card,
                 textvariable=self.demo_description_var,
@@ -1015,6 +1046,16 @@ class CiscoAutoFlashDesktop:
                 "x": max(selector_bounds["left"] + 6, selector_bounds["right"] - 12),
                 "y": int(selector_bounds["top"] + selector_bounds["height"] / 2),
             }
+        selector_buttons: dict[str, dict[str, object]] = {}
+        for scenario_name, widget in getattr(self, "demo_scenario_buttons", {}).items():
+            payload = self._control_payload(widget, name=f"scenario:{scenario_name}")
+            if payload is None:
+                continue
+            payload["scenario_name"] = scenario_name
+            payload["display"] = self.demo_name_to_display.get(scenario_name, scenario_name)
+            selector_buttons[scenario_name] = payload
+        if selector_buttons:
+            selector_payload["buttons"] = selector_buttons
 
         notebook = getattr(self, "diagnostics_notebook", None)
         notebook_bounds = self._widget_bounds(notebook)
@@ -1036,6 +1077,14 @@ class CiscoAutoFlashDesktop:
                 for name, payload in controls.items()
                 if name.startswith("open_") or name == "export_bundle"
             },
+            "demo_busy": self.demo_busy,
+            "scan_enabled": bool(self._demo_action_state.get("scan_enabled", False)),
+            "stage1_enabled": bool(self._demo_action_state.get("stage1_enabled", False)),
+            "stage2_enabled": bool(self._demo_action_state.get("stage2_enabled", False)),
+            "stage3_enabled": bool(self._demo_action_state.get("stage3_enabled", False)),
+            "stop_enabled": bool(self._demo_action_state.get("stop_enabled", False)),
+            "last_demo_idle_marker": self.last_demo_idle_marker,
+            "last_smoke_open_path": str(self.last_smoke_open_path or ""),
         }
         session_payload = {
             "session_id": self.session.session_id,
@@ -1459,8 +1508,20 @@ class CiscoAutoFlashDesktop:
         scenario_name = self.demo_display_to_name.get(scenario_display, "")
         if not scenario_name:
             return
+        self._apply_demo_scenario(scenario_name)
+
+    def _on_demo_scenario_button(self, scenario_name: str) -> None:
+        if not self.demo_mode or not isinstance(self.controller, DemoReplayController):
+            return
+        self._apply_demo_scenario(scenario_name)
+
+    def _apply_demo_scenario(self, scenario_name: str) -> None:
+        scenario_display = self.demo_name_to_display.get(scenario_name, "")
+        if not scenario_display:
+            return
         if self.controller.set_scenario(scenario_name):
             self.selected_demo_scenario_name = scenario_name
+            self.demo_scenario_var.set(scenario_display)
             self._refresh_demo_details()
             self._persist_settings()
             self._log_demo_ui_action("Выбран сценарий", scenario_display)
@@ -1535,6 +1596,7 @@ class CiscoAutoFlashDesktop:
             self.last_smoke_open_path = Path(path)
             self.footer_var.set(f"Smoke check: путь подтверждён -> {Path(path).name}")
             self._log_demo_ui_action("Smoke-mode open suppressed", str(path), level="debug")
+            self._refresh_automation_map()
             return
         try:
             # Intentional local file open in desktop UI.
@@ -1623,6 +1685,16 @@ class CiscoAutoFlashDesktop:
             if state_name == "DISCOVERING":
                 self.scan_status_var.set("Идёт сканирование COM-портов...")
         elif event.kind == "actions_changed":
+            self._demo_action_state = {
+                "scan_enabled": bool(event.payload.get("scan_enabled", False)),
+                "stage1_enabled": bool(event.payload.get("stage1_enabled", False)),
+                "stage2_enabled": bool(event.payload.get("stage2_enabled", False)),
+                "stage3_enabled": bool(event.payload.get("stage3_enabled", False)),
+                "stop_enabled": bool(event.payload.get("stop_enabled", False)),
+            }
+            self.demo_busy = bool(self._demo_action_state["stop_enabled"])
+            if self.demo_busy:
+                self.last_demo_idle_marker = ""
             self._set_button_state(self.scan_button, bool(event.payload.get("scan_enabled", False)))
             self._set_button_state(
                 self.stage1_button, bool(event.payload.get("stage1_enabled", False))
@@ -1634,6 +1706,11 @@ class CiscoAutoFlashDesktop:
                 self.stage3_button, bool(event.payload.get("stage3_enabled", False))
             )
             self._set_button_state(self.stop_button, bool(event.payload.get("stop_enabled", False)))
+        elif event.kind == "demo_idle_ready":
+            marker = str(event.payload.get("marker", "")).strip()
+            if marker:
+                self.last_demo_idle_marker = marker
+            self.demo_busy = bool(event.payload.get("busy", False))
         elif event.kind == "device_snapshot":
             snapshot = event.payload["snapshot"]
             target_id = getattr(snapshot, "port", "") or ""
@@ -1809,6 +1886,10 @@ class CiscoAutoFlashDesktop:
             scenario.description or "Сценарий готов для click-smoke без оборудования."
         )
         self.demo_actions_var.set(self._friendly_demo_actions(scenario.supported_actions))
+        for scenario_name, button in getattr(self, "demo_scenario_buttons", {}).items():
+            button.configure(
+                bootstyle="primary" if scenario_name == scenario.name else "secondary"
+            )
         self._refresh_automation_map()
 
 
