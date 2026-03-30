@@ -967,6 +967,7 @@ class WorkflowController:
             observed_firmware_version=getattr(self.device_snapshot, "firmware", ""),
             last_scan_completed_at=self.last_scan_completed_at,
             operator_message={
+                "code": getattr(self.operator_message, "code", ""),
                 "severity": getattr(self.operator_message, "severity", ""),
                 "title": getattr(self.operator_message, "title", ""),
                 "detail": getattr(self.operator_message, "detail", ""),

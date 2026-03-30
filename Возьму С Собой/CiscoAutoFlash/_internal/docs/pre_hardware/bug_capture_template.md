@@ -17,6 +17,7 @@
 
 ## Observed behavior
 - Stage:
+- Initial classification: firmware_missing / timeout / stopped / other
 - Stage 1 duration:
 - Stage 2 duration:
 - Stage 3 duration:

@@ -130,6 +130,7 @@ def _validate_bundle() -> None:
         RUNBOOK_DIR / "expected_outcomes.md",
         RUNBOOK_DIR / "scenario_matrix.md",
         RUNBOOK_DIR / "legacy_parity_checklist.md",
+        REPLAY_DIR / "stage2_firmware_missing.toml",
         REPLAY_DIR / "stage3_verify.toml",
         REPLAY_DIR / "full_install_verify.toml",
     ]

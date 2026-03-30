@@ -297,18 +297,61 @@ def _artifact_integrity(records: dict[str, dict[str, Any]]) -> list[str]:
         record = records.get(name, {})
         if not record.get("present"):
             issues.append(f"Missing {name} artifact.")
+            continue
+        if name != "manifest" and record.get("size_bytes", 0) == 0:
+            issues.append(f"{name} artifact is empty.")
     return issues
+
+
+def _classify_failure(summary: dict[str, Any]) -> str:
+    session = summary["session"]
+    if session["final_state"] == "DONE":
+        return "success"
+    operator_message = session.get("operator_message", {})
+    if isinstance(operator_message, dict):
+        code = str(operator_message.get("code", "")).strip().lower()
+        if code:
+            return code
+    parts = [
+        str(session.get("operator_text", "")),
+        *summary["signatures"]["errors"],
+        *summary["signatures"]["warnings"],
+    ]
+    lowered = " ".join(part.lower() for part in parts if part)
+    if "не найден на usb" in lowered or "firmware file not found" in lowered or "no such file" in lowered:
+        return "firmware_missing"
+    if "timeout" in lowered or "таймаут" in lowered:
+        return "timeout"
+    if "останов" in lowered or "stopped" in lowered or "abort" in lowered:
+        return "stopped"
+    return "failed"
 
 
 def _build_next_steps(summary: dict[str, Any]) -> list[str]:
     session = summary["session"]
     artifacts = summary["artifacts"]
     signatures = summary["signatures"]
+    failure_class = session.get("failure_class", "")
     next_steps: list[str] = []
     if not all(artifacts[name]["present"] for name in ("log", "report", "transcript")):
         next_steps.append(
             "Bring back session_bundle.zip when possible; a bare session folder may "
             "omit log/report/transcript."
+        )
+    if failure_class == "firmware_missing":
+        next_steps.append(
+            "Verify the exact firmware filename and capture `dir usbflash0:` / "
+            "`dir usbflash1:` output before retrying."
+        )
+    elif failure_class == "timeout":
+        next_steps.append(
+            "Check whether `archive download-sw` started and whether the switch "
+            "already rebooted before retrying Stage 2."
+        )
+    elif failure_class == "stopped":
+        next_steps.append(
+            "Re-scan the device and restart from the intended stage; keep the stopped "
+            "session bundle for comparison."
         )
     if session["final_state"] != "DONE":
         next_steps.append(
@@ -378,6 +421,7 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
         },
         "issues": _artifact_integrity(records),
     }
+    summary["session"]["failure_class"] = _classify_failure(summary)
     summary["next_steps"] = _build_next_steps(summary)
     return summary
 
@@ -416,6 +460,7 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
             f"- Source: {summary['source']['kind']} -> {summary['source']['path']}",
             f"- Session ID: {session['session_id'] or 'unknown'}",
             f"- Final state: {session['final_state'] or 'unknown'}",
+            f"- Failure class: {session.get('failure_class', 'unknown')}",
             f"- Current stage: {session['current_stage'] or 'unknown'}",
             f"- Selected target: {session['selected_target_id'] or 'unknown'}",
             f"- Run mode: {session['run_mode'] or 'unknown'}",

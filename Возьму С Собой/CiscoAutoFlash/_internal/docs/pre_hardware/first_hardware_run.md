@@ -88,6 +88,14 @@ Stop the run and capture artifacts immediately if any of these happen:
 - install timeout or obvious install error
 - operator abort
 
+## Quick failure classification
+
+Use the first matching bucket before filling `bug_capture_template.md`:
+- `firmware_missing`: operator card says the image file is missing, or the transcript/log shows `Firmware file not found` / `No such file` around `dir usbflash0:` or `dir usbflash1:`
+- `timeout`: operator card says timeout, or Stage 2 stalls after `archive download-sw` without a clean completion
+- `stopped`: the run was aborted by the operator and the final message says the operation was stopped
+- `other`: anything else; attach the summary from `triage_session_return.py` and quote the final operator message verbatim
+
 ## Capture after every run
 
 - `log` path

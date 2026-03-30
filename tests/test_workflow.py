@@ -386,6 +386,36 @@ class WorkflowControllerTests(unittest.TestCase):
         self.assertEqual(controller.state, WorkflowState.FAILED)
         self.assertFalse(controller.stage2_complete)
 
+    def test_stage2_missing_firmware_sets_failed_state_and_message(self) -> None:
+        target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
+        transport = ScriptedTransport(
+            read_until_results=[("Switch#", "Switch#")],
+            command_outputs={
+                "show flash:": "123456789 bytes total (98765432 bytes free)",
+                "dir usbflash0:": "Directory of usbflash0:/",
+                "dir usbflash1:": "Directory of usbflash1:/",
+            },
+        )
+        factory = ScriptedFactory(
+            [target],
+            [ScanResult(target, True, "ready", "priv")],
+            [transport],
+        )
+        controller = self.make_controller(factory)
+        controller.selected_target = target
+        controller.stage1_complete = True
+
+        controller.run_stage2(self.profile.default_firmware, background=False)
+
+        self.assertEqual(controller.state, WorkflowState.FAILED)
+        self.assertFalse(controller.stage2_complete)
+        self.assertEqual(controller.operator_message.code, "firmware_missing")
+        self.assertIn("usbflash0:/usbflash1:", controller.operator_message.next_step)
+        self.assertNotIn(
+            "archive download-sw /overwrite /reload",
+            "\n".join(transport.writes),
+        )
+
     def test_stage2_writes_transcript(self) -> None:
         target = ConnectionTarget("COM5", "COM5", {"description": "USB Serial"})
         transport = ScriptedTransport(

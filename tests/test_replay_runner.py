@@ -106,6 +106,27 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(result.final_state, "FAILED")
         self.assertFalse(result.stage2_complete)
         self.assertEqual(result.operator_message.code, "timeout")
+        self.assertIn("Повторите шаг", result.operator_message.next_step)
+        transcript = result.transcript_path.read_text(encoding="utf-8")
+        self.assertIn("dir usbflash0:", transcript)
+
+    def test_stage2_firmware_missing_scenario_fails_before_install(self) -> None:
+        runtime_root, result = self.run_named_scenario_with_runtime("stage2_firmware_missing")
+
+        self.assert_event_contract(result)
+        self.assertEqual(result.final_state, "FAILED")
+        self.assertFalse(result.stage2_complete)
+        self.assertEqual(result.operator_message.code, "firmware_missing")
+        self.assertIn("usbflash0:/usbflash1:", result.operator_message.next_step)
+        transcript = result.transcript_path.read_text(encoding="utf-8")
+        self.assertIn("dir usbflash0:", transcript)
+        self.assertIn("dir usbflash1:", transcript)
+        self.assertNotIn("archive download-sw /overwrite /reload", transcript)
+        manifest_paths = sorted(runtime_root.rglob("session_manifest*.json"))
+        self.assertEqual(len(manifest_paths), 1)
+        manifest = json.loads(manifest_paths[0].read_text(encoding="utf-8"))
+        self.assertEqual(manifest["current_state"], "FAILED")
+        self.assertEqual(manifest["operator_message"]["code"], "firmware_missing")
 
     def test_stage3_verify_scenario_writes_report_and_verification_transcript(self) -> None:
         result = self.run_named_scenario("stage3_verify")
@@ -169,6 +190,12 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(scenario.supported_actions, ("scan", "stage1", "stage2", "stage3"))
         self.assertEqual(scenario.firmware_name, "c2960x-universalk9-tar.152-7.E13.tar")
 
+    def test_loader_resolves_stage2_firmware_missing_scenario(self) -> None:
+        scenario = load_scenario("stage2_firmware_missing")
+        self.assertEqual(scenario.name, "stage2_firmware_missing")
+        self.assertEqual(scenario.action, "stage2")
+        self.assertEqual(scenario.supported_actions, ("scan", "stage2"))
+
     def test_cli_main_prints_summary_and_events(self) -> None:
         runtime_root = Path(tempfile.mkdtemp(prefix="ciscoautoflash-replay-cli-"))
         buffer = io.StringIO()
@@ -197,6 +224,7 @@ class ReplayRunnerTests(unittest.TestCase):
             "scan_config_dialog.toml",
             "scan_rommon.toml",
             "stage1_reboot_config_dialog.toml",
+            "stage2_firmware_missing.toml",
             "stage2_install_success.toml",
             "stage2_install_timeout.toml",
             "stage3_verify.toml",

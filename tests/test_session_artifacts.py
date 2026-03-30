@@ -74,6 +74,7 @@ class SessionArtifactsTests(unittest.TestCase):
             observed_firmware_version="15.2(7)E13",
             last_scan_completed_at="2026-03-15 14:21:00",
             operator_message={
+                "code": "info",
                 "severity": "info",
                 "title": "Готово",
                 "detail": "Проверка завершена.",
@@ -86,6 +87,7 @@ class SessionArtifactsTests(unittest.TestCase):
         saved = json.loads(self.session.manifest_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["session_id"], "artifact")
         self.assertIn("00:03:00", saved["stage_durations"].values())
+        self.assertEqual(saved["operator_message"]["code"], "info")
         self.assertEqual(saved["operator_message"]["title"], "Готово")
 
         bundle_path = export_session_bundle(self.session)
