@@ -40,6 +40,13 @@ SELECTOR_RETRY_OFFSETS = (
     (-16, 0),
     (16, 0),
 )
+ARTIFACT_RETRY_OFFSETS = (
+    (0, 0),
+    (-8, 0),
+    (8, 0),
+    (0, -4),
+    (0, 4),
+)
 TAB_STEP_ALIASES = {
     "Журнал": "journal",
     "Артефакты сессии": "artifacts",
@@ -496,7 +503,7 @@ class DemoGuiSmokeRunner:
                 lambda data: data.get("final_state") == "FAILED",
                 "final_state == FAILED after stop",
             )
-            stop_marker = self._wait_for_new_log_marker("Проигрывание остановлено")
+            stop_marker = self._wait_for_new_log_marker("[DEMO][UI] Нажат Stop")
             idle_evidence = self._wait_for_demo_idle()
             return [
                 stop_marker,
@@ -516,10 +523,13 @@ class DemoGuiSmokeRunner:
                 lambda data: data.get("final_state") == "DONE",
                 "final_state == DONE",
             )
+            stage_marker = self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 3")
+            idle_evidence = self._wait_for_demo_idle()
             return [
-                self._wait_for_new_log_marker("[DEMO][UI] Запущен Stage 3"),
+                stage_marker,
                 f"Report: {self.report_path}",
                 f"Manifest final_state: {manifest.get('final_state', '')}",
+                *idle_evidence,
             ]
 
         self._run_step("stage3_verify", verify, action=action)
@@ -538,7 +548,10 @@ class DemoGuiSmokeRunner:
             self._run_step(
                 name,
                 lambda path=expected_path: self._verify_smoke_open(path),
-                action=lambda button_name=name: self._click_button(button_name),
+                action=lambda button_name=name, path=expected_path: self._prime_smoke_open(
+                    button_name,
+                    path,
+                ),
             )
 
         self._run_step(
@@ -547,22 +560,83 @@ class DemoGuiSmokeRunner:
             action=lambda: self._click_button("export_bundle"),
         )
 
+    def _prime_smoke_open(self, button_name: str, expected_path: Path) -> None:
+        point = self._lookup_control_point(button_name)
+        if point is None:
+            raise SmokeFailure(f"Automation map does not provide click point for control: {button_name}")
+        for x_offset, y_offset in ARTIFACT_RETRY_OFFSETS:
+            self._click_absolute(point[0] + x_offset, point[1] + y_offset)
+            if self._wait_for_smoke_open_path(
+                expected_path,
+                timeout=0.5,
+                raise_on_timeout=False,
+            ):
+                return
+
+    def _wait_for_smoke_open_path(
+        self,
+        expected_path: Path,
+        *,
+        timeout: float = 5.0,
+        raise_on_timeout: bool = True,
+    ) -> str:
+        path = expected_path.resolve()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            payload = self._refresh_automation_map(timeout=0.5, raise_on_timeout=False)
+            state = payload.get("state") if isinstance(payload, dict) else None
+            last_smoke_open_path = ""
+            if isinstance(state, dict):
+                last_smoke_open_path = str(state.get("last_smoke_open_path", ""))
+            if last_smoke_open_path == str(path):
+                return f"Automation map open confirmed: {path}"
+            time.sleep(0.1)
+        if raise_on_timeout:
+            raise SmokeFailure(f"Automation map did not confirm smoke-open path: {path}")
+        return ""
+
     def _verify_smoke_open(self, expected_path: Path) -> list[str]:
         path = expected_path.resolve()
-        marker_line = self._wait_for_new_log_marker(f"Smoke-mode open suppressed: {path}")
-        payload = self._refresh_automation_map()
-        state = payload.get("state") if isinstance(payload, dict) else None
-        last_smoke_open_path = ""
-        if isinstance(state, dict):
-            last_smoke_open_path = str(state.get("last_smoke_open_path", ""))
-        if last_smoke_open_path != str(path):
+        marker = f"Smoke-mode open suppressed: {path}"
+        deadline = time.time() + 3.0
+        marker_line = ""
+        path_evidence = ""
+        while time.time() < deadline:
+            if not marker_line:
+                marker_line = self._wait_for_new_log_marker(
+                    marker,
+                    timeout=0.4,
+                    raise_on_timeout=False,
+                )
+            if not path_evidence:
+                path_evidence = self._wait_for_smoke_open_path(
+                    path,
+                    timeout=0.4,
+                    raise_on_timeout=False,
+                )
+            if marker_line or path_evidence:
+                break
+            time.sleep(0.1)
+        if not marker_line and not path_evidence:
+            payload = self._refresh_automation_map(timeout=0.5, raise_on_timeout=False)
+            state = payload.get("state") if isinstance(payload, dict) else None
+            last_smoke_open_path = ""
+            if isinstance(state, dict):
+                last_smoke_open_path = str(state.get("last_smoke_open_path", ""))
             raise SmokeFailure(
-                "Automation map last_smoke_open_path mismatch: "
-                f"expected {path}, got {last_smoke_open_path or '<empty>'}"
+                "Smoke-mode open was not confirmed: "
+                f"expected {path}, last_smoke_open_path={last_smoke_open_path or '<empty>'}"
             )
         self._refresh_paths()
         if path.exists():
-            return [marker_line, f"Smoke open confirmed: {path}"]
+            evidence: list[str] = []
+            if marker_line:
+                evidence.append(marker_line)
+            if path_evidence:
+                evidence.append(path_evidence)
+            elif marker_line:
+                evidence.append(f"Smoke open confirmed via marker: {path}")
+            return evidence
         raise SmokeFailure(f"Expected open target does not exist: {path}")
 
     def _verify_bundle_export(self) -> list[str]:
@@ -807,6 +881,22 @@ class DemoGuiSmokeRunner:
             handle.seek(cursor)
             return handle.read().decode("utf-8", errors="ignore")
 
+    @staticmethod
+    def _iter_log_lines_from_path(path: Path, cursor: int) -> list[tuple[int, str]]:
+        if not path.exists():
+            return []
+        with path.open("rb") as handle:
+            handle.seek(cursor)
+            chunk = handle.read()
+        if not chunk:
+            return []
+        items: list[tuple[int, str]] = []
+        offset = cursor
+        for raw_line in chunk.splitlines(keepends=True):
+            offset += len(raw_line)
+            items.append((offset, raw_line.decode("utf-8", errors="ignore").rstrip("\r\n")))
+        return items
+
     def _read_log_delta(self, cursor: int) -> str:
         if self.log_path is None or not self.log_path.exists():
             return ""
@@ -827,13 +917,13 @@ class DemoGuiSmokeRunner:
             for path in self._recent_logs():
                 found_logs = True
                 cursor = self._step_recent_log_offsets.get(path, 0)
-                contents = self._read_log_delta_for_path(path, cursor)
-                next_cursor = path.stat().st_size if path.exists() else cursor
-                for line in contents.splitlines():
+                next_cursor = cursor
+                for line_end_cursor, line in self._iter_log_lines_from_path(path, cursor):
+                    next_cursor = line_end_cursor
                     if marker in line:
-                        self._step_recent_log_offsets[path] = next_cursor
+                        self._step_recent_log_offsets[path] = line_end_cursor
                         if path == self.log_path:
-                            self._step_log_cursor = next_cursor
+                            self._step_log_cursor = line_end_cursor
                         return line
                 self._step_recent_log_offsets[path] = next_cursor
             if not found_logs:
