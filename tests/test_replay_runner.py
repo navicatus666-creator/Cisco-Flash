@@ -7,6 +7,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
+from ciscoautoflash.devtools import session_return_triage
 from ciscoautoflash.replay.loader import load_scenario
 from ciscoautoflash.replay.runner import ReplayRunner
 from ciscoautoflash.replay.runner import main as replay_main
@@ -36,6 +37,13 @@ class ReplayRunnerTests(unittest.TestCase):
     def run_named_scenario(self, name: str):
         _, result = self.run_named_scenario_with_runtime(name)
         return result
+
+    @staticmethod
+    def session_dir_for_runtime(runtime_root: Path) -> Path:
+        manifest_paths = sorted(runtime_root.rglob("session_manifest*.json"))
+        if len(manifest_paths) != 1:
+            raise AssertionError(f"Expected exactly one manifest under {runtime_root}, got {manifest_paths}")
+        return manifest_paths[0].parent
 
     def assert_event_contract(self, result) -> None:
         self.assertTrue(set(result.event_counts).issubset(ALLOWED_EVENT_KINDS))
@@ -146,6 +154,37 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertIn("show boot", transcript)
         self.assertIn("dir flash:", transcript)
 
+    def test_stage3_artifact_incomplete_scenario_surfaces_artifact_incomplete_triage(self) -> None:
+        runtime_root, result = self.run_named_scenario_with_runtime("stage3_artifact_incomplete")
+
+        self.assert_event_contract(result)
+        self.assertEqual(result.final_state, "DONE")
+        self.assertFalse(result.report_path.exists())
+
+        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        self.assertEqual(summary["session"]["failure_class"], "artifact_incomplete")
+        self.assertIn("Missing report artifact.", summary["issues"])
+        self.assertIn("whole session folder", summary["diagnosis"]["recommended_next_capture"])
+        self.assertIn("report:", "\n".join(summary["diagnosis"]["inspect_next"]))
+
+    def test_stage3_report_state_mismatch_scenario_surfaces_report_consistency_issue(self) -> None:
+        runtime_root, result = self.run_named_scenario_with_runtime("stage3_report_state_mismatch")
+
+        self.assert_event_contract(result)
+        self.assertEqual(result.final_state, "DONE")
+        self.assertTrue(result.report_path.exists())
+
+        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        self.assertEqual(summary["session"]["failure_class"], "artifact_incomplete")
+        self.assertIn(
+            "Report Transcript field does not match transcript artifact.",
+            summary["issues"],
+        )
+        self.assertIn(
+            "Report Current State does not match manifest final_state.",
+            summary["issues"],
+        )
+
     def test_full_install_verify_scenario_runs_end_to_end_and_writes_manifest(self) -> None:
         runtime_root, result = self.run_named_scenario_with_runtime("full_install_verify")
 
@@ -227,6 +266,8 @@ class ReplayRunnerTests(unittest.TestCase):
             "stage2_firmware_missing.toml",
             "stage2_install_success.toml",
             "stage2_install_timeout.toml",
+            "stage3_artifact_incomplete.toml",
+            "stage3_report_state_mismatch.toml",
             "stage3_verify.toml",
             "full_install_verify.toml",
         }

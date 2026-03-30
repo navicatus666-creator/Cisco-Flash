@@ -27,3 +27,9 @@ Primary run path: `first_hardware_run.md`.
 - `session folder`
 - `session bundle`
 - screenshot of final dashboard state if a failure occurred
+
+## First intake on the dev machine
+- Bring back `session_bundle_*.zip` first; if that fails, bring back the whole session folder.
+- Run `python C:\PROJECT\scripts\triage_session_return.py "<bundle-or-session-folder>" --output-dir C:\PROJECT\triage_out`.
+- Read the triage summary before opening raw files by hand.
+- Use its `failure_class`, `most likely cause`, `recommended next capture`, and `inspect next` fields to drive the first bug write-up.

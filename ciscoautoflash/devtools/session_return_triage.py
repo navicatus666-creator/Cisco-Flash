@@ -303,15 +303,75 @@ def _artifact_integrity(records: dict[str, dict[str, Any]]) -> list[str]:
     return issues
 
 
+def _artifact_consistency_issues(summary: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    artifacts = summary["artifacts"]
+    report_fields = summary["report_fields"]
+    session = summary["session"]
+
+    def is_placeholder(value: str) -> bool:
+        return value.strip().lower() in {"", "n/a", "—", "-"}
+
+    if artifacts.get("report", {}).get("present"):
+        report_transcript = str(report_fields.get("Transcript", "")).strip()
+        transcript_path = str(artifacts.get("transcript", {}).get("path", "")).strip()
+        if not report_transcript:
+            issues.append("Report Transcript field is missing or empty.")
+        elif transcript_path and Path(report_transcript).name != Path(transcript_path).name:
+            issues.append("Report Transcript field does not match transcript artifact.")
+
+    report_state = str(report_fields.get("Current State", "")).strip()
+    if (
+        report_state
+        and not is_placeholder(report_state)
+        and session["final_state"]
+        and report_state != session["final_state"]
+    ):
+        issues.append("Report Current State does not match manifest final_state.")
+
+    report_stage = str(report_fields.get("Current Stage", "")).strip()
+    if (
+        report_stage
+        and not is_placeholder(report_stage)
+        and session["current_stage"]
+        and report_stage != session["current_stage"]
+    ):
+        issues.append("Report Current Stage does not match manifest current_stage.")
+
+    report_run_mode = str(report_fields.get("Run Mode", "")).strip()
+    if (
+        report_run_mode
+        and not is_placeholder(report_run_mode)
+        and session["run_mode"]
+        and report_run_mode != session["run_mode"]
+    ):
+        issues.append("Report Run Mode does not match manifest run_mode.")
+
+    return issues
+
+
+def _has_artifact_incomplete_issues(summary: dict[str, Any]) -> bool:
+    return any(
+        issue.startswith("Missing ")
+        or issue.endswith(" artifact is empty.")
+        or issue.startswith("Report ")
+        for issue in summary["issues"]
+    )
+
+
 def _classify_failure(summary: dict[str, Any]) -> str:
     session = summary["session"]
     if session["final_state"] == "DONE":
-        return "success"
+        return "artifact_incomplete" if _has_artifact_incomplete_issues(summary) else "success"
     operator_message = session.get("operator_message", {})
     if isinstance(operator_message, dict):
         code = str(operator_message.get("code", "")).strip().lower()
+        if code == "demo_stopped":
+            return "stopped"
         if code:
             return code
+    if _has_artifact_incomplete_issues(summary):
+        return "artifact_incomplete"
     parts = [
         str(session.get("operator_text", "")),
         *summary["signatures"]["errors"],
@@ -324,7 +384,88 @@ def _classify_failure(summary: dict[str, Any]) -> str:
         return "timeout"
     if "останов" in lowered or "stopped" in lowered or "abort" in lowered:
         return "stopped"
-    return "failed"
+    return "other"
+
+
+def _most_likely_cause(summary: dict[str, Any]) -> str:
+    failure_class = summary["session"].get("failure_class", "other")
+    issues = summary["issues"]
+    errors = summary["signatures"]["errors"]
+    operator_text = summary["session"].get("operator_text", "")
+    if failure_class == "success":
+        return "The session completed and the returned diagnostic set looks internally consistent."
+    if failure_class == "firmware_missing":
+        return "Stage 2 could not find the requested firmware tar on usbflash0:/usbflash1:."
+    if failure_class == "timeout":
+        return "The workflow likely stalled before the expected reboot or prompt-recovery marker returned."
+    if failure_class == "stopped":
+        return "The run was stopped before the active stage completed."
+    if failure_class == "artifact_incomplete":
+        return issues[0] if issues else "The returned diagnostic set is incomplete or internally inconsistent."
+    if operator_text:
+        return operator_text
+    if errors:
+        return errors[0]
+    return "The returned artifacts show a failure, but no stronger classification matched."
+
+
+def _recommended_next_capture(summary: dict[str, Any]) -> str:
+    failure_class = summary["session"].get("failure_class", "other")
+    if failure_class == "success":
+        return "Bring back session_bundle_*.zip only; no extra capture is required unless the operator noticed something unusual."
+    if failure_class == "firmware_missing":
+        return "Capture `dir usbflash0:` and `dir usbflash1:` plus the exact firmware filename visible on the USB media, then bring back the session bundle."
+    if failure_class == "timeout":
+        return "Capture a final dashboard screenshot, the last visible console prompt after waiting, and whether the switch actually rebooted after `archive download-sw`."
+    if failure_class == "stopped":
+        return "Capture why the run was stopped, the final dashboard screenshot, and the stopped session bundle for comparison."
+    if failure_class == "artifact_incomplete":
+        return "Bring back the whole session folder plus any matching log/report/transcript files and a screenshot of the final dashboard state."
+    return "Capture the final dashboard screenshot, the exact final prompt, and the full session folder in addition to the session bundle."
+
+
+def _inspect_next(summary: dict[str, Any]) -> list[str]:
+    failure_class = summary["session"].get("failure_class", "other")
+    if failure_class == "success":
+        return [
+            "report: confirm final operator-facing conclusions and reported workflow mode.",
+            "transcript: spot-check the final verification commands and prompt tail.",
+            "manifest: confirm final_state/current_stage and session paths.",
+        ]
+    if failure_class == "firmware_missing":
+        return [
+            "transcript: inspect `dir usbflash0:` / `dir usbflash1:` output and the first `No such file` line.",
+            "log: confirm when Stage 2 decided the image was missing.",
+            "manifest: check final_state/current_stage and operator_message.code.",
+            "report: confirm the operator-facing next step mentions the missing image.",
+        ]
+    if failure_class == "timeout":
+        return [
+            "transcript: inspect the tail around `archive download-sw` and prompt recovery.",
+            "log: confirm the last progress marker before timeout.",
+            "manifest: check final_state/current_stage and stage duration fields.",
+            "report: confirm the operator-facing timeout message and next step.",
+        ]
+    if failure_class == "stopped":
+        return [
+            "manifest: confirm the final state and stop-related operator message.",
+            "log: find the exact stop marker and what was running immediately before it.",
+            "transcript: inspect the last command/prompt pair before the stop.",
+            "report: confirm the stop reason presented to the operator.",
+        ]
+    if failure_class == "artifact_incomplete":
+        return [
+            "manifest: confirm which artifacts were expected and what final state was recorded.",
+            "report: check for missing fields or values that do not match the manifest.",
+            "transcript: verify the file is present and non-empty before trusting the run outcome.",
+            "log: confirm whether the missing/inconsistent artifact happened before or after the main failure.",
+        ]
+    return [
+        "manifest: confirm final_state/current_stage and operator_message first.",
+        "transcript: inspect the command/prompt tail around the failure.",
+        "log: inspect the last error/warning signatures.",
+        "report: compare the operator-facing summary against the manifest and transcript.",
+    ]
 
 
 def _build_next_steps(summary: dict[str, Any]) -> list[str]:
@@ -421,7 +562,13 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
         },
         "issues": _artifact_integrity(records),
     }
+    summary["issues"].extend(_artifact_consistency_issues(summary))
     summary["session"]["failure_class"] = _classify_failure(summary)
+    summary["diagnosis"] = {
+        "most_likely_cause": _most_likely_cause(summary),
+        "recommended_next_capture": _recommended_next_capture(summary),
+        "inspect_next": _inspect_next(summary),
+    }
     summary["next_steps"] = _build_next_steps(summary)
     return summary
 
@@ -448,6 +595,7 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
     error_rows = [f"- {line}" for line in signatures["errors"]] or ["- None"]
     warning_rows = [f"- {line}" for line in signatures["warnings"]] or ["- None"]
     issue_rows = [f"- {line}" for line in summary["issues"]] or ["- None"]
+    inspect_rows = [f"- {line}" for line in summary["diagnosis"]["inspect_next"]]
     next_rows = [f"- {line}" for line in summary["next_steps"]]
     log_tail = "\n".join(summary["tails"]["log"]) or "(empty)"
     transcript_tail = "\n".join(summary["tails"]["transcript"]) or "(empty)"
@@ -461,6 +609,8 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
             f"- Session ID: {session['session_id'] or 'unknown'}",
             f"- Final state: {session['final_state'] or 'unknown'}",
             f"- Failure class: {session.get('failure_class', 'unknown')}",
+            f"- Most likely cause: {summary['diagnosis']['most_likely_cause']}",
+            f"- Recommended next capture: {summary['diagnosis']['recommended_next_capture']}",
             f"- Current stage: {session['current_stage'] or 'unknown'}",
             f"- Selected target: {session['selected_target_id'] or 'unknown'}",
             f"- Run mode: {session['run_mode'] or 'unknown'}",
@@ -488,6 +638,9 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
             "",
             "## Warning Signatures",
             *warning_rows,
+            "",
+            "## Inspect Next",
+            *inspect_rows,
             "",
             "## Next Steps",
             *next_rows,

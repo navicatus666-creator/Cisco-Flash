@@ -27,6 +27,7 @@ CiscoAutoFlash — полевой комплект для Cisco 2960-X
   `python C:\PROJECT\scripts\triage_session_return.py `
   `"<bundle-or-session-folder>" --output-dir C:\PROJECT\triage_out`
 - Это соберёт короткую сводку по manifest/report/transcript/log без ручного копания
+- Сначала смотри в ней `failure_class`, `most likely cause`, `recommended next capture` и `inspect next`
 
 Что не входит в комплект
 - Прошивка/образ Cisco

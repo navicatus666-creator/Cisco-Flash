@@ -3,6 +3,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from ..config import default_project_root
 from ..core.models import ConnectionTarget, ScanResult
@@ -24,6 +25,7 @@ class ReplayScenario:
     firmware_name: str = ""
     stage1_complete: bool = False
     stage2_complete: bool = False
+    artifact_mutations: dict[str, Any] | None = None
 
 
 def default_scenario_dir() -> Path:
@@ -100,6 +102,30 @@ def _normalize_supported_actions(value: object, action: str) -> tuple[str, ...]:
     return tuple(normalized)
 
 
+def _normalize_artifact_mutations(value: object) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Expected [artifact_mutations] table in replay fixture")
+    normalized: dict[str, Any] = {}
+    for key, raw in value.items():
+        if not isinstance(key, str):
+            raise ValueError("artifact_mutations keys must be strings")
+        if isinstance(raw, (str, bool)):
+            normalized[key] = raw
+            continue
+        if isinstance(raw, dict):
+            converted: dict[str, str] = {}
+            for nested_key, nested_value in raw.items():
+                if not isinstance(nested_key, str) or not isinstance(nested_value, str):
+                    raise ValueError("artifact_mutations nested tables must be string-to-string")
+                converted[nested_key] = nested_value
+            normalized[key] = converted
+            continue
+        raise ValueError(f"Unsupported artifact_mutations payload for {key!r}")
+    return normalized or None
+
+
 def load_scenario(value: str | Path, scenario_dir: Path | None = None) -> ReplayScenario:
     path = resolve_scenario_path(value, scenario_dir=scenario_dir)
     data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -172,6 +198,7 @@ def load_scenario(value: str | Path, scenario_dir: Path | None = None) -> Replay
         firmware_name=str(data.get("firmware_name", "")),
         stage1_complete=bool(data.get("stage1_complete", False)),
         stage2_complete=bool(data.get("stage2_complete", False)),
+        artifact_mutations=_normalize_artifact_mutations(data.get("artifact_mutations")),
     )
 
 

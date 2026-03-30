@@ -99,6 +99,7 @@ def _write_operator_note() -> None:
               `python C:\\PROJECT\\scripts\\triage_session_return.py `
               `"<bundle-or-session-folder>" --output-dir C:\\PROJECT\\triage_out`
             - Это соберёт короткую сводку по manifest/report/transcript/log без ручного копания
+            - Сначала смотри в ней `failure_class`, `most likely cause`, `recommended next capture` и `inspect next`
 
             Что не входит в комплект
             - Прошивка/образ Cisco
@@ -131,6 +132,8 @@ def _validate_bundle() -> None:
         RUNBOOK_DIR / "scenario_matrix.md",
         RUNBOOK_DIR / "legacy_parity_checklist.md",
         REPLAY_DIR / "stage2_firmware_missing.toml",
+        REPLAY_DIR / "stage3_artifact_incomplete.toml",
+        REPLAY_DIR / "stage3_report_state_mismatch.toml",
         REPLAY_DIR / "stage3_verify.toml",
         REPLAY_DIR / "full_install_verify.toml",
     ]

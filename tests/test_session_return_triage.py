@@ -163,6 +163,9 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertEqual(summary["session"]["selected_target_id"], "COM7")
             self.assertTrue(summary["artifacts"]["log"]["present"])
             self.assertTrue(summary["signatures"]["errors"])
+            self.assertIn("stalled", summary["diagnosis"]["most_likely_cause"])
+            self.assertIn("dashboard screenshot", summary["diagnosis"]["recommended_next_capture"])
+            self.assertIn("archive download-sw", "\n".join(summary["diagnosis"]["inspect_next"]))
             self.assertIn("Compare the failure", "\n".join(summary["next_steps"]))
             self.assertIn("archive download-sw", "\n".join(summary["tails"]["transcript"]))
 
@@ -190,9 +193,57 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertEqual(summary["session"]["failure_class"], "firmware_missing")
             self.assertFalse(summary["artifacts"]["report"]["present"])
             self.assertIn("Missing report artifact.", summary["issues"])
+            self.assertIn("requested firmware tar", summary["diagnosis"]["most_likely_cause"])
+            self.assertIn("dir usbflash0:", summary["diagnosis"]["recommended_next_capture"])
             next_steps = "\n".join(summary["next_steps"])
             self.assertIn("Verify the exact firmware filename", next_steps)
             self.assertIn("session_bundle.zip", next_steps)
+
+    def test_build_triage_summary_flags_report_mismatch_as_artifact_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session_dir, _bundle_path = _write_fixture(Path(temp_dir))
+            manifest_path = session_dir / "session_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["final_state"] = "DONE"
+            manifest["current_state"] = "DONE"
+            manifest["current_stage"] = "Этап 3"
+            manifest["operator_severity"] = "info"
+            manifest["operator_message"] = {
+                "code": "info",
+                "severity": "info",
+                "title": "Этап 3 завершён",
+                "detail": "Сформирован финальный install report.",
+                "next_step": "Откройте отчёт и транскрипт.",
+            }
+            manifest["operator_text"] = "Этап 3 завершён | Сформирован финальный install report. | Откройте отчёт и транскрипт."
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            report_path = Path(manifest["artifacts"]["report_path"])
+            report_path.write_text(
+                "\n".join(
+                    [
+                        "Run Mode: Real",
+                        "Workflow Mode: Verify-only",
+                        "Current State: FAILED",
+                        "Current Stage: Этап 3",
+                        r"Transcript: C:\broken\transcript.log",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            summary = session_return_triage.build_triage_summary(session_dir)
+
+            self.assertEqual(summary["session"]["failure_class"], "artifact_incomplete")
+            self.assertIn(
+                "Report Transcript field does not match transcript artifact.",
+                summary["issues"],
+            )
+            self.assertIn(
+                "Report Current State does not match manifest final_state.",
+                summary["issues"],
+            )
+            self.assertIn("whole session folder", summary["diagnosis"]["recommended_next_capture"])
 
     def test_render_markdown_summary_contains_core_sections(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -204,7 +255,9 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertIn("# CiscoAutoFlash Session Triage", markdown)
             self.assertIn("## Artifacts", markdown)
             self.assertIn("## Error Signatures", markdown)
+            self.assertIn("## Inspect Next", markdown)
             self.assertIn("Failure class", markdown)
+            self.assertIn("Most likely cause", markdown)
             self.assertIn("COM7", markdown)
 
     def test_main_writes_output_files(self) -> None:

@@ -73,6 +73,43 @@ class ReplayRunner:
             heartbeat_interval=0.01,
         )
 
+    @staticmethod
+    def _rewrite_report_fields(report_path: Path, overrides: dict[str, str]) -> None:
+        lines = report_path.read_text(encoding="utf-8").splitlines()
+        updated: list[str] = []
+        seen: set[str] = set()
+        for line in lines:
+            if ":" not in line:
+                updated.append(line)
+                continue
+            key, _value = line.split(":", 1)
+            key = key.strip()
+            if key in overrides:
+                updated.append(f"{key}: {overrides[key]}")
+                seen.add(key)
+            else:
+                updated.append(line)
+        for key, value in overrides.items():
+            if key not in seen:
+                updated.append(f"{key}: {value}")
+        report_path.write_text("\n".join(updated).rstrip() + "\n", encoding="utf-8")
+
+    def _apply_artifact_mutations(self, session: SessionPaths) -> None:
+        mutations = self.scenario.artifact_mutations or {}
+        if not mutations:
+            return
+        if bool(mutations.get("delete_report")) and session.report_path.exists():
+            session.report_path.unlink()
+        if bool(mutations.get("empty_transcript")) and session.transcript_path.exists():
+            session.transcript_path.write_text("", encoding="utf-8")
+        report_field_overrides = mutations.get("report_field_overrides")
+        if (
+            isinstance(report_field_overrides, dict)
+            and report_field_overrides
+            and session.report_path.exists()
+        ):
+            self._rewrite_report_fields(session.report_path, report_field_overrides)
+
     def _create_session(self) -> tuple[Path | None, SessionPaths]:
         if self.runtime_root is None:
             temp_root = Path(tempfile.mkdtemp(prefix="ciscoautoflash-replay-"))
@@ -125,6 +162,8 @@ class ReplayRunner:
             controller.run_stage1(background=False)
             controller.run_stage2(effective_firmware, background=False)
             controller.run_stage3(background=False)
+
+        self._apply_artifact_mutations(session)
 
         return ReplayRunResult(
             scenario_name=self.scenario.name,

@@ -111,6 +111,21 @@ Use the first matching bucket before filling `bug_capture_template.md`:
 - If you can only bring back one thing, bring back `session_bundle_*.zip`.
 - If the bundle export fails, bring back the whole session folder plus matching log/report/transcript files.
 
+## First triage step back on the dev machine
+
+Before opening files manually, run:
+
+```powershell
+python C:\PROJECT\scripts\triage_session_return.py "<path-to-session_bundle.zip-or-session-folder>" --output-dir C:\PROJECT\triage_out
+```
+
+Use the generated summary as the first source of truth:
+- `failure_class`
+- `most likely cause`
+- `recommended next capture`
+- `inspect next`
+- `issues` for missing/empty/inconsistent artifacts
+
 ## Compare against expectations
 
 - Use `expected_outcomes.md` for stage-by-stage success criteria.

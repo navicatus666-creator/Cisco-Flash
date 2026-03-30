@@ -18,6 +18,10 @@
 ## Observed behavior
 - Stage:
 - Initial classification: firmware_missing / timeout / stopped / other
+- Triage failure class:
+- Most likely cause:
+- Recommended next capture:
+- Inspect next:
 - Stage 1 duration:
 - Stage 2 duration:
 - Stage 3 duration:
