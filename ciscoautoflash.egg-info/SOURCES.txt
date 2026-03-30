@@ -39,6 +39,7 @@ tests/test_c2960x_profile.py
 tests/test_config.py
 tests/test_demo_adapter.py
 tests/test_mcp_runtime_health.py
+tests/test_replay_loader.py
 tests/test_replay_runner.py
 tests/test_run_demo_gui_smoke.py
 tests/test_serial_transport.py

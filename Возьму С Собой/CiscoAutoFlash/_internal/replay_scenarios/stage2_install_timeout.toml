@@ -1,0 +1,49 @@
+name = "stage2_install_timeout"
+display_name = "Этап 2: timeout установки"
+action = "stage2"
+supported_actions = ["scan", "stage2"]
+description = "Этап 2: timeout во время install loop."
+firmware_name = "c2960x-universalk9-tar.152-7.E13.tar"
+stage1_complete = true
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Коммутатор готов (Switch#)"
+prompt_type = "priv"
+connection_state = "ready"
+recommended_next_action = "Запустите этап 2."
+score = 120
+raw_preview = "Switch#"
+
+[[transports]]
+name = "scan-details"
+default_output = ""
+
+[[transports.read_until]]
+marker = "Switch#"
+buffer = "Switch#"
+
+[transports.commands]
+"terminal length 0" = ""
+"show version" = "Cisco IOS Software, Version 15.2(7)E13\nModel Number                    : WS-C2960X-48FPS-L\n"
+"dir flash:" = "123456789 bytes total (98765432 bytes free)"
+"dir usbflash0:" = "Directory of usbflash0:/\n1  -rw-  c2960x-universalk9-tar.152-7.E13.tar"
+
+[[transports]]
+name = "stage2-timeout"
+default_output = ""
+
+[[transports.read_until]]
+marker = "Switch#"
+buffer = "Switch#"
+
+[transports.commands]
+"show flash:" = "123456789 bytes total (98765432 bytes free)"
+"dir usbflash0:" = "Directory of usbflash0:/\n1  -rw-  c2960x-universalk9-tar.152-7.E13.tar"

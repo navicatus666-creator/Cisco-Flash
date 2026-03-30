@@ -1,0 +1,22 @@
+name = "scan_rommon"
+display_name = "Сканирование: ROMMON"
+action = "scan"
+supported_actions = ["scan"]
+description = "Устройство в ROMMON режиме."
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Устройство в ROMMON режиме"
+prompt_type = "rommon"
+connection_state = "rommon"
+recommended_next_action = "Переведите свитч в нормальный IOS-режим или выполните recovery перед этапом 1."
+error_code = "rommon"
+score = 70
+raw_preview = "switch:"

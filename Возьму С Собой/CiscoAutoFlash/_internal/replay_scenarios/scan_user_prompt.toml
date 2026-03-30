@@ -1,0 +1,21 @@
+name = "scan_user_prompt"
+display_name = "Сканирование: Switch>"
+action = "scan"
+supported_actions = ["scan"]
+description = "Пользовательский prompt Switch>."
+
+[target]
+id = "COM5"
+label = "COM5"
+
+[target.metadata]
+description = "USB Serial"
+
+[probe]
+available = true
+status_message = "Устройство в пользовательском режиме (Switch>)"
+prompt_type = "user"
+connection_state = "user_mode"
+recommended_next_action = "Устройство отвечает. При запуске этапа будет выполнен переход в enable."
+score = 110
+raw_preview = "Switch>"

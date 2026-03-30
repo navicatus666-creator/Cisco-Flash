@@ -4,10 +4,10 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..config import default_project_root
 from ..core.models import ConnectionTarget, ScanResult
 from .factory import ReplayReadUntilResult, ReplayTransportPlan
 
-DEFAULT_SCENARIO_DIR = Path(__file__).resolve().parents[2] / "replay_scenarios"
 VALID_ACTIONS = {"scan", "stage1", "stage2", "stage3", "full"}
 
 
@@ -26,15 +26,20 @@ class ReplayScenario:
     stage2_complete: bool = False
 
 
-def resolve_scenario_path(value: str | Path) -> Path:
+def default_scenario_dir() -> Path:
+    return default_project_root() / "replay_scenarios"
+
+
+def resolve_scenario_path(value: str | Path, scenario_dir: Path | None = None) -> Path:
+    scenario_root = scenario_dir or default_scenario_dir()
     path = Path(value)
     if path.exists():
         return path
     if path.suffix != ".toml":
-        candidate = DEFAULT_SCENARIO_DIR / f"{path.name}.toml"
+        candidate = scenario_root / f"{path.name}.toml"
         if candidate.exists():
             return candidate
-    candidate = DEFAULT_SCENARIO_DIR / path.name
+    candidate = scenario_root / path.name
     if candidate.exists():
         return candidate
     raise FileNotFoundError(f"Replay scenario not found: {value}")
@@ -95,8 +100,8 @@ def _normalize_supported_actions(value: object, action: str) -> tuple[str, ...]:
     return tuple(normalized)
 
 
-def load_scenario(value: str | Path) -> ReplayScenario:
-    path = resolve_scenario_path(value)
+def load_scenario(value: str | Path, scenario_dir: Path | None = None) -> ReplayScenario:
+    path = resolve_scenario_path(value, scenario_dir=scenario_dir)
     data = tomllib.loads(path.read_text(encoding="utf-8"))
 
     action = str(data.get("action", "scan")).strip().lower()
@@ -170,5 +175,6 @@ def load_scenario(value: str | Path) -> ReplayScenario:
     )
 
 
-def load_scenarios(directory: Path = DEFAULT_SCENARIO_DIR) -> list[ReplayScenario]:
+def load_scenarios(directory: Path | None = None) -> list[ReplayScenario]:
+    directory = directory or default_scenario_dir()
     return [load_scenario(path) for path in sorted(directory.glob("*.toml"))]

@@ -15,9 +15,11 @@ BUILD_ROOT = PROJECT_ROOT / "build" / "field_bundle"
 WORK_PATH = BUILD_ROOT / "work"
 SPEC_PATH = BUILD_ROOT / "spec"
 DOCS_SOURCE = PROJECT_ROOT / "docs" / "pre_hardware"
+REPLAY_SOURCE = PROJECT_ROOT / "replay_scenarios"
 PYTHON_EXE = Path(r"C:\Python314\python.exe")
 EXE_PATH = BUNDLE_ROOT / f"{APP_NAME}.exe"
 RUNBOOK_DIR = BUNDLE_ROOT / "_internal" / "docs" / "pre_hardware"
+REPLAY_DIR = BUNDLE_ROOT / "_internal" / "replay_scenarios"
 NOTE_PATH = CARRY_ROOT / "README_ПЕРЕД_ПОЛЕВЫМ_ТЕСТОМ.txt"
 LAUNCHER_PATH = CARRY_ROOT / "Запустить CiscoAutoFlash.bat"
 
@@ -29,7 +31,8 @@ def _clean_previous_bundle() -> None:
 
 
 def _build_bundle() -> None:
-    carry_data = f"{DOCS_SOURCE}{os.pathsep}docs/pre_hardware"
+    carry_docs = f"{DOCS_SOURCE}{os.pathsep}docs/pre_hardware"
+    carry_replay = f"{REPLAY_SOURCE}{os.pathsep}replay_scenarios"
     command = [
         str(PYTHON_EXE),
         "-m",
@@ -49,7 +52,9 @@ def _build_bundle() -> None:
         "--contents-directory",
         "_internal",
         "--add-data",
-        carry_data,
+        carry_docs,
+        "--add-data",
+        carry_replay,
         "--collect-all",
         "ttkbootstrap",
         "--collect-submodules",
@@ -125,6 +130,8 @@ def _validate_bundle() -> None:
         RUNBOOK_DIR / "expected_outcomes.md",
         RUNBOOK_DIR / "scenario_matrix.md",
         RUNBOOK_DIR / "legacy_parity_checklist.md",
+        REPLAY_DIR / "stage3_verify.toml",
+        REPLAY_DIR / "full_install_verify.toml",
     ]
     missing = [str(path) for path in expected if not path.exists()]
     if missing:
