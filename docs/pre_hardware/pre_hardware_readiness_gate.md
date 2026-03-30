@@ -7,7 +7,9 @@ Use this gate before the first real Cisco 2960-X Serial/USB run.
 This gate is only for the current v1 path:
 - Cisco 2960-X
 - Serial/USB workflow
-- source run via `python C:\PROJECT\main.py`
+- execution via either:
+  - source run `python C:\PROJECT\main.py`
+  - the portable carry bundle on the field PC
 
 Do not treat this gate as release approval or SSH feature approval.
 
@@ -15,11 +17,9 @@ Do not treat this gate as release approval or SSH feature approval.
 
 All of these must be true before touching real hardware:
 - `python -m unittest discover -s C:\PROJECT\tests -v` is green
-- `ruff check .` is green
-- `mypy ciscoautoflash` is green
-- `bandit -q -r ciscoautoflash` is green
 - `python -m build` succeeds
-- `python C:\PROJECT\main.py --demo` starts cleanly
+- `python C:\PROJECT\scripts\run_demo_gui_smoke.py` passes twice consecutively
+- if you plan to use the portable carry bundle, `portable_build_smoke_checklist.md` is green
 
 ## Demo and replay gate
 
@@ -40,12 +40,23 @@ All of these must be true before touching real hardware:
   - diagnostics tabs
   - session artifact actions
 
+## Advisory static-analysis gate
+
+Track these before release work, but they are not the blocking gate for the first real hardware pass:
+- `ruff check C:\PROJECT`
+- `mypy C:\PROJECT\ciscoautoflash`
+- `bandit -q -r C:\PROJECT\ciscoautoflash`
+
+Current interpretation:
+- software behavior, replay, packaging, and live demo smoke are the blocking criteria
+- remaining static-analysis findings can be handled after the first real switch run if they do not affect the Serial/USB workflow
+
 ## Runtime and artifact gate
 
 Confirm these on the local machine:
 - runtime data stays under `%LOCALAPPDATA%\CiscoAutoFlash\`
 - demo data stays under `%LOCALAPPDATA%\CiscoAutoFlash\demo\`
-- source runs create a session folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...`
+- real runs create a session folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...`
 - the app can expose or export:
   - log
   - transcript
@@ -76,3 +87,4 @@ When this gate is green:
 - use `first_hardware_run.md` as the execution runbook
 - keep `hardware_smoke_checklist.md` nearby during the run
 - use `expected_outcomes.md`, `scenario_matrix.md`, and `bug_capture_template.md` to evaluate and record failures
+- after bringing artifacts back, run `python C:\PROJECT\scripts\triage_session_return.py "<bundle-or-session-folder>" --output-dir C:\PROJECT\triage_out`

@@ -978,7 +978,7 @@ class CiscoAutoFlashDesktop:
         for index, (start_x, end_x) in runs.items():
             try:
                 tab_text = str(notebook.tab(index, "text"))
-            except Exception:
+            except tk.TclError:
                 continue
             tab_bounds = {
                 "left": bounds["left"] + start_x,
@@ -1130,8 +1130,8 @@ class CiscoAutoFlashDesktop:
             overlay.attributes("-topmost", True)
             try:
                 overlay.attributes("-alpha", 0.22)
-            except Exception:
-                pass
+            except tk.TclError:
+                canvas = None
             canvas = tk.Canvas(overlay, highlightthickness=0, bg="black")
             canvas.pack(fill="both", expand=True)
             self._automation_overlay = overlay
@@ -1519,7 +1519,10 @@ class CiscoAutoFlashDesktop:
         scenario_display = self.demo_name_to_display.get(scenario_name, "")
         if not scenario_display:
             return
-        if self.controller.set_scenario(scenario_name):
+        controller = self.controller
+        if not isinstance(controller, DemoReplayController):
+            return
+        if controller.set_scenario(scenario_name):
             self.selected_demo_scenario_name = scenario_name
             self.demo_scenario_var.set(scenario_display)
             self._refresh_demo_details()

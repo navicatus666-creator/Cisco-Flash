@@ -12,7 +12,8 @@
 - Target selection: auto / manual
 - Firmware filename:
 - USB slot used:
-- Run mode: source
+- Run path: portable bundle / source
+- Run mode: Real
 
 ## Observed behavior
 - Stage:
@@ -33,9 +34,12 @@
 - Transcript path:
 - Report path:
 - Manifest path:
+- Session folder path:
 - Session bundle path:
 - Screenshot path:
+- Triage output path:
 
 ## Notes
 - Reproducible: yes / no
 - Legacy behavior comparison:
+- If the bundle is missing, note exactly which files were brought back instead.

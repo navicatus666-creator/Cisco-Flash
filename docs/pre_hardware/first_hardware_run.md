@@ -10,7 +10,13 @@ Validate the refactored Serial/USB workflow from source:
 - `Этап 2: Установка`
 - `Этап 3: Проверка`
 
-Do not use the portable build for the first pass. Run from source:
+Preferred execution path on the work PC is the portable carry bundle:
+
+```powershell
+C:\PROJECT\Возьму С Собой\Запустить CiscoAutoFlash.bat
+```
+
+If the field PC is unavailable and you are running on the dev machine instead, source run is still valid:
 
 ```powershell
 python C:\PROJECT\main.py
@@ -20,6 +26,10 @@ python C:\PROJECT\main.py
 
 Before connecting the switch, confirm `pre_hardware_readiness_gate.md` is fully green.
 Use this file as the execution runbook only after the software, demo, replay, and artifact gates are already closed.
+Local preflight now explicitly includes:
+- `python -m unittest discover -s C:\PROJECT\tests -v`
+- `python -m build C:\PROJECT`
+- `python C:\PROJECT\scripts\run_demo_gui_smoke.py` passing twice consecutively on the dev machine
 
 ## Before connecting the switch
 
@@ -64,6 +74,7 @@ Use this file as the execution runbook only after the software, demo, replay, an
 14. Confirm the report is generated and visible through the diagnostics pane.
 15. Open the session folder and export the session bundle.
 16. Record Stage 3 duration and final dashboard state.
+17. Before closing the app, confirm the final `session_bundle_*.zip` really exists in the current session folder.
 
 ## Stop conditions
 
@@ -84,10 +95,13 @@ Stop the run and capture artifacts immediately if any of these happen:
 - `report` path
 - `manifest` path
 - `session bundle` path
+- `session folder` path
 - screenshot of the final dashboard state on failure
 - final operator message and severity
 - final stage durations from the report/manifest
 - whether target selection was automatic or manual
+- If you can only bring back one thing, bring back `session_bundle_*.zip`.
+- If the bundle export fails, bring back the whole session folder plus matching log/report/transcript files.
 
 ## Compare against expectations
 
@@ -95,3 +109,11 @@ Stop the run and capture artifacts immediately if any of these happen:
 - Use `scenario_matrix.md` for failure-mode coverage and what the UI should communicate.
 - Use `legacy_parity_checklist.md` if behavior differs from `CiscoAutoFlash_GUI_Clean.py`.
 - Use `bug_capture_template.md` to file any failure consistently.
+
+## Back at the dev machine
+
+Run the new intake tool on the returned artifacts before manual digging:
+
+```powershell
+python C:\PROJECT\scripts\triage_session_return.py "<path-to-session_bundle.zip-or-session-folder>" --output-dir C:\PROJECT\triage_out
+```

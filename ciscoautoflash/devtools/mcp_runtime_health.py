@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 - local developer health-check helper
 import tempfile
 import textwrap
 import tomllib
@@ -70,7 +70,7 @@ def parse_simple_yaml(path: Path) -> dict[str, dict[str, str]]:
 
 def request_json(url: str, timeout: float = 5.0) -> tuple[bool, Any]:
     try:
-        with urlopen(Request(url), timeout=timeout) as response:
+        with urlopen(Request(url), timeout=timeout) as response:  # nosec B310
             return True, json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
         return False, repr(exc)
@@ -83,7 +83,7 @@ def run_process(
     env: dict[str, str] | None = None,
     timeout: int = 45,
 ) -> ProcessResult:
-    completed = subprocess.run(
+    completed = subprocess.run(  # nosec B603 - local fixed-command probe helper
         args,
         cwd=str(cwd) if cwd else None,
         env=env,

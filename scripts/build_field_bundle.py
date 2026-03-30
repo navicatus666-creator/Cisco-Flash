@@ -84,9 +84,16 @@ def _write_operator_note() -> None:
             - `%LOCALAPPDATA%\\CiscoAutoFlash\\sessions\\<session_id>\\`
 
             Что привезти обратно
-            - Последнюю папку `%LOCALAPPDATA%\\CiscoAutoFlash\\sessions\\<session_id>\\`
-            - `session_bundle_*.zip` из этой папки
+            - `session_bundle_*.zip` из `%LOCALAPPDATA%\\CiscoAutoFlash\\sessions\\<session_id>\\`
+            - Если bundle не экспортировался:
+              вся папка `%LOCALAPPDATA%\\CiscoAutoFlash\\sessions\\<session_id>\\`
             - При наличии: соответствующие log/report/transcript файлы
+
+            Что сделать потом на dev-машине
+            - Запусти:
+              `python C:\\PROJECT\\scripts\\triage_session_return.py `
+              `"<bundle-or-session-folder>" --output-dir C:\\PROJECT\\triage_out`
+            - Это соберёт короткую сводку по manifest/report/transcript/log без ручного копания
 
             Что не входит в комплект
             - Прошивка/образ Cisco

@@ -42,7 +42,10 @@ class DemoGuiSmokeRunnerIdleGateTests(unittest.TestCase):
             "state": {
                 "demo_busy": False,
                 "stop_enabled": False,
-                "last_demo_idle_marker": "[DEMO] Controller idle: stage2_install_success (completed)",
+                "last_demo_idle_marker": (
+                    "[DEMO] Controller idle: "
+                    "stage2_install_success (completed)"
+                ),
             }
         }
         runner._refresh_automation_map = Mock(side_effect=[ready_state, ready_state])

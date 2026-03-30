@@ -563,7 +563,10 @@ class DemoGuiSmokeRunner:
     def _prime_smoke_open(self, button_name: str, expected_path: Path) -> None:
         point = self._lookup_control_point(button_name)
         if point is None:
-            raise SmokeFailure(f"Automation map does not provide click point for control: {button_name}")
+            raise SmokeFailure(
+                "Automation map does not provide click point for control: "
+                f"{button_name}"
+            )
         for x_offset, y_offset in ARTIFACT_RETRY_OFFSETS:
             self._click_absolute(point[0] + x_offset, point[1] + y_offset)
             if self._wait_for_smoke_open_path(

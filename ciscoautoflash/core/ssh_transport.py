@@ -283,8 +283,11 @@ class SshTransportFactory(TransportFactory):
 
 def _load_netmiko():
     try:
-        from netmiko import ConnectHandler, file_transfer
-        from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+        from netmiko import ConnectHandler, file_transfer  # type: ignore[import-untyped]
+        from netmiko.exceptions import (  # type: ignore[import-untyped]
+            NetmikoAuthenticationException,
+            NetmikoTimeoutException,
+        )
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise TransportError(
             "SSH dependencies are not installed. Install the project with ciscoautoflash[ssh]."
