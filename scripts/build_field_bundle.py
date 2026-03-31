@@ -132,6 +132,7 @@ def _validate_bundle() -> None:
         RUNBOOK_DIR / "scenario_matrix.md",
         RUNBOOK_DIR / "legacy_parity_checklist.md",
         REPLAY_DIR / "stage2_firmware_missing.toml",
+        REPLAY_DIR / "stage2_log_transcript_disagreement.toml",
         REPLAY_DIR / "stage3_artifact_incomplete.toml",
         REPLAY_DIR / "stage3_report_state_mismatch.toml",
         REPLAY_DIR / "stage3_verify.toml",

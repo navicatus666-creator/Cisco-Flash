@@ -35,6 +35,7 @@
 - Expected behavior:
 
 ## Attachments
+- Preferred return order: session bundle first, then session folder, then individual files only as fallback.
 - Log path:
 - Transcript path:
 - Report path:

@@ -199,6 +199,41 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertIn("Verify the exact firmware filename", next_steps)
             self.assertIn("session_bundle.zip", next_steps)
 
+    def test_build_triage_summary_prefers_timeout_over_generic_failed_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session_dir, _bundle_path = _write_fixture(Path(temp_dir))
+            manifest_path = session_dir / "session_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["operator_message"]["code"] = "failed"
+            manifest["operator_text"] = (
+                "Сбой на этапе 2 | Операция превысила таймаут | Проверьте устройство и соберите session bundle."
+            )
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            summary = session_return_triage.build_triage_summary(session_dir)
+
+            self.assertEqual(summary["session"]["failure_class"], "timeout")
+            self.assertIn("stalled", summary["diagnosis"]["most_likely_cause"])
+
+    def test_build_triage_summary_flags_log_transcript_disagreement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            session_dir, _bundle_path = _write_fixture(Path(temp_dir))
+            manifest_path = session_dir / "session_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["operator_message"]["code"] = "other"
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+            log_path = Path(manifest["artifacts"]["log_path"])
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write("\n[2026-03-30 12:45:03] Firmware file not found on usbflash0:\n")
+
+            summary = session_return_triage.build_triage_summary(session_dir)
+
+            self.assertEqual(summary["session"]["failure_class"], "timeout")
+            self.assertIn(
+                "Log and transcript disagree: firmware missing was reported after the install command had already started.",
+                summary["issues"],
+            )
+
     def test_build_triage_summary_flags_report_mismatch_as_artifact_incomplete(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_dir, _bundle_path = _write_fixture(Path(temp_dir))
@@ -273,6 +308,27 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertTrue((output_dir / "20260330_123456_triage.json").exists())
             self.assertTrue((output_dir / "20260330_123456_triage.md").exists())
+
+    def test_main_writes_output_files_for_incomplete_session_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            session_dir, _bundle_path = _write_fixture(
+                root,
+                mode="firmware_missing",
+                include_report=False,
+            )
+            output_dir = root / "triage"
+
+            exit_code = session_return_triage.main(
+                [str(session_dir), "--output-dir", str(output_dir)]
+            )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(
+                (output_dir / "20260330_123456_triage.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(payload["session"]["failure_class"], "firmware_missing")
+            self.assertIn("Missing report artifact.", payload["issues"])
 
 
 if __name__ == "__main__":

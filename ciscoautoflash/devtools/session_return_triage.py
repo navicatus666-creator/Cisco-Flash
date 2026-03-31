@@ -303,7 +303,12 @@ def _artifact_integrity(records: dict[str, dict[str, Any]]) -> list[str]:
     return issues
 
 
-def _artifact_consistency_issues(summary: dict[str, Any]) -> list[str]:
+def _artifact_consistency_issues(
+    summary: dict[str, Any],
+    *,
+    log_text: str,
+    transcript_text: str,
+) -> list[str]:
     issues: list[str] = []
     artifacts = summary["artifacts"]
     report_fields = summary["report_fields"]
@@ -315,9 +320,7 @@ def _artifact_consistency_issues(summary: dict[str, Any]) -> list[str]:
     if artifacts.get("report", {}).get("present"):
         report_transcript = str(report_fields.get("Transcript", "")).strip()
         transcript_path = str(artifacts.get("transcript", {}).get("path", "")).strip()
-        if not report_transcript:
-            issues.append("Report Transcript field is missing or empty.")
-        elif transcript_path and Path(report_transcript).name != Path(transcript_path).name:
+        if report_transcript and transcript_path and Path(report_transcript).name != Path(transcript_path).name:
             issues.append("Report Transcript field does not match transcript artifact.")
 
     report_state = str(report_fields.get("Current State", "")).strip()
@@ -347,6 +350,19 @@ def _artifact_consistency_issues(summary: dict[str, Any]) -> list[str]:
     ):
         issues.append("Report Run Mode does not match manifest run_mode.")
 
+    log_lower = log_text.lower()
+    transcript_lower = transcript_text.lower()
+    firmware_missing = (
+        "firmware file not found" in log_lower
+        or "не найден на usb" in log_lower
+        or "no such file" in log_lower
+    )
+    install_started = "archive download-sw /overwrite /reload" in transcript_lower
+    if firmware_missing and install_started:
+        issues.append(
+            "Log and transcript disagree: firmware missing was reported after the install command had already started."
+        )
+
     return issues
 
 
@@ -363,12 +379,13 @@ def _classify_failure(summary: dict[str, Any]) -> str:
     session = summary["session"]
     if session["final_state"] == "DONE":
         return "artifact_incomplete" if _has_artifact_incomplete_issues(summary) else "success"
+    weak_codes = {"failed", "error", "runtime_error", "other", "unknown", "info"}
     operator_message = session.get("operator_message", {})
     if isinstance(operator_message, dict):
         code = str(operator_message.get("code", "")).strip().lower()
         if code == "demo_stopped":
             return "stopped"
-        if code:
+        if code and code not in weak_codes:
             return code
     if _has_artifact_incomplete_issues(summary):
         return "artifact_incomplete"
@@ -378,12 +395,23 @@ def _classify_failure(summary: dict[str, Any]) -> str:
         *summary["signatures"]["warnings"],
     ]
     lowered = " ".join(part.lower() for part in parts if part)
-    if "не найден на usb" in lowered or "firmware file not found" in lowered or "no such file" in lowered:
+    transcript_tail = " ".join(summary["tails"].get("transcript", [])).lower()
+    firmware_missing_markers = (
+        "не найден на usb" in lowered
+        or "firmware file not found" in lowered
+        or "no such file" in lowered
+    )
+    timeout_markers = "timeout" in lowered or "таймаут" in lowered
+    if timeout_markers and firmware_missing_markers and "archive download-sw /overwrite /reload" in transcript_tail:
+        return "timeout"
+    if firmware_missing_markers:
         return "firmware_missing"
-    if "timeout" in lowered or "таймаут" in lowered:
+    if timeout_markers:
         return "timeout"
     if "останов" in lowered or "stopped" in lowered or "abort" in lowered:
         return "stopped"
+    if any(token in lowered for token in ("failed", "failure", "error", "ошибка", "exception", "traceback")):
+        return "failed"
     return "other"
 
 
@@ -562,7 +590,13 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
         },
         "issues": _artifact_integrity(records),
     }
-    summary["issues"].extend(_artifact_consistency_issues(summary))
+    summary["issues"].extend(
+        _artifact_consistency_issues(
+            summary,
+            log_text=log_text,
+            transcript_text=transcript_text,
+        )
+    )
     summary["session"]["failure_class"] = _classify_failure(summary)
     summary["diagnosis"] = {
         "most_likely_cause": _most_likely_cause(summary),

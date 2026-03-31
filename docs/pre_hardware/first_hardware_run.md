@@ -125,6 +125,7 @@ Use the generated summary as the first source of truth:
 - `recommended next capture`
 - `inspect next`
 - `issues` for missing/empty/inconsistent artifacts
+- Do not start manual file-by-file digging until you have read this summary once.
 
 ## Compare against expectations
 

@@ -102,6 +102,24 @@ class ReplayRunner:
             session.report_path.unlink()
         if bool(mutations.get("empty_transcript")) and session.transcript_path.exists():
             session.transcript_path.write_text("", encoding="utf-8")
+        append_log_lines = mutations.get("append_log_lines")
+        if (
+            isinstance(append_log_lines, list)
+            and append_log_lines
+            and session.log_path.exists()
+        ):
+            with session.log_path.open("a", encoding="utf-8") as handle:
+                for line in append_log_lines:
+                    handle.write(f"{line}\n")
+        append_transcript_lines = mutations.get("append_transcript_lines")
+        if (
+            isinstance(append_transcript_lines, list)
+            and append_transcript_lines
+            and session.transcript_path.exists()
+        ):
+            with session.transcript_path.open("a", encoding="utf-8") as handle:
+                for line in append_transcript_lines:
+                    handle.write(f"{line}\n")
         report_field_overrides = mutations.get("report_field_overrides")
         if (
             isinstance(report_field_overrides, dict)

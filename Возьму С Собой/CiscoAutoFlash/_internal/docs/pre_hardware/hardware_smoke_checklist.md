@@ -33,3 +33,4 @@ Primary run path: `first_hardware_run.md`.
 - Run `python C:\PROJECT\scripts\triage_session_return.py "<bundle-or-session-folder>" --output-dir C:\PROJECT\triage_out`.
 - Read the triage summary before opening raw files by hand.
 - Use its `failure_class`, `most likely cause`, `recommended next capture`, and `inspect next` fields to drive the first bug write-up.
+- Only after that move into the raw `manifest`, `report`, `transcript`, and `log`.

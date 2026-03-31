@@ -136,6 +136,20 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(manifest["current_state"], "FAILED")
         self.assertEqual(manifest["operator_message"]["code"], "firmware_missing")
 
+    def test_stage2_log_transcript_disagreement_scenario_surfaces_issue(self) -> None:
+        runtime_root, result = self.run_named_scenario_with_runtime("stage2_log_transcript_disagreement")
+
+        self.assert_event_contract(result)
+        self.assertEqual(result.final_state, "FAILED")
+        self.assertEqual(result.operator_message.code, "timeout")
+
+        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        self.assertEqual(summary["session"]["failure_class"], "timeout")
+        self.assertIn(
+            "Log and transcript disagree: firmware missing was reported after the install command had already started.",
+            summary["issues"],
+        )
+
     def test_stage3_verify_scenario_writes_report_and_verification_transcript(self) -> None:
         result = self.run_named_scenario("stage3_verify")
 
@@ -264,6 +278,7 @@ class ReplayRunnerTests(unittest.TestCase):
             "scan_rommon.toml",
             "stage1_reboot_config_dialog.toml",
             "stage2_firmware_missing.toml",
+            "stage2_log_transcript_disagreement.toml",
             "stage2_install_success.toml",
             "stage2_install_timeout.toml",
             "stage3_artifact_incomplete.toml",

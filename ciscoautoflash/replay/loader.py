@@ -114,6 +114,9 @@ def _normalize_artifact_mutations(value: object) -> dict[str, Any] | None:
         if isinstance(raw, (str, bool)):
             normalized[key] = raw
             continue
+        if isinstance(raw, list) and all(isinstance(item, str) for item in raw):
+            normalized[key] = list(raw)
+            continue
         if isinstance(raw, dict):
             converted: dict[str, str] = {}
             for nested_key, nested_value in raw.items():
