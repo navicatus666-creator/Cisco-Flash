@@ -42,7 +42,10 @@ class ReplayRunnerTests(unittest.TestCase):
     def session_dir_for_runtime(runtime_root: Path) -> Path:
         manifest_paths = sorted(runtime_root.rglob("session_manifest*.json"))
         if len(manifest_paths) != 1:
-            raise AssertionError(f"Expected exactly one manifest under {runtime_root}, got {manifest_paths}")
+            raise AssertionError(
+                f"Expected exactly one manifest under {runtime_root}, "
+                f"got {manifest_paths}"
+            )
         return manifest_paths[0].parent
 
     def assert_event_contract(self, result) -> None:
@@ -137,16 +140,23 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(manifest["operator_message"]["code"], "firmware_missing")
 
     def test_stage2_log_transcript_disagreement_scenario_surfaces_issue(self) -> None:
-        runtime_root, result = self.run_named_scenario_with_runtime("stage2_log_transcript_disagreement")
+        runtime_root, result = self.run_named_scenario_with_runtime(
+            "stage2_log_transcript_disagreement"
+        )
 
         self.assert_event_contract(result)
         self.assertEqual(result.final_state, "FAILED")
         self.assertEqual(result.operator_message.code, "timeout")
 
-        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        summary = session_return_triage.build_triage_summary(
+            self.session_dir_for_runtime(runtime_root)
+        )
         self.assertEqual(summary["session"]["failure_class"], "timeout")
         self.assertIn(
-            "Log and transcript disagree: firmware missing was reported after the install command had already started.",
+            (
+                "Log and transcript disagree: firmware missing was "
+                "reported after the install command had already started."
+            ),
             summary["issues"],
         )
 
@@ -175,10 +185,15 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(result.final_state, "DONE")
         self.assertFalse(result.report_path.exists())
 
-        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        summary = session_return_triage.build_triage_summary(
+            self.session_dir_for_runtime(runtime_root)
+        )
         self.assertEqual(summary["session"]["failure_class"], "artifact_incomplete")
         self.assertIn("Missing report artifact.", summary["issues"])
-        self.assertIn("whole session folder", summary["diagnosis"]["recommended_next_capture"])
+        self.assertIn(
+            "whole session folder",
+            summary["diagnosis"]["recommended_next_capture"],
+        )
         self.assertIn("report:", "\n".join(summary["diagnosis"]["inspect_next"]))
 
     def test_stage3_report_state_mismatch_scenario_surfaces_report_consistency_issue(self) -> None:
@@ -188,7 +203,9 @@ class ReplayRunnerTests(unittest.TestCase):
         self.assertEqual(result.final_state, "DONE")
         self.assertTrue(result.report_path.exists())
 
-        summary = session_return_triage.build_triage_summary(self.session_dir_for_runtime(runtime_root))
+        summary = session_return_triage.build_triage_summary(
+            self.session_dir_for_runtime(runtime_root)
+        )
         self.assertEqual(summary["session"]["failure_class"], "artifact_incomplete")
         self.assertIn(
             "Report Transcript field does not match transcript artifact.",

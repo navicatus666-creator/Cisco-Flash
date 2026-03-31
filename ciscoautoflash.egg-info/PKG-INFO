@@ -87,6 +87,7 @@ The repo now contains a hidden SSH/SCP backend for future work:
 - transport: `ciscoautoflash/core/ssh_transport.py`
 - current scope: hidden probe, hidden Stage 3 verify/report/transcript flow, and SCP upload helper
 - current non-goal: no SSH transport selector in the desktop UI yet
+- engineering helper after serial smoke: `python C:\PROJECT\scripts\run_hidden_ssh_check.py --host <switch-ip> --username <user> --password <password> --secret <enable-secret>`
 
 Internal SSH target metadata contract:
 - required: `host`, `username`, `password`

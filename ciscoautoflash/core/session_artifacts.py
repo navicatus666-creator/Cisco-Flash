@@ -133,7 +133,10 @@ def write_session_manifest(path: Path, manifest: dict[str, Any]) -> None:
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def update_manifest_artifacts(path: Path, **artifact_paths: Path | str | None) -> dict[str, Any] | None:
+def update_manifest_artifacts(
+    path: Path,
+    **artifact_paths: Path | str | None,
+) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:

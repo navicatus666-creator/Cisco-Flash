@@ -27,10 +27,27 @@ class StepResult:
 def _default_steps() -> list[tuple[str, list[str]]]:
     python_exe = sys.executable
     return [
-        ("check_mcp_runtime", [python_exe, str(PROJECT_ROOT / "scripts" / "check_mcp_runtime.py")]),
-        ("unittest", [python_exe, "-m", "unittest", "discover", "-s", str(PROJECT_ROOT / "tests"), "-v"]),
+        (
+            "check_mcp_runtime",
+            [python_exe, str(PROJECT_ROOT / "scripts" / "check_mcp_runtime.py")],
+        ),
+        (
+            "unittest",
+            [
+                python_exe,
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(PROJECT_ROOT / "tests"),
+                "-v",
+            ],
+        ),
         ("build", [python_exe, "-m", "build", str(PROJECT_ROOT)]),
-        ("demo_smoke", [python_exe, str(PROJECT_ROOT / "scripts" / "run_demo_gui_smoke.py")]),
+        (
+            "demo_smoke",
+            [python_exe, str(PROJECT_ROOT / "scripts" / "run_demo_gui_smoke.py")],
+        ),
     ]
 
 
@@ -91,7 +108,9 @@ def _render_markdown(summary: dict[str, object]) -> str:
     for step in steps:
         assert isinstance(step, dict)
         lines.append(
-            f"| {step['name']} | {'yes' if step['ok'] else 'no'} | {step['returncode']} | {step['elapsed_seconds']} | {step['log_path']} |"
+            f"| {step['name']} | {'yes' if step['ok'] else 'no'} | "
+            f"{step['returncode']} | {step['elapsed_seconds']} | "
+            f"{step['log_path']} |"
         )
     artifacts = summary["artifacts"]
     assert isinstance(artifacts, dict)
@@ -156,7 +175,10 @@ def main(argv: list[str] | None = None) -> int:
     }
     summary_json_path = output_dir / "preflight_summary.json"
     summary_md_path = output_dir / "preflight_summary.md"
-    summary_json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    summary_json_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     summary_md_path.write_text(_render_markdown(summary), encoding="utf-8")
 
     print(summary_md_path.read_text(encoding="utf-8"))

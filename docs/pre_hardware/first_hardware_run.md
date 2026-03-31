@@ -36,7 +36,11 @@ Local preflight now explicitly includes:
 - Confirm runtime data is written to `%LOCALAPPDATA%\CiscoAutoFlash\`.
 - Confirm the session folder is created under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...`.
 - Confirm the expected firmware tar filename is known.
-- Confirm a console cable and USB flash drive are available.
+- Confirm all planned cables are available:
+  - one primary console path: `RJ-45 console` or `USB mini-Type B console`
+  - one backup console path
+  - one `RJ45-RJ45` Ethernet cable for optional management/SSH after serial is stable
+  - one USB flash drive with the firmware image
 - Keep these supporting docs nearby:
   - `hardware_smoke_checklist.md`
   - `pre_hardware_readiness_gate.md`
@@ -51,6 +55,7 @@ Local preflight now explicitly includes:
 - Operator
 - Device model / serial
 - Console COM port
+- Backup console path kept unplugged or idle
 - Firmware filename
 - USB slot in use: `usbflash0:` or `usbflash1:`
 - Target selection mode: auto or manual override
@@ -58,23 +63,48 @@ Local preflight now explicitly includes:
 
 ## Run steps
 
-1. Launch the app from source and confirm only one instance opens.
-2. Run `Сканировать`.
-3. Confirm the selected target is correct in summary cards and preflight.
-4. Confirm the operator card shows a concrete next step.
-5. If the wrong target is selected, switch to the correct COM port manually before any stage.
-6. Start `Этап 1: Сброс`.
-7. Record Stage 1 duration and the prompt seen after reboot.
-8. If Stage 1 fails, stop the run and capture artifacts immediately.
-9. Start `Этап 2: Установка`.
-10. Confirm the progress block remains understandable through install markers or quiet success.
-11. Record Stage 2 duration, actual USB path used, and prompt after reboot.
-12. If Stage 2 fails, stop the run and capture artifacts immediately.
-13. Start `Этап 3: Проверка`.
-14. Confirm the report is generated and visible through the diagnostics pane.
-15. Open the session folder and export the session bundle.
-16. Record Stage 3 duration and final dashboard state.
-17. Before closing the app, confirm the final `session_bundle_*.zip` really exists in the current session folder.
+1. Connect exactly one console path as the active software path.
+2. Keep the second console path only as fallback; do not use two console sessions in parallel.
+3. Connect the Ethernet cable from the PC to a normal switch port, but do not start SSH work yet.
+4. Launch the app from source and confirm only one instance opens.
+5. Run `Сканировать`.
+6. Confirm the selected target is correct in summary cards and preflight.
+7. Confirm the operator card shows a concrete next step.
+8. If the wrong target is selected, switch to the correct COM port manually before any stage.
+9. Start `Этап 1: Сброс`.
+10. Record Stage 1 duration and the prompt seen after reboot.
+11. If Stage 1 fails, stop the run and capture artifacts immediately.
+12. Start `Этап 2: Установка`.
+13. Confirm the progress block remains understandable through install markers or quiet success.
+14. Record Stage 2 duration, actual USB path used, and prompt after reboot.
+15. If Stage 2 fails, stop the run and capture artifacts immediately.
+16. Start `Этап 3: Проверка`.
+17. Confirm the report is generated and visible through the diagnostics pane.
+18. Open the session folder and export the session bundle.
+19. Record Stage 3 duration and final dashboard state.
+20. Before closing the app, confirm the final `session_bundle_*.zip` really exists in the current session folder.
+
+## Optional hidden SSH pass after serial success
+
+Only do this after the serial run is stable enough that you trust the switch state.
+
+1. Through the console, configure a management IP and local SSH access.
+2. If SCP will be tested, enable it on the switch: `ip scp server enable`.
+3. Give the PC Ethernet adapter an IP in the same subnet.
+4. Verify `ping` to the switch.
+5. Run the hidden engineering helper:
+
+```powershell
+python C:\PROJECT\scripts\run_hidden_ssh_check.py --host <switch-ip> --username <user> --password <password> --secret <enable-secret>
+```
+
+6. If you also want to validate SCP upload helper readiness, add:
+
+```powershell
+--scp-file C:\path\to\firmware.tar
+```
+
+7. Keep the generated `ssh_check_summary.json` and `ssh_check_summary.md` from the helper session folder with the rest of the returned artifacts.
 
 ## Stop conditions
 
@@ -106,6 +136,7 @@ Use the first matching bucket before filling `bug_capture_template.md`:
 - `event_timeline.json` path
 - `session folder` path
 - `dashboard_snapshot_<state>.png` path for `FAILED` / `STOPPED`
+- `ssh_check_summary.json` / `.md` path if the hidden SSH helper was used
 - final operator message and severity
 - final stage durations from the report/manifest
 - whether target selection was automatic or manual

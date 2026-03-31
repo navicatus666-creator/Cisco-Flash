@@ -95,7 +95,10 @@ class SessionArtifactsTests(unittest.TestCase):
         self.assertIn("00:03:00", saved["stage_durations"].values())
         self.assertEqual(saved["operator_message"]["code"], "info")
         self.assertEqual(saved["operator_message"]["title"], "Готово")
-        self.assertEqual(saved["artifacts"]["event_timeline_path"], str(self.session.event_timeline_path))
+        self.assertEqual(
+            saved["artifacts"]["event_timeline_path"],
+            str(self.session.event_timeline_path),
+        )
         self.assertEqual(
             saved["artifacts"]["dashboard_snapshot_path"],
             str(self.session.dashboard_snapshot_path),
@@ -141,7 +144,10 @@ class SessionArtifactsTests(unittest.TestCase):
             dashboard_snapshot_path=self.session.dashboard_snapshot_path,
         )
         saved = json.loads(self.session.manifest_path.read_text(encoding="utf-8"))
-        self.assertEqual(saved["artifacts"]["event_timeline_path"], str(self.session.event_timeline_path))
+        self.assertEqual(
+            saved["artifacts"]["event_timeline_path"],
+            str(self.session.event_timeline_path),
+        )
         self.assertEqual(
             saved["artifacts"]["dashboard_snapshot_path"],
             str(self.session.dashboard_snapshot_path),

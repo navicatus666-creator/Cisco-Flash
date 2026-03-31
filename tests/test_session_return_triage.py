@@ -115,7 +115,10 @@ def _write_fixture(
         ]
         transcript_lines = [
             "2026-03-30 12:44:58 | READ     | Switch#",
-            "2026-03-30 12:45:00 | WRITE    | archive download-sw /overwrite /reload usbflash0:/c2960x.tar",
+            (
+                "2026-03-30 12:45:00 | WRITE    | archive download-sw "
+                "/overwrite /reload usbflash0:/c2960x.tar"
+            ),
             "2026-03-30 12:45:00 | READ     | installing",
         ]
 

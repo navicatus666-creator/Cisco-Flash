@@ -10,14 +10,16 @@ from pathlib import Path
 from queue import Empty, Queue
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
-from typing import Any
+from typing import Any, cast
 
 import ttkbootstrap as ttk
 
 try:
-    from PIL import ImageGrab  # type: ignore[import-untyped]
+    from PIL import ImageGrab as _ImageGrab
 except ImportError:  # pragma: no cover - optional runtime dependency
-    ImageGrab = None
+    _ImageGrab = cast(Any, None)
+else:
+    pass
 
 from ..config import (
     AppConfig,
@@ -40,6 +42,8 @@ from ..core.workflow import WorkflowController
 from ..profiles import build_c2960x_profile
 from ..replay.adapter import DemoReplayController
 from ..replay.loader import ReplayScenario
+
+ImageGrab: Any | None = _ImageGrab
 
 
 def _env_flag(name: str, default: bool) -> bool:

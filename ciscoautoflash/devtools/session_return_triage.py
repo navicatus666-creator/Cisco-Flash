@@ -106,7 +106,11 @@ def _artifact_record(
         "path": path,
         "present": present,
         "source": source,
-        "size_bytes": size_bytes if size_bytes is not None else (len(text.encode("utf-8")) if text else None),
+        "size_bytes": (
+            size_bytes
+            if size_bytes is not None
+            else (len(text.encode("utf-8")) if text else None)
+        ),
         "text": text,
     }
 
@@ -224,7 +228,9 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
                 source="bundle-zip",
                 text=manifest_text,
                 size_bytes=(
-                    archive.getinfo(manifest_member).file_size if manifest_member is not None else None
+                    archive.getinfo(manifest_member).file_size
+                    if manifest_member is not None
+                    else None
                 ),
             ),
         }
@@ -235,7 +241,12 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
             member = _match_zip_member(names, pattern)
             text = ""
             size_bytes = archive.getinfo(member).file_size if member else None
-            if member and not member.endswith(".zip") and not member.endswith(".json") and not member.endswith(".png"):
+            if (
+                member
+                and not member.endswith(".zip")
+                and not member.endswith(".json")
+                and not member.endswith(".png")
+            ):
                 text = archive.read(member).decode("utf-8", errors="replace")
             elif member and member.endswith(".json"):
                 text = archive.read(member).decode("utf-8", errors="replace")
@@ -377,7 +388,11 @@ def _artifact_consistency_issues(
     if artifacts.get("report", {}).get("present"):
         report_transcript = str(report_fields.get("Transcript", "")).strip()
         transcript_path = str(artifacts.get("transcript", {}).get("path", "")).strip()
-        if report_transcript and transcript_path and Path(report_transcript).name != Path(transcript_path).name:
+        if (
+            report_transcript
+            and transcript_path
+            and Path(report_transcript).name != Path(transcript_path).name
+        ):
             issues.append("Report Transcript field does not match transcript artifact.")
 
     report_state = str(report_fields.get("Current State", "")).strip()
@@ -417,7 +432,8 @@ def _artifact_consistency_issues(
     install_started = "archive download-sw /overwrite /reload" in transcript_lower
     if firmware_missing and install_started:
         issues.append(
-            "Log and transcript disagree: firmware missing was reported after the install command had already started."
+            "Log and transcript disagree: firmware missing was reported after the "
+            "install command had already started."
         )
 
     return issues
@@ -459,7 +475,11 @@ def _classify_failure(summary: dict[str, Any]) -> str:
         or "no such file" in lowered
     )
     timeout_markers = "timeout" in lowered or "таймаут" in lowered
-    if timeout_markers and firmware_missing_markers and "archive download-sw /overwrite /reload" in transcript_tail:
+    if (
+        timeout_markers
+        and firmware_missing_markers
+        and "archive download-sw /overwrite /reload" in transcript_tail
+    ):
         return "timeout"
     if firmware_missing_markers:
         return "firmware_missing"
@@ -467,7 +487,10 @@ def _classify_failure(summary: dict[str, Any]) -> str:
         return "timeout"
     if "останов" in lowered or "stopped" in lowered or "abort" in lowered:
         return "stopped"
-    if any(token in lowered for token in ("failed", "failure", "error", "ошибка", "exception", "traceback")):
+    if any(
+        token in lowered
+        for token in ("failed", "failure", "error", "ошибка", "exception", "traceback")
+    ):
         return "failed"
     return "other"
 
@@ -482,11 +505,18 @@ def _most_likely_cause(summary: dict[str, Any]) -> str:
     if failure_class == "firmware_missing":
         return "Stage 2 could not find the requested firmware tar on usbflash0:/usbflash1:."
     if failure_class == "timeout":
-        return "The workflow likely stalled before the expected reboot or prompt-recovery marker returned."
+        return (
+            "The workflow likely stalled before the expected reboot or "
+            "prompt-recovery marker returned."
+        )
     if failure_class == "stopped":
         return "The run was stopped before the active stage completed."
     if failure_class == "artifact_incomplete":
-        return issues[0] if issues else "The returned diagnostic set is incomplete or internally inconsistent."
+        return (
+            issues[0]
+            if issues
+            else "The returned diagnostic set is incomplete or internally inconsistent."
+        )
     if operator_text:
         return operator_text
     if errors:
@@ -497,16 +527,37 @@ def _most_likely_cause(summary: dict[str, Any]) -> str:
 def _recommended_next_capture(summary: dict[str, Any]) -> str:
     failure_class = summary["session"].get("failure_class", "other")
     if failure_class == "success":
-        return "Bring back session_bundle_*.zip only; no extra capture is required unless the operator noticed something unusual."
+        return (
+            "Bring back session_bundle_*.zip only; no extra capture is required "
+            "unless the operator noticed something unusual."
+        )
     if failure_class == "firmware_missing":
-        return "Capture `dir usbflash0:` and `dir usbflash1:` plus the exact firmware filename visible on the USB media, then bring back the session bundle."
+        return (
+            "Capture `dir usbflash0:` and `dir usbflash1:` plus the exact "
+            "firmware filename visible on the USB media, then bring back the "
+            "session bundle."
+        )
     if failure_class == "timeout":
-        return "Capture a final dashboard screenshot, the last visible console prompt after waiting, and whether the switch actually rebooted after `archive download-sw`."
+        return (
+            "Capture a final dashboard screenshot, the last visible console "
+            "prompt after waiting, and whether the switch actually rebooted "
+            "after `archive download-sw`."
+        )
     if failure_class == "stopped":
-        return "Capture why the run was stopped, the final dashboard screenshot, and the stopped session bundle for comparison."
+        return (
+            "Capture why the run was stopped, the final dashboard screenshot, "
+            "and the stopped session bundle for comparison."
+        )
     if failure_class == "artifact_incomplete":
-        return "Bring back the whole session folder plus any matching log/report/transcript files and a screenshot of the final dashboard state."
-    return "Capture the final dashboard screenshot, the exact final prompt, and the full session folder in addition to the session bundle."
+        return (
+            "Bring back the whole session folder plus any matching "
+            "log/report/transcript files and a screenshot of the final "
+            "dashboard state."
+        )
+    return (
+        "Capture the final dashboard screenshot, the exact final prompt, and "
+        "the full session folder in addition to the session bundle."
+    )
 
 
 def _inspect_next(summary: dict[str, Any]) -> list[str]:
@@ -521,14 +572,16 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
     if failure_class == "firmware_missing":
         return [
             "event_timeline: confirm the last state transition before Stage 2 failed.",
-            "transcript: inspect `dir usbflash0:` / `dir usbflash1:` output and the first `No such file` line.",
+            "transcript: inspect `dir usbflash0:` / `dir usbflash1:` output "
+            "and the first `No such file` line.",
             "log: confirm when Stage 2 decided the image was missing.",
             "manifest: check final_state/current_stage and operator_message.code.",
             "report: confirm the operator-facing next step mentions the missing image.",
         ]
     if failure_class == "timeout":
         return [
-            "event_timeline: confirm the last normalized stage and progress transition before timeout.",
+            "event_timeline: confirm the last normalized stage and progress "
+            "transition before timeout.",
             "transcript: inspect the tail around `archive download-sw` and prompt recovery.",
             "log: confirm the last progress marker before timeout.",
             "manifest: check final_state/current_stage and stage duration fields.",
@@ -549,7 +602,8 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
             "event_timeline: confirm whether the normalized event stream was returned at all.",
             "report: check for missing fields or values that do not match the manifest.",
             "transcript: verify the file is present and non-empty before trusting the run outcome.",
-            "log: confirm whether the missing/inconsistent artifact happened before or after the main failure.",
+            "log: confirm whether the missing/inconsistent artifact happened "
+            "before or after the main failure.",
         ]
     return [
         "event_timeline: confirm the final normalized state/stage before opening raw logs.",
@@ -619,7 +673,12 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
     if not isinstance(operator_message, dict):
         operator_message = {}
 
-    summary = {
+    issues = _artifact_integrity(
+        records,
+        manifest_artifacts,
+        str(manifest.get("final_state", "")),
+    )
+    summary: dict[str, Any] = {
         "source": {
             "path": loaded["source_path"],
             "kind": loaded["source_kind"],
@@ -657,11 +716,7 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
             "transcript": _tail_lines(transcript_text),
             "report": _tail_lines(report_text),
         },
-        "issues": _artifact_integrity(
-            records,
-            manifest_artifacts,
-            str(manifest.get("final_state", "")),
-        ),
+        "issues": issues,
     }
     summary["issues"].extend(
         _artifact_consistency_issues(

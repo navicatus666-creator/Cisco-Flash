@@ -43,6 +43,7 @@ tests/test_pre_hardware_preflight.py
 tests/test_replay_loader.py
 tests/test_replay_runner.py
 tests/test_run_demo_gui_smoke.py
+tests/test_run_hidden_ssh_check.py
 tests/test_serial_transport.py
 tests/test_session_artifacts.py
 tests/test_session_return_triage.py

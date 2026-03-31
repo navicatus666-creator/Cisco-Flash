@@ -6,9 +6,11 @@
 - Operator:
 - Device model:
 - Connection method: Serial/USB
+- Optional SSH management method used: yes / no
 
 ## Inputs
 - COM port:
+- Backup console path:
 - Target selection: auto / manual
 - Firmware filename:
 - USB slot used:
@@ -44,6 +46,7 @@
 - Session bundle path:
 - Event timeline path:
 - Screenshot path:
+- Hidden SSH summary path:
 - Triage output path:
 
 ## Notes

@@ -147,6 +147,32 @@ class SshTransport(Transport):
         self._append_transcript("SCP", f"{source_file} -> {resolved_file_system}{destination}")
         return dict(result)
 
+    def ensure_privileged_prompt(self) -> str:
+        prompt = self.find_prompt()
+        if prompt.rstrip().endswith("#"):
+            return prompt
+        connection = self._require_connection()
+        enable = getattr(connection, "enable", None)
+        if not callable(enable):
+            raise TransportError(
+                f"SSH session is not in privileged EXEC mode for {self.target.id}"
+            )
+        self._append_transcript("WRITE", "enable")
+        try:
+            enable()
+            prompt = connection.find_prompt()
+        except Exception as exc:
+            raise TransportError(
+                f"Failed to enter privileged EXEC mode for {self.target.id}: {exc}"
+            ) from exc
+        if prompt:
+            self._append_transcript("READ", prompt)
+        if not prompt.rstrip().endswith("#"):
+            raise TransportError(
+                f"SSH session did not reach privileged EXEC mode for {self.target.id}"
+            )
+        return prompt
+
     def find_prompt(self) -> str:
         connection = self._require_connection()
         try:

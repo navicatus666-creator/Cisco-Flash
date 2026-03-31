@@ -31,15 +31,18 @@ class FakeConnection:
         command_outputs: dict[str, str] | None = None,
         default_output: Callable[[str], str] | str | None = None,
         send_error: Exception | None = None,
+        enable_error: Exception | None = None,
     ) -> None:
         self.prompt = prompt
         self.read_chunks = list(read_chunks or [])
         self.command_outputs = dict(command_outputs or {})
         self.default_output = default_output
         self.send_error = send_error
+        self.enable_error = enable_error
         self.writes: list[str] = []
         self.commands: list[tuple[str, float, float]] = []
         self.disconnected = False
+        self.enable_calls = 0
 
     def disconnect(self) -> None:
         self.disconnected = True
@@ -74,6 +77,12 @@ class FakeConnection:
 
     def find_prompt(self) -> str:
         return self.prompt
+
+    def enable(self) -> None:
+        self.enable_calls += 1
+        if self.enable_error is not None:
+            raise self.enable_error
+        self.prompt = "Switch#"
 
     def is_alive(self):
         return True
@@ -191,6 +200,45 @@ class SshTransportTests(unittest.TestCase):
         self.assertIn("| WRITE", transcript)
         self.assertIn("| READ", transcript)
         self.assertIn("| SCP", transcript)
+
+    def test_ensure_privileged_prompt_returns_existing_priv_prompt(self) -> None:
+        connection = FakeConnection(prompt="Switch#")
+        with patch(
+            "ciscoautoflash.core.ssh_transport._load_netmiko",
+            return_value=(Mock(return_value=connection), Mock(), FakeAuthError, FakeTimeoutError),
+        ):
+            transport = SshTransport(self.target, self.timing, self.transcript_path)
+            transport.connect()
+            prompt = transport.ensure_privileged_prompt()
+
+        self.assertEqual(prompt, "Switch#")
+        self.assertEqual(connection.enable_calls, 0)
+
+    def test_ensure_privileged_prompt_uses_enable_from_user_prompt(self) -> None:
+        connection = FakeConnection(prompt="Switch>")
+        with patch(
+            "ciscoautoflash.core.ssh_transport._load_netmiko",
+            return_value=(Mock(return_value=connection), Mock(), FakeAuthError, FakeTimeoutError),
+        ):
+            transport = SshTransport(self.target, self.timing, self.transcript_path)
+            transport.connect()
+            prompt = transport.ensure_privileged_prompt()
+
+        transcript = self.transcript_path.read_text(encoding="utf-8")
+        self.assertEqual(prompt, "Switch#")
+        self.assertEqual(connection.enable_calls, 1)
+        self.assertIn("enable", transcript)
+
+    def test_ensure_privileged_prompt_raises_when_enable_fails(self) -> None:
+        connection = FakeConnection(prompt="Switch>", enable_error=RuntimeError("boom"))
+        with patch(
+            "ciscoautoflash.core.ssh_transport._load_netmiko",
+            return_value=(Mock(return_value=connection), Mock(), FakeAuthError, FakeTimeoutError),
+        ):
+            transport = SshTransport(self.target, self.timing)
+            transport.connect()
+            with self.assertRaisesRegex(TransportError, "Failed to enter privileged EXEC mode"):
+                transport.ensure_privileged_prompt()
 
     def test_factory_probe_detects_privileged_prompt(self) -> None:
         connection = FakeConnection(prompt="Switch#")
