@@ -7,7 +7,8 @@ Primary run path: `first_hardware_run.md`.
 - Runtime data is created in `%LOCALAPPDATA%\CiscoAutoFlash\`.
 - Console cable, USB flash drive, and firmware tar name are known.
 - The dashboard shows summary cards, preflight, operator card, diagnostics notebook, and session artifact paths.
-- The local preflight gate is already green on the dev machine, including two consecutive passes of `python C:\PROJECT\scripts\run_demo_gui_smoke.py`.
+- The local preflight gate is already green on the dev machine:
+  `python C:\PROJECT\scripts\pre_hardware_preflight.py`
 
 ## Serial/USB operator flow
 - Launch the app and confirm only one instance opens.
@@ -26,11 +27,13 @@ Primary run path: `first_hardware_run.md`.
 - `manifest` file
 - `session folder`
 - `session bundle`
-- screenshot of final dashboard state if a failure occurred
+- `event_timeline.json`
+- `dashboard_snapshot_<state>.png` if a failure or stop occurred
 
 ## First intake on the dev machine
 - Bring back `session_bundle_*.zip` first; if that fails, bring back the whole session folder.
 - Run `python C:\PROJECT\scripts\triage_session_return.py "<bundle-or-session-folder>" --output-dir C:\PROJECT\triage_out`.
 - Read the triage summary before opening raw files by hand.
 - Use its `failure_class`, `most likely cause`, `recommended next capture`, and `inspect next` fields to drive the first bug write-up.
+- Use the `timeline` section to confirm the last normalized event/state before reading raw logs.
 - Only after that move into the raw `manifest`, `report`, `transcript`, and `log`.

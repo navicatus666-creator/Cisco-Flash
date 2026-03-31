@@ -42,6 +42,7 @@
 - Manifest path:
 - Session folder path:
 - Session bundle path:
+- Event timeline path:
 - Screenshot path:
 - Triage output path:
 

@@ -117,6 +117,12 @@ class WorkflowController:
             settings_snapshot_path=str(self.session.settings_snapshot_path),
             manifest_path=str(self.session.manifest_path),
             bundle_path=str(self.session.bundle_path),
+            event_timeline_path=str(self.session.event_timeline_path),
+            dashboard_snapshot_path=(
+                str(self.session.dashboard_snapshot_path)
+                if self.session.dashboard_snapshot_path is not None
+                else ""
+            ),
             session_dir=str(self.session.session_dir),
             session_id=self.session.session_id,
             session_started_at=self.session_started_at,

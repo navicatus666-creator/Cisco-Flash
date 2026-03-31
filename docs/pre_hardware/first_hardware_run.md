@@ -27,9 +27,9 @@ python C:\PROJECT\main.py
 Before connecting the switch, confirm `pre_hardware_readiness_gate.md` is fully green.
 Use this file as the execution runbook only after the software, demo, replay, and artifact gates are already closed.
 Local preflight now explicitly includes:
-- `python -m unittest discover -s C:\PROJECT\tests -v`
-- `python -m build C:\PROJECT`
-- `python C:\PROJECT\scripts\run_demo_gui_smoke.py` passing twice consecutively on the dev machine
+- `python C:\PROJECT\scripts\pre_hardware_preflight.py`
+- This one command runs `check_mcp_runtime.py`, full `unittest`, `python -m build`, and `run_demo_gui_smoke.py`
+- Optional final pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --rebuild-bundle`
 
 ## Before connecting the switch
 
@@ -103,8 +103,9 @@ Use the first matching bucket before filling `bug_capture_template.md`:
 - `report` path
 - `manifest` path
 - `session bundle` path
+- `event_timeline.json` path
 - `session folder` path
-- screenshot of the final dashboard state on failure
+- `dashboard_snapshot_<state>.png` path for `FAILED` / `STOPPED`
 - final operator message and severity
 - final stage durations from the report/manifest
 - whether target selection was automatic or manual
@@ -125,6 +126,7 @@ Use the generated summary as the first source of truth:
 - `recommended next capture`
 - `inspect next`
 - `issues` for missing/empty/inconsistent artifacts
+- `timeline` summary for the last normalized event/state/stage
 - Do not start manual file-by-file digging until you have read this summary once.
 
 ## Compare against expectations

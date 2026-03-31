@@ -14,6 +14,11 @@ from typing import Any
 
 import ttkbootstrap as ttk
 
+try:
+    from PIL import ImageGrab  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover - optional runtime dependency
+    ImageGrab = None
+
 from ..config import (
     AppConfig,
     AppSettings,
@@ -24,7 +29,12 @@ from ..core.events import AppEvent
 from ..core.logging_utils import append_session_log, timestamp
 from ..core.models import ScanResult
 from ..core.serial_transport import SerialTransportFactory
-from ..core.session_artifacts import export_session_bundle, format_duration, snapshot_settings
+from ..core.session_artifacts import (
+    export_session_bundle,
+    format_duration,
+    snapshot_settings,
+    update_manifest_artifacts,
+)
 from ..core.single_instance import SingleInstanceError, SingleInstanceGuard
 from ..core.workflow import WorkflowController
 from ..profiles import build_c2960x_profile
@@ -68,6 +78,11 @@ class CiscoAutoFlashDesktop:
         self.demo_playback_delay_ms = max(1, _env_int("CISCOAUTOFLASH_DEMO_DELAY_MS", 70))
         self.auto_start_scan = _env_flag("CISCOAUTOFLASH_AUTO_START_SCAN", auto_start_scan)
         self.last_smoke_open_path: Path | None = None
+        self._event_timeline: list[dict[str, Any]] = []
+        self.operator_message_code = ""
+        self.current_state_name = "IDLE"
+        self._progress_percent_value = 0
+        self._terminal_snapshot_state: str | None = None
         base_config = config or AppConfig()
         if self.demo_mode:
             self.config = replace(base_config, runtime_root=(base_config.runtime_root / "demo"))
@@ -160,6 +175,8 @@ class CiscoAutoFlashDesktop:
         self.settings_path = self.session.settings_path
         self.manifest_path = self.session.manifest_path
         self.bundle_path = self.session.bundle_path
+        self.event_timeline_path = self.session.event_timeline_path
+        self.dashboard_snapshot_path = self.session.dashboard_snapshot_path
         self.session_dir = self.session.session_dir
         self.session_started_at_value = getattr(
             self.controller, "session_started_at", self.session.started_at.timestamp()
@@ -1095,6 +1112,10 @@ class CiscoAutoFlashDesktop:
             "settings_path": str(self.settings_path),
             "manifest_path": str(self.manifest_path),
             "bundle_path": str(self.bundle_path),
+            "event_timeline_path": str(self.event_timeline_path),
+            "dashboard_snapshot_path": (
+                str(self.dashboard_snapshot_path) if self.dashboard_snapshot_path else ""
+            ),
         }
         return {
             "generated_at": timestamp(),
@@ -1212,6 +1233,92 @@ class CiscoAutoFlashDesktop:
             var = getattr(self, attr, None)
             if var is not None:
                 var.set(str(path))
+        self._refresh_artifact_statuses()
+
+    def _sync_runtime_artifact_paths(self) -> None:
+        update_manifest_artifacts(
+            self.manifest_path,
+            event_timeline_path=self.event_timeline_path,
+            dashboard_snapshot_path=self.dashboard_snapshot_path,
+        )
+
+    def _event_paths_for_event(self, event: AppEvent) -> dict[str, str]:
+        path_keys = (
+            "session_dir",
+            "log_path",
+            "report_path",
+            "transcript_path",
+            "settings_path",
+            "settings_snapshot_path",
+            "manifest_path",
+            "bundle_path",
+            "event_timeline_path",
+            "dashboard_snapshot_path",
+        )
+        if event.kind == "session_paths":
+            return {
+                key: str(event.payload.get(key, ""))
+                for key in path_keys
+                if str(event.payload.get(key, "")).strip()
+            }
+        if event.kind == "report_ready":
+            return {"report_path": str(self.report_path)}
+        return {}
+
+    def _write_event_timeline(self) -> None:
+        self.event_timeline_path.parent.mkdir(parents=True, exist_ok=True)
+        self.event_timeline_path.write_text(
+            json.dumps(self._event_timeline, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self.session.event_timeline_path = self.event_timeline_path
+        self._sync_runtime_artifact_paths()
+
+    def _record_event_timeline_entry(self, event: AppEvent) -> None:
+        selected_target = self.selected_target_var.get().strip()
+        if selected_target == "Не выбрана":
+            selected_target = ""
+        entry = {
+            "timestamp": timestamp(),
+            "kind": event.kind,
+            "state": self.current_state_name,
+            "current_stage": self.current_stage_var.get().strip(),
+            "selected_target_id": selected_target,
+            "operator_message_code": self.operator_message_code,
+            "progress_percent": self._progress_percent_value,
+            "paths": self._event_paths_for_event(event),
+        }
+        self._event_timeline.append(entry)
+        self._write_event_timeline()
+
+    def _capture_terminal_snapshot(self, state_name: str) -> None:
+        if state_name not in {"FAILED", "STOPPED"}:
+            return
+        if self._terminal_snapshot_state is not None or ImageGrab is None:
+            return
+        bounds = self._widget_bounds(self.window)
+        if bounds is None:
+            return
+        try:
+            update_idletasks = getattr(self.window, "update_idletasks", None)
+            if callable(update_idletasks):
+                update_idletasks()
+            snapshot_path = self.session_dir / f"dashboard_snapshot_{state_name.lower()}.png"
+            image = ImageGrab.grab(
+                bbox=(
+                    bounds["left"],
+                    bounds["top"],
+                    bounds["right"],
+                    bounds["bottom"],
+                )
+            )
+            image.save(snapshot_path)
+        except Exception:
+            return
+        self.dashboard_snapshot_path = snapshot_path
+        self.session.dashboard_snapshot_path = snapshot_path
+        self._terminal_snapshot_state = state_name
+        self._sync_runtime_artifact_paths()
         self._refresh_artifact_statuses()
 
     def _refresh_artifact_statuses(self) -> None:
@@ -1615,6 +1722,7 @@ class CiscoAutoFlashDesktop:
             except Empty:
                 break
             self._handle_event(event)
+            self._record_event_timeline_entry(event)
             handled_any = True
         if handled_any:
             self._refresh_automation_map()
@@ -1636,8 +1744,20 @@ class CiscoAutoFlashDesktop:
             self.session.settings_snapshot_path = Path(str(settings_snapshot_path))
             self.manifest_path = Path(str(event.payload.get("manifest_path", self.manifest_path)))
             self.bundle_path = Path(str(event.payload.get("bundle_path", self.bundle_path)))
+            self.event_timeline_path = Path(
+                str(event.payload.get("event_timeline_path", self.event_timeline_path))
+            )
+            raw_snapshot_path = str(
+                event.payload.get(
+                    "dashboard_snapshot_path",
+                    self.dashboard_snapshot_path or "",
+                )
+            ).strip()
+            self.dashboard_snapshot_path = Path(raw_snapshot_path) if raw_snapshot_path else None
             self.session.manifest_path = self.manifest_path
             self.session.bundle_path = self.bundle_path
+            self.session.event_timeline_path = self.event_timeline_path
+            self.session.dashboard_snapshot_path = self.dashboard_snapshot_path
             self.session_dir = Path(str(event.payload.get("session_dir", self.session_dir)))
             self.session.session_dir = self.session_dir
             self.session.log_path = self.log_path
@@ -1657,6 +1777,7 @@ class CiscoAutoFlashDesktop:
             self._append_log(str(event.payload["line"]), str(event.payload.get("level", "info")))
         elif event.kind == "state_changed":
             state_name = str(event.payload.get("state", ""))
+            self.current_state_name = state_name
             message = str(event.payload.get("message", state_name))
             self.state_var.set(message)
             self.footer_var.set(message)
@@ -1687,6 +1808,7 @@ class CiscoAutoFlashDesktop:
                 self.firmware_input_var.set(requested_firmware)
             if state_name == "DISCOVERING":
                 self.scan_status_var.set("Идёт сканирование COM-портов...")
+            self._capture_terminal_snapshot(state_name)
         elif event.kind == "actions_changed":
             self._demo_action_state = {
                 "scan_enabled": bool(event.payload.get("scan_enabled", False)),
@@ -1744,12 +1866,14 @@ class CiscoAutoFlashDesktop:
         elif event.kind == "operator_message":
             message = event.payload["message"]
             severity = str(getattr(message, "severity", "info") or "info")
+            self.operator_message_code = str(getattr(message, "code", "") or "")
             self.operator_title_var.set(getattr(message, "title", ""))
             self.operator_detail_var.set(getattr(message, "detail", ""))
             self.operator_next_step_var.set(getattr(message, "next_step", ""))
             self._apply_operator_style(severity)
         elif event.kind == "progress":
             percent = int(event.payload.get("percent", 0))
+            self._progress_percent_value = percent
             stage_name = self._friendly_install_stage(
                 str(event.payload.get("stage_name", "Ожидание"))
             )

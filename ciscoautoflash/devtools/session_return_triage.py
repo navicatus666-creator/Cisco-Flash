@@ -14,6 +14,8 @@ ARTIFACT_KEYS: tuple[tuple[str, str], ...] = (
     ("report", "report_path"),
     ("transcript", "transcript_path"),
     ("bundle", "bundle_path"),
+    ("event_timeline", "event_timeline_path"),
+    ("dashboard_snapshot", "dashboard_snapshot_path"),
 )
 ZIP_PATTERNS: dict[str, str] = {
     "manifest": "session_manifest.json",
@@ -21,6 +23,8 @@ ZIP_PATTERNS: dict[str, str] = {
     "log": "ciscoautoflash_*.log",
     "report": "install_report_*.txt",
     "transcript": "transcript_*.log",
+    "event_timeline": "event_timeline.json",
+    "dashboard_snapshot": "dashboard_snapshot_*.png",
 }
 REPORT_FIELDS: tuple[str, ...] = (
     "Run Mode",
@@ -95,13 +99,14 @@ def _artifact_record(
     present: bool,
     source: str,
     text: str = "",
+    size_bytes: int | None = None,
 ) -> dict[str, Any]:
     return {
         "name": name,
         "path": path,
         "present": present,
         "source": source,
-        "size_bytes": len(text.encode("utf-8")) if text else None,
+        "size_bytes": size_bytes if size_bytes is not None else (len(text.encode("utf-8")) if text else None),
         "text": text,
     }
 
@@ -148,6 +153,7 @@ def _load_from_directory(source: Path) -> dict[str, Any]:
             present=manifest_path.exists(),
             source="directory",
             text=manifest_text,
+            size_bytes=manifest_path.stat().st_size if manifest_path.exists() else None,
         ),
     }
 
@@ -157,7 +163,12 @@ def _load_from_directory(source: Path) -> dict[str, Any]:
             fallback = "session_bundle_*.zip"
         resolved = _resolve_dir_artifact(source, manifest_artifacts, manifest_key, fallback)
         text = ""
-        if resolved and resolved.exists() and resolved.suffix.lower() != ".zip":
+        size_bytes = resolved.stat().st_size if resolved and resolved.exists() else None
+        if (
+            resolved
+            and resolved.exists()
+            and resolved.suffix.lower() not in {".zip", ".png"}
+        ):
             text = _read_text(resolved)
         records[artifact_name] = _artifact_record(
             name=artifact_name,
@@ -165,6 +176,7 @@ def _load_from_directory(source: Path) -> dict[str, Any]:
             present=bool(resolved and resolved.exists()),
             source="directory",
             text=text,
+            size_bytes=size_bytes,
         )
 
     inventory = sorted(
@@ -203,6 +215,7 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
                 path=str(source),
                 present=source.exists(),
                 source="bundle-zip",
+                size_bytes=source.stat().st_size if source.exists() else None,
             ),
             "manifest": _artifact_record(
                 name="manifest",
@@ -210,6 +223,9 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
                 present=manifest_member is not None,
                 source="bundle-zip",
                 text=manifest_text,
+                size_bytes=(
+                    archive.getinfo(manifest_member).file_size if manifest_member is not None else None
+                ),
             ),
         }
 
@@ -218,7 +234,8 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
                 continue
             member = _match_zip_member(names, pattern)
             text = ""
-            if member and not member.endswith(".zip") and not member.endswith(".json"):
+            size_bytes = archive.getinfo(member).file_size if member else None
+            if member and not member.endswith(".zip") and not member.endswith(".json") and not member.endswith(".png"):
                 text = archive.read(member).decode("utf-8", errors="replace")
             elif member and member.endswith(".json"):
                 text = archive.read(member).decode("utf-8", errors="replace")
@@ -228,6 +245,7 @@ def _load_from_bundle(source: Path) -> dict[str, Any]:
                 present=member is not None,
                 source="bundle-zip",
                 text=text,
+                size_bytes=size_bytes,
             )
 
     return {
@@ -291,7 +309,11 @@ def _collect_signatures(*texts: str) -> dict[str, list[str]]:
     }
 
 
-def _artifact_integrity(records: dict[str, dict[str, Any]]) -> list[str]:
+def _artifact_integrity(
+    records: dict[str, dict[str, Any]],
+    manifest_artifacts: dict[str, Any],
+    final_state: str,
+) -> list[str]:
     issues: list[str] = []
     for name in ("manifest", "log", "report", "transcript"):
         record = records.get(name, {})
@@ -300,7 +322,42 @@ def _artifact_integrity(records: dict[str, dict[str, Any]]) -> list[str]:
             continue
         if name != "manifest" and record.get("size_bytes", 0) == 0:
             issues.append(f"{name} artifact is empty.")
+    if "event_timeline_path" in manifest_artifacts:
+        timeline = records.get("event_timeline", {})
+        if not timeline.get("present"):
+            issues.append("Missing event_timeline artifact.")
+        elif timeline.get("size_bytes", 0) == 0:
+            issues.append("event_timeline artifact is empty.")
+    raw_snapshot_path = str(manifest_artifacts.get("dashboard_snapshot_path", "")).strip()
+    if "dashboard_snapshot_path" in manifest_artifacts and (
+        raw_snapshot_path or final_state in {"FAILED", "STOPPED"}
+    ):
+        snapshot = records.get("dashboard_snapshot", {})
+        if not snapshot.get("present"):
+            issues.append("Missing dashboard_snapshot artifact.")
     return issues
+
+
+def _timeline_entries(text: str) -> list[dict[str, Any]]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [entry for entry in payload if isinstance(entry, dict)]
+
+
+def _timeline_summary(text: str) -> dict[str, Any]:
+    entries = _timeline_entries(text)
+    last = entries[-1] if entries else {}
+    return {
+        "entries_count": len(entries),
+        "last_kind": str(last.get("kind", "")),
+        "last_state": str(last.get("state", "")),
+        "last_stage": str(last.get("current_stage", "")),
+        "last_operator_message_code": str(last.get("operator_message_code", "")),
+    }
 
 
 def _artifact_consistency_issues(
@@ -456,12 +513,14 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
     failure_class = summary["session"].get("failure_class", "other")
     if failure_class == "success":
         return [
+            "event_timeline: confirm the final normalized event flow and completion state.",
             "report: confirm final operator-facing conclusions and reported workflow mode.",
             "transcript: spot-check the final verification commands and prompt tail.",
             "manifest: confirm final_state/current_stage and session paths.",
         ]
     if failure_class == "firmware_missing":
         return [
+            "event_timeline: confirm the last state transition before Stage 2 failed.",
             "transcript: inspect `dir usbflash0:` / `dir usbflash1:` output and the first `No such file` line.",
             "log: confirm when Stage 2 decided the image was missing.",
             "manifest: check final_state/current_stage and operator_message.code.",
@@ -469,6 +528,7 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
         ]
     if failure_class == "timeout":
         return [
+            "event_timeline: confirm the last normalized stage and progress transition before timeout.",
             "transcript: inspect the tail around `archive download-sw` and prompt recovery.",
             "log: confirm the last progress marker before timeout.",
             "manifest: check final_state/current_stage and stage duration fields.",
@@ -476,6 +536,8 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
         ]
     if failure_class == "stopped":
         return [
+            "event_timeline: confirm the last normalized event before the stop request landed.",
+            "dashboard_snapshot: compare the final visible dashboard state against the manifest.",
             "manifest: confirm the final state and stop-related operator message.",
             "log: find the exact stop marker and what was running immediately before it.",
             "transcript: inspect the last command/prompt pair before the stop.",
@@ -484,11 +546,13 @@ def _inspect_next(summary: dict[str, Any]) -> list[str]:
     if failure_class == "artifact_incomplete":
         return [
             "manifest: confirm which artifacts were expected and what final state was recorded.",
+            "event_timeline: confirm whether the normalized event stream was returned at all.",
             "report: check for missing fields or values that do not match the manifest.",
             "transcript: verify the file is present and non-empty before trusting the run outcome.",
             "log: confirm whether the missing/inconsistent artifact happened before or after the main failure.",
         ]
     return [
+        "event_timeline: confirm the final normalized state/stage before opening raw logs.",
         "manifest: confirm final_state/current_stage and operator_message first.",
         "transcript: inspect the command/prompt tail around the failure.",
         "log: inspect the last error/warning signatures.",
@@ -544,9 +608,13 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
     loaded = load_triage_source(source)
     manifest = loaded["manifest"]
     records = loaded["records"]
+    manifest_artifacts = manifest.get("artifacts", {})
+    if not isinstance(manifest_artifacts, dict):
+        manifest_artifacts = {}
     report_text = str(records.get("report", {}).get("text", ""))
     log_text = str(records.get("log", {}).get("text", ""))
     transcript_text = str(records.get("transcript", {}).get("text", ""))
+    timeline_text = str(records.get("event_timeline", {}).get("text", ""))
     operator_message = manifest.get("operator_message", {})
     if not isinstance(operator_message, dict):
         operator_message = {}
@@ -583,12 +651,17 @@ def build_triage_summary(source: Path) -> dict[str, Any]:
         },
         "report_fields": _report_fields(report_text),
         "signatures": _collect_signatures(log_text, transcript_text),
+        "timeline": _timeline_summary(timeline_text),
         "tails": {
             "log": _tail_lines(log_text),
             "transcript": _tail_lines(transcript_text),
             "report": _tail_lines(report_text),
         },
-        "issues": _artifact_integrity(records),
+        "issues": _artifact_integrity(
+            records,
+            manifest_artifacts,
+            str(manifest.get("final_state", "")),
+        ),
     }
     summary["issues"].extend(
         _artifact_consistency_issues(
@@ -628,6 +701,13 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
     ] or ["- No key report fields parsed."]
     error_rows = [f"- {line}" for line in signatures["errors"]] or ["- None"]
     warning_rows = [f"- {line}" for line in signatures["warnings"]] or ["- None"]
+    timeline_rows = [
+        f"- Entries: {summary['timeline']['entries_count']}",
+        f"- Last kind: {summary['timeline']['last_kind'] or 'unknown'}",
+        f"- Last state: {summary['timeline']['last_state'] or 'unknown'}",
+        f"- Last stage: {summary['timeline']['last_stage'] or 'unknown'}",
+        f"- Last operator code: {summary['timeline']['last_operator_message_code'] or 'unknown'}",
+    ]
     issue_rows = [f"- {line}" for line in summary["issues"]] or ["- None"]
     inspect_rows = [f"- {line}" for line in summary["diagnosis"]["inspect_next"]]
     next_rows = [f"- {line}" for line in summary["next_steps"]]
@@ -663,6 +743,9 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
             "",
             "## Report Fields",
             *report_rows,
+            "",
+            "## Event Timeline",
+            *timeline_rows,
             "",
             "## Issues",
             *issue_rows,

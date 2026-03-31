@@ -341,6 +341,8 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.settings_path = Path("C:/logs/settings/settings.json")
         app.manifest_path = Path("C:/logs/sessions/current/session_manifest.json")
         app.bundle_path = Path("C:/logs/sessions/current/session_bundle.zip")
+        app.event_timeline_path = Path("C:/logs/sessions/current/event_timeline.json")
+        app.dashboard_snapshot_path = None
         app.session_started_at_value = 0.0
         app.active_stage_started_at_value = None
         sessions_dir = Path("C:/logs/sessions")
@@ -355,6 +357,8 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
             started_at=0.0,
             manifest_path=app.manifest_path,
             bundle_path=app.bundle_path,
+            event_timeline_path=app.event_timeline_path,
+            dashboard_snapshot_path=app.dashboard_snapshot_path,
             settings_path=app.settings_path,
             settings_snapshot_path=app.settings_path,
             log_path=app.log_path,
@@ -373,6 +377,11 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.last_smoke_open_path = None
         app.last_demo_idle_marker = ""
         app.demo_busy = False
+        app._event_timeline = []
+        app.operator_message_code = ""
+        app.current_state_name = "IDLE"
+        app._progress_percent_value = 0
+        app._terminal_snapshot_state = None
         app._demo_action_state = {
             "scan_enabled": False,
             "stage1_enabled": False,
@@ -502,6 +511,8 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
                     "settings_path": "C:/logs/settings/new-settings.json",
                     "manifest_path": "C:/logs/sessions/new/session_manifest.json",
                     "bundle_path": "C:/logs/sessions/new/session_bundle.zip",
+                    "event_timeline_path": "C:/logs/sessions/new/event_timeline.json",
+                    "dashboard_snapshot_path": "C:/logs/sessions/new/dashboard_snapshot_failed.png",
                     "session_id": "new-session",
                     "session_started_at": 1000.0,
                     "session_started_label": "2026-03-15 14:00:00",
@@ -516,6 +527,11 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.settings_path, Path("C:/logs/settings/new-settings.json"))
         self.assertEqual(app.manifest_path, Path("C:/logs/sessions/new/session_manifest.json"))
         self.assertEqual(app.bundle_path, Path("C:/logs/sessions/new/session_bundle.zip"))
+        self.assertEqual(app.event_timeline_path, Path("C:/logs/sessions/new/event_timeline.json"))
+        self.assertEqual(
+            app.dashboard_snapshot_path,
+            Path("C:/logs/sessions/new/dashboard_snapshot_failed.png"),
+        )
         self.assertEqual(app.log_path_var.get(), str(Path("C:/logs/new.log")))
         self.assertEqual(app.report_path_var.get(), str(Path("C:/logs/new-report.txt")))
         self.assertEqual(app.transcript_path_var.get(), str(Path("C:/logs/new-transcript.txt")))
@@ -752,6 +768,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app = self.make_app_shell()
         handled: list[str] = []
         app._handle_event = lambda event: handled.append(event.kind)
+        app._record_event_timeline_entry = Mock()
         if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
             app._refresh_automation_map = Mock()
         app.event_queue.put(AppEvent("log", {"line": "a"}))
@@ -760,6 +777,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app._drain_events()
 
         self.assertEqual(handled, ["log", "progress"])
+        self.assertEqual(app._record_event_timeline_entry.call_count, 2)
         if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
             app._refresh_automation_map.assert_called_once_with()
         self.assertEqual(app.window.after_calls[0][0], 100)
@@ -905,7 +923,65 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(data["state"]["last_demo_idle_marker"], "")
         self.assertEqual(data["state"]["last_smoke_open_path"], "")
         self.assertEqual(data["session"]["session_dir"], str(app.session_dir))
+        self.assertEqual(data["session"]["event_timeline_path"], str(app.event_timeline_path))
+        self.assertEqual(data["session"]["dashboard_snapshot_path"], "")
         self.assertIn("generated_at", data)
+
+    def test_record_event_timeline_writes_normalized_json(self) -> None:
+        app = self.make_app_shell()
+        app.current_state_name = "FAILED"
+        app.current_stage_var.set("Этап 2")
+        app.selected_target_var.set("COM7")
+        app.operator_message_code = "timeout"
+        app._progress_percent_value = 60
+        app.event_timeline_path.unlink(missing_ok=True)
+        app.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        app.manifest_path.write_text(
+            json.dumps({"artifacts": {}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        app._record_event_timeline_entry(AppEvent("state_changed", {"message": "failed"}))
+
+        saved = json.loads(app.event_timeline_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved[-1]["kind"], "state_changed")
+        self.assertEqual(saved[-1]["state"], "FAILED")
+        self.assertEqual(saved[-1]["current_stage"], "Этап 2")
+        self.assertEqual(saved[-1]["selected_target_id"], "COM7")
+        self.assertEqual(saved[-1]["operator_message_code"], "timeout")
+        manifest = json.loads(app.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            manifest["artifacts"]["event_timeline_path"],
+            str(app.event_timeline_path),
+        )
+
+    def test_state_changed_captures_terminal_snapshot_once(self) -> None:
+        app = self.make_app_shell()
+        app.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        app.manifest_path.write_text(
+            json.dumps({"artifacts": {"event_timeline_path": str(app.event_timeline_path)}}),
+            encoding="utf-8",
+        )
+        image = Mock()
+
+        with patch("ciscoautoflash.ui.app.ImageGrab") as image_grab:
+            image_grab.grab.return_value = image
+            app._handle_event(
+                AppEvent(
+                    "state_changed",
+                    {"state": "FAILED", "message": "failed", "current_stage": "Этап 2"},
+                )
+            )
+            app._handle_event(
+                AppEvent(
+                    "state_changed",
+                    {"state": "FAILED", "message": "failed again", "current_stage": "Этап 2"},
+                )
+            )
+
+        self.assertEqual(image_grab.grab.call_count, 1)
+        self.assertTrue(str(app.dashboard_snapshot_path).endswith("dashboard_snapshot_failed.png"))
+        image.save.assert_called_once()
 
     def test_refresh_automation_map_writes_json_only_when_enabled(self) -> None:
         refresh_map = getattr(CiscoAutoFlashDesktop, "_refresh_automation_map", None)

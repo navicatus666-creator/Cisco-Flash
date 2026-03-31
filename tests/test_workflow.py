@@ -163,6 +163,8 @@ class WorkflowControllerTests(unittest.TestCase):
             settings_snapshot_path=session_dir / "settings_snapshot.json",
             manifest_path=session_dir / "session_manifest_test.json",
             bundle_path=session_dir / "session_bundle_test.zip",
+            event_timeline_path=session_dir / "event_timeline.json",
+            dashboard_snapshot_path=None,
         )
 
     def tearDown(self) -> None:

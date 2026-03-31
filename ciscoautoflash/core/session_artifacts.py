@@ -111,6 +111,12 @@ def build_session_manifest(
             "settings_snapshot_path": str(session.settings_snapshot_path),
             "manifest_path": str(session.manifest_path),
             "bundle_path": str(session.bundle_path),
+            "event_timeline_path": str(session.event_timeline_path),
+            "dashboard_snapshot_path": (
+                str(session.dashboard_snapshot_path)
+                if session.dashboard_snapshot_path is not None
+                else ""
+            ),
         },
         "stage_durations": {
             entry["label"]: str(entry["display"]) for entry in duration_map.values()
@@ -127,6 +133,25 @@ def write_session_manifest(path: Path, manifest: dict[str, Any]) -> None:
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def update_manifest_artifacts(path: Path, **artifact_paths: Path | str | None) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(manifest, dict):
+        return None
+    artifacts = manifest.get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        artifacts = {}
+    for key, value in artifact_paths.items():
+        artifacts[key] = str(value) if value else ""
+    manifest["artifacts"] = artifacts
+    write_session_manifest(path, manifest)
+    return manifest
+
+
 def snapshot_settings(source_path: Path, snapshot_path: Path) -> Path | None:
     if not source_path.exists():
         return None
@@ -137,13 +162,17 @@ def snapshot_settings(source_path: Path, snapshot_path: Path) -> Path | None:
 
 def export_session_bundle(session: SessionPaths) -> Path:
     snapshot_settings(session.settings_path, session.settings_snapshot_path)
-    files = (
+    files = [
         ("session_manifest.json", session.manifest_path),
         ("settings_snapshot.json", session.settings_snapshot_path),
         (session.log_path.name, session.log_path),
         (session.report_path.name, session.report_path),
         (session.transcript_path.name, session.transcript_path),
-    )
+        (session.event_timeline_path.name, session.event_timeline_path),
+    ]
+    if session.dashboard_snapshot_path is not None:
+        snapshot_path = Path(session.dashboard_snapshot_path)
+        files.append((snapshot_path.name, snapshot_path))
     session.bundle_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(
         session.bundle_path,

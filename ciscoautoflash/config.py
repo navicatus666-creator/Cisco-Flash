@@ -43,6 +43,8 @@ class SessionPaths:
     settings_snapshot_path: Path
     manifest_path: Path
     bundle_path: Path
+    event_timeline_path: Path
+    dashboard_snapshot_path: Path | None
 
 
 @dataclass(slots=True)
@@ -98,6 +100,8 @@ class AppConfig:
             settings_snapshot_path=session_dir / "settings_snapshot.json",
             manifest_path=session_dir / "session_manifest.json",
             bundle_path=session_dir / f"session_bundle_{session_id}.zip",
+            event_timeline_path=session_dir / "event_timeline.json",
+            dashboard_snapshot_path=None,
         )
 
 

@@ -76,6 +76,11 @@ def _write_operator_note() -> None:
             - Открой `Запустить CiscoAutoFlash.bat`
             - Если bat не сработает, запусти `{APP_NAME}\\{APP_NAME}.exe`
 
+            Что проверить на dev-машине до выезда
+            - Запусти:
+              `python C:\\PROJECT\\scripts\\pre_hardware_preflight.py`
+            - Только после статуса READY переходите к живому smoke
+
             Что делать на месте
             - Подключись к Cisco 2960-X по Serial/USB
             - Пройди реальный smoke по шагам в приложении
@@ -93,6 +98,8 @@ def _write_operator_note() -> None:
             - Если bundle не экспортировался:
               вся папка `%LOCALAPPDATA%\\CiscoAutoFlash\\sessions\\<session_id>\\`
             - При наличии: соответствующие log/report/transcript файлы
+            - Для FAILED/STOPPED сессий ожидаются:
+              `event_timeline.json` и `dashboard_snapshot_<state>.png`
 
             Что сделать потом на dev-машине
             - Запусти:

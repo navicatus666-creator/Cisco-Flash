@@ -12,6 +12,7 @@ from ciscoautoflash.core.session_artifacts import (
     build_session_manifest,
     export_session_bundle,
     format_duration,
+    update_manifest_artifacts,
     write_session_manifest,
 )
 
@@ -43,10 +44,15 @@ class SessionArtifactsTests(unittest.TestCase):
             settings_snapshot_path=root / "settings" / "snapshot.json",
             manifest_path=session_dir / "session_manifest_artifact.json",
             bundle_path=session_dir / "session_bundle_artifact.zip",
+            event_timeline_path=session_dir / "event_timeline.json",
+            dashboard_snapshot_path=session_dir / "dashboard_snapshot_failed.png",
         )
         self.session.log_path.write_text("log", encoding="utf-8")
         self.session.report_path.write_text("report", encoding="utf-8")
         self.session.transcript_path.write_text("transcript", encoding="utf-8")
+        self.session.event_timeline_path.write_text("[]", encoding="utf-8")
+        assert self.session.dashboard_snapshot_path is not None
+        self.session.dashboard_snapshot_path.write_bytes(b"fakepng")
         self.session.settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.session.settings_path.write_text('{"firmware_name":"c2960x.tar"}', encoding="utf-8")
 
@@ -89,6 +95,11 @@ class SessionArtifactsTests(unittest.TestCase):
         self.assertIn("00:03:00", saved["stage_durations"].values())
         self.assertEqual(saved["operator_message"]["code"], "info")
         self.assertEqual(saved["operator_message"]["title"], "Готово")
+        self.assertEqual(saved["artifacts"]["event_timeline_path"], str(self.session.event_timeline_path))
+        self.assertEqual(
+            saved["artifacts"]["dashboard_snapshot_path"],
+            str(self.session.dashboard_snapshot_path),
+        )
 
         bundle_path = export_session_bundle(self.session)
         self.assertTrue(bundle_path.exists())
@@ -100,8 +111,41 @@ class SessionArtifactsTests(unittest.TestCase):
             "session.log",
             "report.txt",
             "transcript.log",
+            "event_timeline.json",
+            "dashboard_snapshot_failed.png",
         }
         self.assertEqual(names, expected_archive_names)
+
+    def test_update_manifest_artifacts_updates_runtime_paths(self) -> None:
+        manifest = build_session_manifest(
+            session=self.session,
+            profile_name="Cisco Catalyst 2960-X",
+            run_mode="Operator",
+            started_at="2026-03-15 14:20:00",
+            last_updated_at="2026-03-15 14:25:00",
+            session_elapsed_seconds=300,
+            active_stage_elapsed_seconds=30,
+            current_state="FAILED",
+            current_stage="Этап 2",
+            selected_target_id="COM5",
+            requested_firmware_name="c2960x.tar",
+            observed_firmware_version="15.2(7)E13",
+            last_scan_completed_at="2026-03-15 14:21:00",
+            operator_message={"code": "timeout", "severity": "error", "title": "Ошибка"},
+            stage_durations={"scan": 12, "stage1": 60, "stage2": 180, "stage3": None},
+        )
+        write_session_manifest(self.session.manifest_path, manifest)
+        update_manifest_artifacts(
+            self.session.manifest_path,
+            event_timeline_path=self.session.event_timeline_path,
+            dashboard_snapshot_path=self.session.dashboard_snapshot_path,
+        )
+        saved = json.loads(self.session.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved["artifacts"]["event_timeline_path"], str(self.session.event_timeline_path))
+        self.assertEqual(
+            saved["artifacts"]["dashboard_snapshot_path"],
+            str(self.session.dashboard_snapshot_path),
+        )
 
 
 if __name__ == "__main__":
