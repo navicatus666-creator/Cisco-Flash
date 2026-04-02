@@ -309,8 +309,8 @@ class SshTransportFactory(TransportFactory):
 
 def _load_netmiko():
     try:
-        from netmiko import ConnectHandler, file_transfer  # type: ignore[import-untyped]
-        from netmiko.exceptions import (  # type: ignore[import-untyped]
+        from netmiko import ConnectHandler, file_transfer
+        from netmiko.exceptions import (
             NetmikoAuthenticationException,
             NetmikoTimeoutException,
         )

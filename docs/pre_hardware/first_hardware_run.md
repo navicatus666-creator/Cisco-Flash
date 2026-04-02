@@ -30,6 +30,8 @@ Local preflight now explicitly includes:
 - `python C:\PROJECT\scripts\pre_hardware_preflight.py`
 - This one command runs `check_mcp_runtime.py`, full `unittest`, `python -m build`, and `run_demo_gui_smoke.py`
 - Optional final pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --rebuild-bundle`
+- Hardware-day rehearsal pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --hardware-day-rehearsal`
+- The dashboard now mirrors this through the read-only `Подготовка к железу` block: latest local gate, console/USB snapshot, Ethernet state, and the exact live-run / bring-back path.
 
 ## Before connecting the switch
 
@@ -69,20 +71,24 @@ Local preflight now explicitly includes:
 4. Launch the app from source and confirm only one instance opens.
 5. Run `Сканировать`.
 6. Confirm the selected target is correct in summary cards and preflight.
-7. Confirm the operator card shows a concrete next step.
-8. If the wrong target is selected, switch to the correct COM port manually before any stage.
-9. Start `Этап 1: Сброс`.
-10. Record Stage 1 duration and the prompt seen after reboot.
-11. If Stage 1 fails, stop the run and capture artifacts immediately.
-12. Start `Этап 2: Установка`.
-13. Confirm the progress block remains understandable through install markers or quiet success.
-14. Record Stage 2 duration, actual USB path used, and prompt after reboot.
-15. If Stage 2 fails, stop the run and capture artifacts immediately.
-16. Start `Этап 3: Проверка`.
-17. Confirm the report is generated and visible through the diagnostics pane.
-18. Open the session folder and export the session bundle.
-19. Record Stage 3 duration and final dashboard state.
-20. Before closing the app, confirm the final `session_bundle_*.zip` really exists in the current session folder.
+7. Confirm the `Подготовка к железу` block shows:
+   - a green local gate
+   - at least one visible console path
+   - the expected serial-first live-run and bring-back flow
+8. Confirm the operator card shows a concrete next step.
+9. If the wrong target is selected, switch to the correct COM port manually before any stage.
+10. Start `Этап 1: Сброс`.
+11. Record Stage 1 duration and the prompt seen after reboot.
+12. If Stage 1 fails, stop the run and capture artifacts immediately.
+13. Start `Этап 2: Установка`.
+14. Confirm the progress block remains understandable through install markers or quiet success.
+15. Record Stage 2 duration, actual USB path used, and prompt after reboot.
+16. If Stage 2 fails, stop the run and capture artifacts immediately.
+17. Start `Этап 3: Проверка`.
+18. Confirm the report is generated and visible through the diagnostics pane.
+19. Open the session folder and export the session bundle.
+20. Record Stage 3 duration and final dashboard state.
+21. Before closing the app, confirm the final `session_bundle_*.zip` really exists in the current session folder.
 
 ## Optional hidden SSH pass after serial success
 

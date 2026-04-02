@@ -23,6 +23,7 @@ ciscoautoflash/core/state.py
 ciscoautoflash/core/transport.py
 ciscoautoflash/core/workflow.py
 ciscoautoflash/devtools/__init__.py
+ciscoautoflash/devtools/hardware_day.py
 ciscoautoflash/devtools/mcp_runtime_health.py
 ciscoautoflash/devtools/session_return_triage.py
 ciscoautoflash/profiles/__init__.py
@@ -38,6 +39,7 @@ ciscoautoflash/ui/app.py
 tests/test_c2960x_profile.py
 tests/test_config.py
 tests/test_demo_adapter.py
+tests/test_hardware_day.py
 tests/test_mcp_runtime_health.py
 tests/test_pre_hardware_preflight.py
 tests/test_replay_loader.py

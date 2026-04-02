@@ -157,15 +157,23 @@ class DummyTree:
 class DummyWindow:
     def __init__(self) -> None:
         self.after_calls: list[tuple[int, object]] = []
+        self.cancelled_after_ids: list[object] = []
         self.destroyed = False
         self.geometry_text = "1320x900"
         self.x = 0
         self.y = 0
         self.width = 1320
         self.height = 900
+        self._after_id = 0
 
-    def after(self, delay: int, callback) -> None:
-        self.after_calls.append((delay, callback))
+    def after(self, delay: int, callback):
+        self._after_id += 1
+        handle = f"after-{self._after_id}"
+        self.after_calls.append((delay, callback, handle))
+        return handle
+
+    def after_cancel(self, handle) -> None:
+        self.cancelled_after_ids.append(handle)
 
     def destroy(self) -> None:
         self.destroyed = True
@@ -331,6 +339,13 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.settings_status_var = DummyVar()
         app.manifest_status_var = DummyVar()
         app.bundle_status_var = DummyVar()
+        app.hardware_gate_var = DummyVar()
+        app.hardware_day_status_var = DummyVar()
+        app.hardware_console_var = DummyVar()
+        app.hardware_ethernet_var = DummyVar()
+        app.hardware_ssh_var = DummyVar()
+        app.hardware_live_run_var = DummyVar()
+        app.hardware_return_var = DummyVar()
         app.firmware_input_var = DummyVar("c2960x-universalk9.tar")
         app.demo_scenario_var = DummyVar("")
         app.demo_description_var = DummyVar("")
@@ -394,7 +409,19 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.demo_display_to_name = {}
         app.demo_name_to_display = {}
         app.controller = Mock()
+        app.config = SimpleNamespace(
+            project_root=Path("C:/PROJECT"),
+            runtime_root=Path("C:/runtime"),
+        )
         app._persist_settings = Mock()
+        app._hardware_day_refresh_queue = Queue()
+        app._hardware_day_refresh_request_token = 0
+        app._hardware_day_refresh_applied_token = 0
+        app._hardware_day_refresh_inflight = False
+        app._hardware_day_refresh_pending = False
+        app._hardware_day_refresh_after_id = None
+        app._hardware_day_periodic_after_id = None
+        app._hardware_day_refresh_closed = False
         return app
 
     def test_handle_event_updates_device_snapshot_vars(self) -> None:
@@ -825,6 +852,93 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app._open_path = Mock()
         app._open_session_folder()
         app._open_path.assert_called_once_with(app.session.session_dir)
+
+    def test_refresh_hardware_day_summary_uses_latest_preflight_and_snapshot(self) -> None:
+        app = self.make_app_shell()
+        latest_summary = {
+            "status": "READY",
+            "completed_at": "2026-04-02T12:00:00",
+        }
+        snapshot = {
+            "console": {"ready": True},
+        }
+        described = {
+            "console": "Видно COM: COM7. Основной кандидат: COM7.",
+            "ethernet": "Ethernet up: Ethernet.",
+            "ssh": "Host не задан; ping и hidden SSH probe не выполнялись.",
+            "live_run_path": "console -> scan -> stage1 -> stage2 -> stage3 -> bundle",
+            "return_path": "session bundle -> session folder -> triage_session_return.py",
+        }
+
+        with (
+            patch(
+                "ciscoautoflash.ui.app.load_operator_preflight_summary",
+                return_value=latest_summary,
+            ),
+            patch(
+                "ciscoautoflash.ui.app.format_latest_preflight_status",
+                return_value="READY (2026-04-02 12:00:00)",
+            ),
+            patch(
+                "ciscoautoflash.ui.app.build_connection_snapshot",
+                return_value=snapshot,
+            ),
+            patch(
+                "ciscoautoflash.ui.app.describe_connection_snapshot",
+                return_value=described,
+            ),
+        ):
+            app._refresh_hardware_day_summary()
+
+        self.assertEqual(app.hardware_gate_var.get(), "READY (2026-04-02 12:00:00)")
+        self.assertIn("COM7", app.hardware_console_var.get())
+        self.assertIn("Ethernet", app.hardware_ethernet_var.get())
+        self.assertIn("Host не задан", app.hardware_ssh_var.get())
+        self.assertIn("Serial-first live run", app.hardware_day_status_var.get())
+
+    def test_schedule_hardware_day_refresh_debounces_with_after_cancel(self) -> None:
+        app = self.make_app_shell()
+
+        app._schedule_hardware_day_refresh(delay_ms=500)
+        first_handle = app._hardware_day_refresh_after_id
+        app._schedule_hardware_day_refresh(delay_ms=500)
+
+        self.assertEqual(app._hardware_day_refresh_request_token, 2)
+        self.assertIn(first_handle, app.window.cancelled_after_ids)
+        self.assertEqual(app.window.after_calls[-1][0], 500)
+
+    def test_handle_event_scan_results_schedules_hardware_day_refresh(self) -> None:
+        app = self.make_app_shell()
+        app._schedule_hardware_day_refresh = Mock()
+
+        app._handle_event(AppEvent("scan_results", {"results": [], "selected_target_id": ""}))
+
+        app._schedule_hardware_day_refresh.assert_called_once_with()
+
+    def test_drain_hardware_day_results_ignores_stale_result(self) -> None:
+        app = self.make_app_shell()
+        app._hardware_day_refresh_request_token = 2
+        app._hardware_day_refresh_inflight = True
+        app._start_hardware_day_refresh = Mock()
+        app._hardware_day_refresh_queue.put(
+            {
+                "request_token": 1,
+                "latest_preflight": {"status": "READY"},
+                "snapshot": {"console": {"ready": True}},
+                "described": {
+                    "console": "COM7",
+                    "ethernet": "Ethernet up",
+                    "ssh": "not checked",
+                    "live_run_path": "console -> scan -> stage1 -> stage2 -> stage3 -> bundle",
+                    "return_path": "session bundle -> session folder -> triage_session_return.py",
+                },
+            }
+        )
+
+        app._drain_hardware_day_refresh_results()
+
+        app._start_hardware_day_refresh.assert_called_once_with(2)
+        self.assertEqual(app._hardware_day_refresh_applied_token, 0)
 
     def test_export_session_bundle_updates_footer_and_statuses(self) -> None:
         app = self.make_app_shell()

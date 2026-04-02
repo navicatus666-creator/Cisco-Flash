@@ -14,6 +14,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = PROJECT_ROOT / "build" / "preflight"
 
 
+def _load_hardware_day_helpers():
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    from ciscoautoflash.devtools.hardware_day import (
+        assess_hardware_day_readiness,
+        build_connection_snapshot,
+        describe_connection_snapshot,
+        resolve_runtime_preflight_paths,
+    )
+
+    return (
+        assess_hardware_day_readiness,
+        build_connection_snapshot,
+        describe_connection_snapshot,
+        resolve_runtime_preflight_paths,
+    )
+
+
 @dataclass(slots=True)
 class StepResult:
     name: str
@@ -121,10 +139,39 @@ def _render_markdown(summary: dict[str, object]) -> str:
             *[f"- {name}: {path}" for name, path in artifacts.items()],
         ]
     )
+    hardware_day_status = str(summary.get("hardware_day_status", "") or "")
+    if hardware_day_status:
+        lines.extend(
+            [
+                "",
+                "## Hardware-Day Rehearsal",
+                f"- Status: {hardware_day_status}",
+            ]
+        )
+        connection_summary = summary.get("connection_summary")
+        if isinstance(connection_summary, dict):
+            lines.extend(
+                [
+                    f"- Console: {connection_summary.get('console', '')}",
+                    f"- Ethernet: {connection_summary.get('ethernet', '')}",
+                    f"- Optional SSH: {connection_summary.get('ssh', '')}",
+                    f"- Live run: {connection_summary.get('live_run_path', '')}",
+                    f"- Return path: {connection_summary.get('return_path', '')}",
+                ]
+            )
+        next_steps = summary.get("hardware_day_next_steps")
+        if isinstance(next_steps, list) and next_steps:
+            lines.extend(["", "## Next Steps", *[f"- {step}" for step in next_steps]])
     return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
+    (
+        assess_hardware_day_readiness,
+        build_connection_snapshot,
+        describe_connection_snapshot,
+        resolve_runtime_preflight_paths,
+    ) = _load_hardware_day_helpers()
     parser = argparse.ArgumentParser(
         description="Run the local CiscoAutoFlash pre-hardware truth gate in one command."
     )
@@ -133,6 +180,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Rebuild the carry bundle only after the truth-gate passes.",
     )
+    parser.add_argument(
+        "--hardware-day-rehearsal",
+        action="store_true",
+        help="Add a read-only hardware-day snapshot and readiness summary.",
+    )
+    parser.add_argument("--host", default="", help="Optional host/IP for ping or SSH probe.")
+    parser.add_argument("--username", default="", help="Optional SSH username for probe.")
+    parser.add_argument("--password", default="", help="Optional SSH password for probe.")
+    parser.add_argument("--secret", default="", help="Optional SSH enable secret for probe.")
     args = parser.parse_args(argv)
 
     run_started = datetime.now()
@@ -158,6 +214,30 @@ def main(argv: list[str] | None = None) -> int:
         if not bundle_result.ok:
             failing_step = bundle_result.name
 
+    connection_snapshot: dict[str, object] | None = None
+    connection_summary: dict[str, str] | None = None
+    hardware_day_status = ""
+    hardware_day_next_steps: list[str] = []
+    connection_snapshot_path = output_dir / "connection_snapshot.json"
+    if args.hardware_day_rehearsal:
+        connection_snapshot = build_connection_snapshot(
+            host=args.host,
+            username=args.username,
+            password=args.password,
+            secret=args.secret,
+        )
+        connection_snapshot_path.write_text(
+            json.dumps(connection_snapshot, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        connection_summary = describe_connection_snapshot(connection_snapshot)
+        hardware_day = assess_hardware_day_readiness(
+            preflight_status="READY" if not failing_step else "NOT_READY",
+            snapshot=connection_snapshot,
+        )
+        hardware_day_status = str(hardware_day["status"])
+        hardware_day_next_steps = list(hardware_day["next_steps"])
+
     run_completed = datetime.now()
     summary = {
         "status": "READY" if not failing_step else "NOT_READY",
@@ -173,15 +253,41 @@ def main(argv: list[str] | None = None) -> int:
             "summary_md": str(output_dir / "preflight_summary.md"),
         },
     }
+    if args.hardware_day_rehearsal:
+        summary["hardware_day_status"] = hardware_day_status
+        summary["hardware_day_next_steps"] = hardware_day_next_steps
+        summary["connection_summary"] = connection_summary or {}
+        summary["artifacts"]["connection_snapshot_json"] = str(connection_snapshot_path)
+        summary["connection_snapshot"] = connection_snapshot or {}
     summary_json_path = output_dir / "preflight_summary.json"
     summary_md_path = output_dir / "preflight_summary.md"
+    runtime_paths = resolve_runtime_preflight_paths(output_dir.name)
+    summary["artifacts"]["runtime_output_dir"] = str(runtime_paths["output_dir"])
+    summary["artifacts"]["runtime_summary_json"] = str(runtime_paths["summary_json"])
+    summary["artifacts"]["runtime_summary_md"] = str(runtime_paths["summary_md"])
+    summary["artifacts"]["runtime_latest_summary_json"] = str(
+        runtime_paths["latest_summary_json"]
+    )
+    rendered_markdown = _render_markdown(summary)
     summary_json_path.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    summary_md_path.write_text(_render_markdown(summary), encoding="utf-8")
+    summary_md_path.write_text(rendered_markdown, encoding="utf-8")
+    runtime_paths["output_dir"].mkdir(parents=True, exist_ok=True)
+    runtime_paths["summary_json"].write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    runtime_paths["summary_md"].write_text(rendered_markdown, encoding="utf-8")
+    runtime_paths["latest_summary_json"].write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
-    print(summary_md_path.read_text(encoding="utf-8"))
+    print(rendered_markdown)
+    if args.hardware_day_rehearsal:
+        return 0 if not failing_step and hardware_day_status == "READY_FOR_HARDWARE" else 1
     return 0 if not failing_step else 1
 
 

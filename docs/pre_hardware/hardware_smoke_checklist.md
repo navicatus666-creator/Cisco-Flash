@@ -10,11 +10,16 @@ Primary run path: `first_hardware_run.md`.
 - The dashboard shows summary cards, preflight, operator card, diagnostics notebook, and session artifact paths.
 - The local preflight gate is already green on the dev machine:
   `python C:\PROJECT\scripts\pre_hardware_preflight.py`
+- Optional rehearsal pass before the actual evening with hardware:
+  `python C:\PROJECT\scripts\pre_hardware_preflight.py --hardware-day-rehearsal`
+- The dashboard `Подготовка к железу` block should already show the same serial-first live-run and bring-back path as this checklist.
 
 ## Serial/USB operator flow
 - Launch the app and confirm only one instance opens.
 - Run `Сканировать` and confirm the expected COM target is selected or manually selectable.
 - Verify preflight shows selected target, firmware, profile, last scan, and session paths.
+- Verify `Подготовка к железу` shows at least one visible console path and the expected return path:
+  `session bundle -> session folder -> triage_session_return.py`
 - Verify the operator card changes severity and next-step guidance when scan conditions change.
 - Run `Этап 1: Сброс` and confirm prompt recovery after reboot.
 - Run `Этап 2: Установка` and confirm install progress updates, quiet success handling, and USB path detection.

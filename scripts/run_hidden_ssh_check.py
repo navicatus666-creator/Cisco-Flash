@@ -70,14 +70,16 @@ def _load_project_runtime() -> None:
     if append_session_log is None or timestamp is None:
         from ciscoautoflash.core.logging_utils import (
             append_session_log as _append_session_log,
-            timestamp as _timestamp_fn,
         )
+        from ciscoautoflash.core.logging_utils import timestamp as _timestamp_fn
 
         append_session_log = _append_session_log
         timestamp = _timestamp_fn
     if export_session_bundle is None or update_manifest_artifacts is None:
         from ciscoautoflash.core.session_artifacts import (
             export_session_bundle as _export_session_bundle,
+        )
+        from ciscoautoflash.core.session_artifacts import (
             update_manifest_artifacts as _update_manifest_artifacts,
         )
 

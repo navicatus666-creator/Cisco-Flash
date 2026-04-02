@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 import time
 import tkinter as tk
 from dataclasses import replace
@@ -39,6 +40,12 @@ from ..core.session_artifacts import (
 )
 from ..core.single_instance import SingleInstanceError, SingleInstanceGuard
 from ..core.workflow import WorkflowController
+from ..devtools.hardware_day import (
+    build_connection_snapshot,
+    describe_connection_snapshot,
+    format_latest_preflight_status,
+    load_operator_preflight_summary,
+)
 from ..profiles import build_c2960x_profile
 from ..replay.adapter import DemoReplayController
 from ..replay.loader import ReplayScenario
@@ -247,11 +254,40 @@ class CiscoAutoFlashDesktop:
         self.settings_status_var = tk.StringVar(value="Настройки будут сохранены при изменениях")
         self.manifest_status_var = tk.StringVar(value="Manifest будет обновляться по ходу сессии")
         self.bundle_status_var = tk.StringVar(value="Bundle будет создан по запросу оператора")
+        self.hardware_gate_var = tk.StringVar(value="Локальный preflight ещё не запускался.")
+        self.hardware_day_status_var = tk.StringVar(
+            value="Сначала прогоните local preflight, затем подключайте console path."
+        )
+        self.hardware_console_var = tk.StringVar(
+            value="COM-порты ещё не проверялись из hardware-day summary."
+        )
+        self.hardware_ethernet_var = tk.StringVar(
+            value="Ethernet-статус будет показан после локальной проверки."
+        )
+        self.hardware_ssh_var = tk.StringVar(
+            value="Host не задан; optional hidden SSH pass пока не оценивался."
+        )
+        self.hardware_live_run_var = tk.StringVar(
+            value="console -> scan -> stage1 -> stage2 -> stage3 -> bundle"
+        )
+        self.hardware_return_var = tk.StringVar(
+            value="session bundle -> session folder -> triage_session_return.py"
+        )
+        self._hardware_day_refresh_queue: Queue[dict[str, Any]] = Queue()
+        self._hardware_day_refresh_request_token = 0
+        self._hardware_day_refresh_applied_token = 0
+        self._hardware_day_refresh_inflight = False
+        self._hardware_day_refresh_pending = False
+        self._hardware_day_refresh_after_id: str | None = None
+        self._hardware_day_periodic_after_id: str | None = None
+        self._hardware_day_refresh_closed = False
 
         self._build_ui()
         self._refresh_demo_details()
         self._refresh_preflight_paths()
         self._refresh_artifact_statuses()
+        self._schedule_hardware_day_refresh(delay_ms=0)
+        self._schedule_hardware_day_periodic_refresh()
         self._apply_state_style("IDLE")
         self._apply_operator_style("info")
         self._refresh_automation_map()
@@ -531,7 +567,7 @@ class CiscoAutoFlashDesktop:
 
         left_panel = ttk.Frame(paned, padding=2)
         left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(4, weight=1)
+        left_panel.rowconfigure(5, weight=1)
         paned.add(left_panel)
 
         right_panel = ttk.Frame(paned, padding=2)
@@ -579,13 +615,39 @@ class CiscoAutoFlashDesktop:
         )
         self._build_preflight_value(session_card, 4, 2, "Статус", self.state_badge_var)
 
+        hardware_day_card = ttk.Labelframe(left_panel, text="Подготовка к железу", padding=12)
+        hardware_day_card.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        for column in (1, 3):
+            hardware_day_card.columnconfigure(column, weight=1)
+        self._build_preflight_value(
+            hardware_day_card, 0, 0, "Локальный gate", self.hardware_gate_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 0, 2, "Готовность к железу", self.hardware_day_status_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 1, 0, "Console / USB", self.hardware_console_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 1, 2, "Ethernet", self.hardware_ethernet_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 2, 0, "Optional SSH", self.hardware_ssh_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 2, 2, "Live-run path", self.hardware_live_run_var
+        )
+        self._build_preflight_value(
+            hardware_day_card, 3, 0, "Возврат артефактов", self.hardware_return_var
+        )
+
         self.operator_card = ttk.Labelframe(
             left_panel,
             text="Операторская подсказка",
             padding=14,
             bootstyle="info",
         )
-        self.operator_card.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        self.operator_card.grid(row=3, column=0, sticky="ew", pady=(0, 10))
         operator_header = ttk.Frame(self.operator_card)
         operator_header.pack(fill="x")
         ttk.Label(
@@ -627,7 +689,7 @@ class CiscoAutoFlashDesktop:
         )
 
         progress_card = ttk.Labelframe(left_panel, text="Прогресс установки", padding=14)
-        progress_card.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        progress_card.grid(row=4, column=0, sticky="ew", pady=(0, 10))
         ttk.Label(
             progress_card,
             textvariable=self.progress_stage_var,
@@ -657,7 +719,7 @@ class CiscoAutoFlashDesktop:
         ).pack(anchor="w", pady=(6, 0))
 
         targets_card = ttk.Labelframe(left_panel, text="Найденные устройства", padding=10)
-        targets_card.grid(row=4, column=0, sticky="nsew")
+        targets_card.grid(row=5, column=0, sticky="nsew")
         targets_card.rowconfigure(1, weight=1)
         targets_card.columnconfigure(0, weight=1)
         ttk.Label(targets_card, textvariable=self.scan_status_var, bootstyle="secondary").grid(
@@ -1239,6 +1301,15 @@ class CiscoAutoFlashDesktop:
                 var.set(str(path))
         self._refresh_artifact_statuses()
 
+    def _refresh_hardware_day_summary(self) -> None:
+        latest_preflight = load_operator_preflight_summary(
+            runtime_root=self.config.runtime_root,
+            project_root=self.config.project_root,
+        )
+        snapshot = build_connection_snapshot()
+        described = describe_connection_snapshot(snapshot)
+        self._apply_hardware_day_summary(latest_preflight, snapshot, described)
+
     def _sync_runtime_artifact_paths(self) -> None:
         update_manifest_artifacts(
             self.manifest_path,
@@ -1720,6 +1791,7 @@ class CiscoAutoFlashDesktop:
 
     def _drain_events(self) -> None:
         handled_any = False
+        self._drain_hardware_day_refresh_results()
         while True:
             try:
                 event = self.event_queue.get_nowait()
@@ -1731,6 +1803,146 @@ class CiscoAutoFlashDesktop:
         if handled_any:
             self._refresh_automation_map()
         self.window.after(100, self._drain_events)
+
+    def _cancel_window_after(self, attr_name: str) -> None:
+        handle = getattr(self, attr_name, None)
+        if handle is None:
+            return
+        after_cancel = getattr(self.window, "after_cancel", None)
+        if callable(after_cancel):
+            try:
+                after_cancel(handle)
+            except Exception:
+                handle = None
+        setattr(self, attr_name, None)
+
+    def _schedule_hardware_day_periodic_refresh(self) -> None:
+        if self._hardware_day_refresh_closed:
+            return
+        self._cancel_window_after("_hardware_day_periodic_after_id")
+        self._hardware_day_periodic_after_id = self.window.after(
+            15000, self._on_hardware_day_periodic_refresh
+        )
+
+    def _on_hardware_day_periodic_refresh(self) -> None:
+        self._hardware_day_periodic_after_id = None
+        self._schedule_hardware_day_refresh(delay_ms=0)
+        self._schedule_hardware_day_periodic_refresh()
+
+    def _schedule_hardware_day_refresh(self, delay_ms: int = 500) -> None:
+        if self._hardware_day_refresh_closed:
+            return
+        self._hardware_day_refresh_request_token += 1
+        request_token = self._hardware_day_refresh_request_token
+        self._cancel_window_after("_hardware_day_refresh_after_id")
+
+        def _start(request_token: int = request_token) -> None:
+            self._hardware_day_refresh_after_id = None
+            self._start_hardware_day_refresh(request_token)
+
+        self._hardware_day_refresh_after_id = self.window.after(delay_ms, _start)
+
+    def _start_hardware_day_refresh(self, request_token: int) -> None:
+        if self._hardware_day_refresh_closed:
+            return
+        if request_token < self._hardware_day_refresh_request_token:
+            return
+        if self._hardware_day_refresh_inflight:
+            self._hardware_day_refresh_pending = True
+            return
+        self._hardware_day_refresh_inflight = True
+        self._hardware_day_refresh_pending = False
+        worker = threading.Thread(
+            target=self._hardware_day_refresh_worker,
+            args=(request_token,),
+            daemon=True,
+        )
+        worker.start()
+
+    def _hardware_day_refresh_worker(self, request_token: int) -> None:
+        result: dict[str, Any] = {"request_token": request_token}
+        try:
+            latest_preflight = load_operator_preflight_summary(
+                runtime_root=self.config.runtime_root,
+                project_root=self.config.project_root,
+            )
+            snapshot = build_connection_snapshot()
+            described = describe_connection_snapshot(snapshot)
+            result.update(
+                {
+                    "latest_preflight": latest_preflight,
+                    "snapshot": snapshot,
+                    "described": described,
+                }
+            )
+        except Exception as exc:
+            result["error"] = str(exc)
+        self._hardware_day_refresh_queue.put(result)
+
+    def _apply_hardware_day_summary(
+        self,
+        latest_preflight: dict[str, Any] | None,
+        snapshot: dict[str, Any],
+        described: dict[str, str],
+    ) -> None:
+        self.hardware_gate_var.set(format_latest_preflight_status(latest_preflight))
+        self.hardware_console_var.set(described["console"])
+        self.hardware_ethernet_var.set(described["ethernet"])
+        self.hardware_ssh_var.set(described["ssh"])
+        self.hardware_live_run_var.set(described["live_run_path"])
+        self.hardware_return_var.set(described["return_path"])
+        if latest_preflight and str(latest_preflight.get("status", "")) == "READY":
+            if bool(snapshot.get("console", {}).get("ready", False)):
+                self.hardware_day_status_var.set(
+                    "Serial-first live run можно начинать: выбери один "
+                    "console path и держи второй резервным."
+                )
+            else:
+                self.hardware_day_status_var.set(
+                    "Код готов, но console path не найден. Подключите "
+                    "основной console before live run."
+                )
+        else:
+            self.hardware_day_status_var.set(
+                "Сначала нужен зелёный local preflight, потом уже живой serial-first run."
+            )
+
+    def _drain_hardware_day_refresh_results(self) -> None:
+        while True:
+            try:
+                result = self._hardware_day_refresh_queue.get_nowait()
+            except Empty:
+                break
+            request_token = int(result.get("request_token", 0))
+            self._hardware_day_refresh_inflight = False
+            if self._hardware_day_refresh_closed:
+                continue
+            if request_token < self._hardware_day_refresh_request_token:
+                self._hardware_day_refresh_pending = False
+                self._start_hardware_day_refresh(self._hardware_day_refresh_request_token)
+                continue
+            error = str(result.get("error", "") or "")
+            if error:
+                self.hardware_day_status_var.set(f"Snapshot недоступен: {error}")
+            else:
+                latest_preflight = result.get("latest_preflight")
+                snapshot = result.get("snapshot")
+                described = result.get("described")
+                if isinstance(snapshot, dict) and isinstance(described, dict):
+                    self._apply_hardware_day_summary(
+                        latest_preflight
+                        if isinstance(latest_preflight, dict) or latest_preflight is None
+                        else None,
+                        snapshot,
+                        described,
+                    )
+                    self._hardware_day_refresh_applied_token = request_token
+            if (
+                self._hardware_day_refresh_pending
+                or request_token < self._hardware_day_refresh_request_token
+            ):
+                self._hardware_day_refresh_pending = False
+                self._start_hardware_day_refresh(self._hardware_day_refresh_request_token)
 
     def _handle_event(self, event: AppEvent) -> None:
         if event.kind == "session_paths":
@@ -1900,6 +2112,7 @@ class CiscoAutoFlashDesktop:
             self._update_scan_status(results, selected_target_id)
             if hasattr(self, "targets_tree"):
                 self._render_scan_results(results, selected_target_id)
+            self._schedule_hardware_day_refresh()
         elif event.kind == "selected_target_changed":
             target_id = str(event.payload.get("target_id", ""))
             manual_override = bool(event.payload.get("manual_override", False))
@@ -1908,6 +2121,7 @@ class CiscoAutoFlashDesktop:
             if target_id and hasattr(self, "targets_tree"):
                 self._set_tree_selection(target_id)
                 self._persist_settings(preferred_target_id=target_id)
+            self._schedule_hardware_day_refresh()
         elif event.kind == "report_ready":
             self.report_path = Path(str(event.payload["report_path"]))
             self._refresh_preflight_paths()
@@ -1980,6 +2194,9 @@ class CiscoAutoFlashDesktop:
         self._refresh_artifact_statuses()
 
     def _on_close(self) -> None:
+        self._hardware_day_refresh_closed = True
+        self._cancel_window_after("_hardware_day_refresh_after_id")
+        self._cancel_window_after("_hardware_day_periodic_after_id")
         self._persist_settings()
         self.controller.dispose()
         guard = getattr(self, "_instance_guard", None)
