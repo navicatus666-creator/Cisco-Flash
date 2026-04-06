@@ -13,6 +13,13 @@ from ciscoautoflash.devtools import hardware_day
 
 
 class HardwareDayTests(unittest.TestCase):
+    def test_hidden_subprocess_kwargs_uses_no_window_on_windows(self) -> None:
+        with patch("ciscoautoflash.devtools.hardware_day.sys.platform", "win32"):
+            kwargs = hardware_day._hidden_subprocess_kwargs()
+
+        self.assertIn("startupinfo", kwargs)
+        self.assertIn("creationflags", kwargs)
+
     def test_build_connection_snapshot_collects_console_and_network(self) -> None:
         ports = [
             SimpleNamespace(

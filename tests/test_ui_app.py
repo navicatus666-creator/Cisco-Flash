@@ -33,7 +33,11 @@ from ciscoautoflash.config import AppSettings
 from ciscoautoflash.core.events import AppEvent
 from ciscoautoflash.core.models import ConnectionTarget, DeviceSnapshot, ScanResult
 from ciscoautoflash.replay.adapter import DemoReplayController
-from ciscoautoflash.ui.app import CiscoAutoFlashDesktop
+from ciscoautoflash.ui.app import (
+    CiscoAutoFlashDesktop,
+    _parse_geometry_size,
+    _resolve_window_layout_contract,
+)
 
 
 class DummyVar:
@@ -96,6 +100,26 @@ class DummyGeometryWidget(DummyButton):
 
     def get(self) -> str:
         return self.text
+
+
+class DummyResponsiveContainer:
+    def __init__(self, width: int = 480) -> None:
+        self.width = width
+        self.bindings: dict[str, object] = {}
+
+    def winfo_width(self) -> int:
+        return self.width
+
+    def bind(self, event: str, callback, add: str | None = None) -> None:
+        self.bindings[event] = callback
+
+
+class DummyResponsiveLabel:
+    def __init__(self) -> None:
+        self.configured: dict[str, object] = {}
+
+    def configure(self, **kwargs) -> None:
+        self.configured.update(kwargs)
 
 
 class DummyProgress:
@@ -423,6 +447,63 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app._hardware_day_periodic_after_id = None
         app._hardware_day_refresh_closed = False
         return app
+
+    def test_bind_responsive_wrap_sets_initial_wraplength_and_registers_configure(self) -> None:
+        app = self.make_app_shell()
+        container = DummyResponsiveContainer(width=520)
+        label = DummyResponsiveLabel()
+
+        app._bind_responsive_wrap(label, container, min_wrap=220, horizontal_padding=40)
+
+        self.assertEqual(label.configured["wraplength"], 480)
+        self.assertIn("<Configure>", container.bindings)
+
+    def test_bind_responsive_wrap_respects_minimum_wraplength(self) -> None:
+        app = self.make_app_shell()
+        container = DummyResponsiveContainer(width=120)
+        label = DummyResponsiveLabel()
+
+        app._bind_responsive_wrap(label, container, min_wrap=220, horizontal_padding=40)
+
+        self.assertEqual(label.configured["wraplength"], 220)
+
+    def test_parse_geometry_size_reads_dimensions_from_geometry_string(self) -> None:
+        self.assertEqual(_parse_geometry_size("1600x960+12+34"), (1600, 960))
+        self.assertEqual(_parse_geometry_size("1920x1080-8+0"), (1920, 1080))
+        self.assertIsNone(_parse_geometry_size("zoomed"))
+
+    def test_resolve_window_layout_contract_clamps_saved_geometry_to_viewport(self) -> None:
+        geometry, min_size, max_size = _resolve_window_layout_contract(
+            "2200x1400+0+0",
+            screen_width=2560,
+            screen_height=1440,
+        )
+
+        self.assertEqual(geometry, "1920x1080")
+        self.assertEqual(min_size, (1440, 860))
+        self.assertEqual(max_size, (1920, 1080))
+
+    def test_resolve_window_layout_contract_uses_default_when_saved_geometry_missing(self) -> None:
+        geometry, min_size, max_size = _resolve_window_layout_contract(
+            None,
+            screen_width=1920,
+            screen_height=1080,
+        )
+
+        self.assertEqual(geometry, "1600x960")
+        self.assertEqual(min_size, (1440, 860))
+        self.assertEqual(max_size, (1920, 1080))
+
+    def test_resolve_window_layout_contract_downshifts_for_smaller_screen(self) -> None:
+        geometry, min_size, max_size = _resolve_window_layout_contract(
+            "1280x720",
+            screen_width=1366,
+            screen_height=768,
+        )
+
+        self.assertEqual(geometry, "1366x768")
+        self.assertEqual(min_size, (1366, 768))
+        self.assertEqual(max_size, (1366, 768))
 
     def test_handle_event_updates_device_snapshot_vars(self) -> None:
         app = self.make_app_shell()

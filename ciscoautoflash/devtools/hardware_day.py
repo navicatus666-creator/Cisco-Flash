@@ -27,6 +27,22 @@ POWERSHELL_EXE = str(
 PING_EXE = str(SYSTEM_ROOT / "System32" / "PING.EXE")
 
 
+def _hidden_subprocess_kwargs() -> dict[str, Any]:
+    if sys.platform != "win32":
+        return {}
+    kwargs: dict[str, Any] = {}
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo_cls is not None:
+        startupinfo = startupinfo_cls()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        kwargs["startupinfo"] = startupinfo
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creationflags:
+        kwargs["creationflags"] = creationflags
+    return kwargs
+
+
 def _timestamp() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -132,6 +148,7 @@ def _collect_network_adapters() -> dict[str, Any]:
             encoding="utf-8",
             errors="replace",
             check=False,
+            **_hidden_subprocess_kwargs(),
         )  # nosec B603
     except OSError as exc:
         return {
@@ -208,6 +225,7 @@ def _ping_host(host: str) -> dict[str, Any]:
         encoding="utf-8",
         errors="replace",
         check=False,
+        **_hidden_subprocess_kwargs(),
     )  # nosec B603
     lines = [
         line.strip()
