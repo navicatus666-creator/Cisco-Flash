@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - trusted local PyInstaller invocation for field bundle build
 import textwrap
 from pathlib import Path
 
@@ -63,7 +63,7 @@ def _build_bundle() -> None:
         "tkinter.scrolledtext",
         str(PROJECT_ROOT / "main.py"),
     ]
-    subprocess.run(command, check=True, cwd=str(PROJECT_ROOT))
+    subprocess.run(command, check=True, cwd=str(PROJECT_ROOT))  # nosec B603
 
 
 def _write_operator_note() -> None:

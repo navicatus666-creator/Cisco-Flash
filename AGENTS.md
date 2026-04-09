@@ -86,7 +86,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Internal SSH target metadata contract: required `host`, `username`, `password`; optional `secret`, `device_type`, `port`, `timeout`, `banner_timeout`, `auth_timeout`, `session_timeout`, `file_system`
 - SCP prerequisite on the switch: `ip scp server enable`
 - Internal replay harness exists in `ciscoautoflash/replay/` with canned fixtures in `replay_scenarios/`; use it for pre-hardware regression checks before touching a real switch
-- Demo UI entrypoint for click-smoke without hardware: `python C:\PROJECT\main.py --demo`
+- Demo UI entrypoint for manual dry-runs without hardware: `python C:\PROJECT\main.py --demo`
 - Demo artifacts must stay under `%LOCALAPPDATA%\CiscoAutoFlash\demo\`; do not mix them with normal operator runs
 - Each runtime session now has a dedicated folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\<session_id>\` with `session_manifest_*.json` and on-demand `session_bundle_*.zip`
 - The dashboard exposes `Open session folder` and `Export session bundle`; use the bundle as the primary diagnostic package after failures instead of hand-collecting files

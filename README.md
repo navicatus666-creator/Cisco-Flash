@@ -36,7 +36,7 @@ python C:\PROJECT\main.py --demo
 python C:\PROJECT\main.py --demo --demo-scenario stage2_install_success
 ```
 
-Demo mode reuses replay fixtures under `replay_scenarios/`, writes artifacts into `%LOCALAPPDATA%\CiscoAutoFlash\demo\`, and exists only for click-smoke without real hardware.
+Demo mode reuses replay fixtures under `replay_scenarios/`, writes artifacts into `%LOCALAPPDATA%\CiscoAutoFlash\demo\`, and exists for manual dry-runs without real hardware.
 
 Each session now also keeps a per-session folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\...` with:
 - `session_manifest_*.json`

@@ -6,7 +6,7 @@ import json
 import os
 import socket
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 - local diagnostic probes intentionally use subprocess
 import tempfile
 import textwrap
 import tomllib
@@ -38,7 +38,7 @@ def _run_command(
     timeout: int = 30,
 ) -> dict[str, Any]:
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603
             command,
             cwd=str(cwd) if cwd else None,
             env=env,
@@ -94,7 +94,7 @@ def _probe_ollama() -> dict[str, Any]:
 
     try:
         request = Request(OLLAMA_URL)
-        with urlopen(request, timeout=5) as response:
+        with urlopen(request, timeout=5) as response:  # nosec B310 - fixed localhost Ollama probe
             payload = json.loads(response.read().decode("utf-8", errors="replace"))
         models = [model.get("name", "") for model in payload.get("models", [])]
         wanted = any(name.startswith(f"{OLLAMA_MODEL}:") or name == OLLAMA_MODEL for name in models)
@@ -398,7 +398,18 @@ def _build_report() -> dict[str, Any]:
     }
 
     memory_exe = Path(echovault_cfg["command"])
-    report = {
+    probes: dict[str, dict[str, Any]] = {
+        "ollama": _probe_ollama(),
+        "echovault_read": _probe_echovault_read(memory_exe),
+        "echovault_save_healthy": _probe_echovault_save(memory_exe, degraded=False),
+        "echovault_save_degraded": _probe_echovault_save(memory_exe, degraded=True),
+        "vector_memory": _probe_vector_memory(vector_cfg),
+        "tree_sitter": _probe_tree_sitter(tree_cfg),
+        "code_graph": _probe_code_graph(code_graph_cfg),
+        "github_mcp": _probe_github_mcp(github_cfg),
+        "codex_logs": _probe_logs(),
+    }
+    report: dict[str, Any] = {
         "generated_at": _iso_now(),
         "project_root": str(PROJECT_ROOT),
         "config_path": str(CODEX_CONFIG),
@@ -406,17 +417,7 @@ def _build_report() -> dict[str, Any]:
             "Start Ollama manually before relying on full EchoVault readiness."
         ],
         "binary_checks": binary_checks,
-        "probes": {
-            "ollama": _probe_ollama(),
-            "echovault_read": _probe_echovault_read(memory_exe),
-            "echovault_save_healthy": _probe_echovault_save(memory_exe, degraded=False),
-            "echovault_save_degraded": _probe_echovault_save(memory_exe, degraded=True),
-            "vector_memory": _probe_vector_memory(vector_cfg),
-            "tree_sitter": _probe_tree_sitter(tree_cfg),
-            "code_graph": _probe_code_graph(code_graph_cfg),
-            "github_mcp": _probe_github_mcp(github_cfg),
-            "codex_logs": _probe_logs(),
-        },
+        "probes": probes,
     }
     critical_keys = [
         "ollama",
@@ -428,7 +429,7 @@ def _build_report() -> dict[str, Any]:
         "github_mcp",
         "codex_logs",
     ]
-    report["overall_ok"] = all(report["probes"][key]["ok"] for key in critical_keys)
+    report["overall_ok"] = all(probes[key]["ok"] for key in critical_keys)
     return report
 
 

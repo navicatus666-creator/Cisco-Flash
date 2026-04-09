@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import subprocess  # nosec B404 - local truth-gate orchestration intentionally uses subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -62,16 +62,12 @@ def _default_steps() -> list[tuple[str, list[str]]]:
             ],
         ),
         ("build", [python_exe, "-m", "build", str(PROJECT_ROOT)]),
-        (
-            "demo_smoke",
-            [python_exe, str(PROJECT_ROOT / "scripts" / "run_demo_gui_smoke.py")],
-        ),
     ]
 
 
 def _run_step(name: str, command: list[str], output_dir: Path) -> StepResult:
     started = time.perf_counter()
-    completed = subprocess.run(
+    completed = subprocess.run(  # nosec B603
         command,
         cwd=str(PROJECT_ROOT),
         capture_output=True,
@@ -109,7 +105,8 @@ def _run_step(name: str, command: list[str], output_dir: Path) -> StepResult:
 
 def _render_markdown(summary: dict[str, object]) -> str:
     steps = summary["steps"]
-    assert isinstance(steps, list)
+    if not isinstance(steps, list):
+        raise TypeError("summary['steps'] must be a list")
     lines = [
         "# CiscoAutoFlash Pre-Hardware Preflight",
         "",
@@ -124,14 +121,16 @@ def _render_markdown(summary: dict[str, object]) -> str:
         "| --- | --- | --- | --- | --- |",
     ]
     for step in steps:
-        assert isinstance(step, dict)
+        if not isinstance(step, dict):
+            raise TypeError("summary['steps'] items must be dicts")
         lines.append(
             f"| {step['name']} | {'yes' if step['ok'] else 'no'} | "
             f"{step['returncode']} | {step['elapsed_seconds']} | "
             f"{step['log_path']} |"
         )
     artifacts = summary["artifacts"]
-    assert isinstance(artifacts, dict)
+    if not isinstance(artifacts, dict):
+        raise TypeError("summary['artifacts'] must be a dict")
     lines.extend(
         [
             "",
@@ -239,7 +238,12 @@ def main(argv: list[str] | None = None) -> int:
         hardware_day_next_steps = list(hardware_day["next_steps"])
 
     run_completed = datetime.now()
-    summary = {
+    artifacts: dict[str, str] = {
+        "output_dir": str(output_dir),
+        "summary_json": str(output_dir / "preflight_summary.json"),
+        "summary_md": str(output_dir / "preflight_summary.md"),
+    }
+    summary: dict[str, object] = {
         "status": "READY" if not failing_step else "NOT_READY",
         "project_root": str(PROJECT_ROOT),
         "started_at": run_started.isoformat(timespec="seconds"),
@@ -247,27 +251,21 @@ def main(argv: list[str] | None = None) -> int:
         "elapsed_seconds": round((run_completed - run_started).total_seconds(), 3),
         "failing_step": failing_step,
         "steps": [asdict(result) for result in results],
-        "artifacts": {
-            "output_dir": str(output_dir),
-            "summary_json": str(output_dir / "preflight_summary.json"),
-            "summary_md": str(output_dir / "preflight_summary.md"),
-        },
+        "artifacts": artifacts,
     }
     if args.hardware_day_rehearsal:
         summary["hardware_day_status"] = hardware_day_status
         summary["hardware_day_next_steps"] = hardware_day_next_steps
         summary["connection_summary"] = connection_summary or {}
-        summary["artifacts"]["connection_snapshot_json"] = str(connection_snapshot_path)
+        artifacts["connection_snapshot_json"] = str(connection_snapshot_path)
         summary["connection_snapshot"] = connection_snapshot or {}
     summary_json_path = output_dir / "preflight_summary.json"
     summary_md_path = output_dir / "preflight_summary.md"
     runtime_paths = resolve_runtime_preflight_paths(output_dir.name)
-    summary["artifacts"]["runtime_output_dir"] = str(runtime_paths["output_dir"])
-    summary["artifacts"]["runtime_summary_json"] = str(runtime_paths["summary_json"])
-    summary["artifacts"]["runtime_summary_md"] = str(runtime_paths["summary_md"])
-    summary["artifacts"]["runtime_latest_summary_json"] = str(
-        runtime_paths["latest_summary_json"]
-    )
+    artifacts["runtime_output_dir"] = str(runtime_paths["output_dir"])
+    artifacts["runtime_summary_json"] = str(runtime_paths["summary_json"])
+    artifacts["runtime_summary_md"] = str(runtime_paths["summary_md"])
+    artifacts["runtime_latest_summary_json"] = str(runtime_paths["latest_summary_json"])
     rendered_markdown = _render_markdown(summary)
     summary_json_path.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),

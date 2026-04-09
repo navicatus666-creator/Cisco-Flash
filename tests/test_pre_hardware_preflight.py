@@ -18,7 +18,6 @@ class PreHardwarePreflightTests(unittest.TestCase):
                 CompletedProcess(args=["check"], returncode=0, stdout="mcp ok\n", stderr=""),
                 CompletedProcess(args=["tests"], returncode=0, stdout="tests ok\n", stderr=""),
                 CompletedProcess(args=["build"], returncode=0, stdout="build ok\n", stderr=""),
-                CompletedProcess(args=["smoke"], returncode=0, stdout="smoke ok\n", stderr=""),
             ]
 
             with (
@@ -54,7 +53,7 @@ class PreHardwarePreflightTests(unittest.TestCase):
             self.assertEqual(len(summary_files), 1)
             summary = json.loads(summary_files[0].read_text(encoding="utf-8"))
             self.assertEqual(summary["status"], "READY")
-            self.assertEqual(len(summary["steps"]), 4)
+            self.assertEqual(len(summary["steps"]), 3)
             self.assertEqual(summary["failing_step"], "")
             self.assertTrue(Path(summary["artifacts"]["runtime_summary_json"]).exists())
             self.assertTrue(Path(summary["artifacts"]["runtime_summary_md"]).exists())
@@ -115,7 +114,6 @@ class PreHardwarePreflightTests(unittest.TestCase):
                 CompletedProcess(args=["check"], returncode=0, stdout="mcp ok\n", stderr=""),
                 CompletedProcess(args=["tests"], returncode=0, stdout="tests ok\n", stderr=""),
                 CompletedProcess(args=["build"], returncode=0, stdout="build ok\n", stderr=""),
-                CompletedProcess(args=["smoke"], returncode=0, stdout="smoke ok\n", stderr=""),
             ]
             snapshot = {
                 "console": {"ready": True, "items": [{"device": "COM7"}]},
@@ -182,7 +180,6 @@ class PreHardwarePreflightTests(unittest.TestCase):
                 CompletedProcess(args=["check"], returncode=0, stdout="mcp ok\n", stderr=""),
                 CompletedProcess(args=["tests"], returncode=0, stdout="tests ok\n", stderr=""),
                 CompletedProcess(args=["build"], returncode=0, stdout="build ok\n", stderr=""),
-                CompletedProcess(args=["smoke"], returncode=0, stdout="smoke ok\n", stderr=""),
             ]
             snapshot = {
                 "console": {"ready": False, "items": []},

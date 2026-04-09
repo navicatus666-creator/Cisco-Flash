@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import subprocess  # nosec B404 - engineering-only hidden SSH helper uses local subprocess probes
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,13 +29,17 @@ try:
     from PIL import ImageDraw as _ImageDraw
     from PIL import ImageGrab as _ImageGrab
 except ImportError:  # pragma: no cover - environment dependent
-    Image: Any | None = None
-    ImageDraw: Any | None = None
-    ImageGrab: Any | None = None
+    _Image = cast(Any, None)
+    _ImageDraw = cast(Any, None)
+    _ImageGrab = cast(Any, None)
 else:
-    Image: Any | None = _Image
-    ImageDraw: Any | None = _ImageDraw
-    ImageGrab: Any | None = _ImageGrab
+    _Image = cast(Any, _Image)
+    _ImageDraw = cast(Any, _ImageDraw)
+    _ImageGrab = cast(Any, _ImageGrab)
+
+Image: Any | None = _Image
+ImageDraw: Any | None = _ImageDraw
+ImageGrab: Any | None = _ImageGrab
 
 if TYPE_CHECKING:
     from ciscoautoflash.core.events import AppEvent
@@ -247,8 +251,8 @@ def _build_target(args: argparse.Namespace) -> ConnectionTarget:
 
 
 def _ping_host(host: str) -> dict[str, Any]:
-    completed = subprocess.run(
-        ["ping", "-n", "1", host],
+    completed = subprocess.run(  # nosec B603
+        [r"C:\Windows\System32\PING.EXE", "-n", "1", host],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -275,7 +279,7 @@ def _capture_snapshot(artifacts: HiddenSshArtifacts, state: str) -> Path | None:
             artifacts.dashboard_snapshot_path = path
             return path
         except Exception:
-            pass
+            artifacts.dashboard_snapshot_path = None
     if Image is None or ImageDraw is None:
         return None
     image = Image.new("RGB", (960, 540), color=(250, 250, 250))
@@ -451,8 +455,11 @@ def run_hidden_ssh_check(args: argparse.Namespace) -> dict[str, Any]:
         finally:
             try:
                 transport.disconnect()
-            except Exception:
-                pass
+            except Exception as exc:
+                append_session_log(
+                    session.log_path,
+                    f"[{timestamp()}] Hidden SSH disconnect warning: {exc}",
+                )
 
     bundle_path = None
     if session.manifest_path.exists():

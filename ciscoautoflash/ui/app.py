@@ -126,10 +126,8 @@ class CiscoAutoFlashDesktop:
         demo_scenario: str | None = None,
     ):
         self.demo_mode = demo_mode
-        self.smoke_mode = self.demo_mode and _env_flag("CISCOAUTOFLASH_SMOKE_MODE", False)
         self.demo_playback_delay_ms = max(1, _env_int("CISCOAUTOFLASH_DEMO_DELAY_MS", 70))
         self.auto_start_scan = _env_flag("CISCOAUTOFLASH_AUTO_START_SCAN", auto_start_scan)
-        self.last_smoke_open_path: Path | None = None
         self._event_timeline: list[dict[str, Any]] = []
         self.operator_message_code = ""
         self.current_state_name = "IDLE"
@@ -140,17 +138,6 @@ class CiscoAutoFlashDesktop:
             self.config = replace(base_config, runtime_root=(base_config.runtime_root / "demo"))
         else:
             self.config = base_config
-        self.automation_overlay_enabled = self.demo_mode and _env_flag(
-            "CISCOAUTOFLASH_AUTOMATION_OVERLAY", False
-        )
-        self.automation_map_enabled = self.demo_mode and (
-            _env_flag("CISCOAUTOFLASH_AUTOMATION_MAP", False) or self.automation_overlay_enabled
-        )
-        self.automation_map_path = (
-            self.config.runtime_root / "smoke_artifacts" / "current" / "automation_map.json"
-        )
-        self._automation_overlay: tk.Toplevel | None = None
-        self._automation_overlay_canvas: tk.Canvas | None = None
         self.session = self.config.create_session_paths()
         self.settings = load_settings(self.session.settings_path)
         self.profile = build_c2960x_profile()
@@ -339,7 +326,6 @@ class CiscoAutoFlashDesktop:
         self._schedule_hardware_day_periodic_refresh()
         self._apply_state_style("IDLE")
         self._apply_operator_style("info")
-        self._refresh_automation_map()
         if hasattr(self.controller, "requested_firmware_name"):
             self.controller.requested_firmware_name = (
                 self.firmware_input_var.get().strip() or self.profile.default_firmware
@@ -1166,210 +1152,6 @@ class CiscoAutoFlashDesktop:
             }
         return payload
 
-    def _build_automation_map(self) -> dict[str, object]:
-        update_idletasks = getattr(self.window, "update_idletasks", None)
-        if callable(update_idletasks):
-            update_idletasks()
-        window_bounds = self._widget_bounds(self.window)
-        if window_bounds is None:
-            raise RuntimeError("Window bounds are not available for automation map.")
-        window_title = ""
-        title = getattr(self.window, "title", None)
-        if callable(title):
-            window_title = str(title())
-        else:
-            window_text = getattr(self.window, "window_text", None)
-            if callable(window_text):
-                window_title = str(window_text())
-        controls: dict[str, dict[str, object]] = {}
-        control_map = (
-            ("scan", getattr(self, "scan_button", None)),
-            ("stage1", getattr(self, "stage1_button", None)),
-            ("stage2", getattr(self, "stage2_button", None)),
-            ("stage3", getattr(self, "stage3_button", None)),
-            ("stop", getattr(self, "stop_button", None)),
-            ("open_log", getattr(self, "log_button", None)),
-            ("open_report", getattr(self, "report_button", None)),
-            ("open_transcript", getattr(self, "transcript_button", None)),
-            ("open_logs_dir", getattr(self, "logs_dir_button", None)),
-            ("open_session_dir", getattr(self, "session_folder_button", None)),
-            ("export_bundle", getattr(self, "bundle_export_button", None)),
-        )
-        for name, widget in control_map:
-            payload = self._control_payload(widget, name=name)
-            if payload is not None:
-                controls[name] = payload
-
-        selector_bounds = self._widget_bounds(getattr(self, "demo_selector", None))
-        selector_payload: dict[str, object] = {
-            "current_display": self.demo_scenario_var.get(),
-            "current_name": self.selected_demo_scenario_name,
-            "items": list(self.demo_display_to_name),
-        }
-        if selector_bounds is not None:
-            selector_payload["bounds"] = selector_bounds
-            selector_payload["click_point"] = self._click_point_from_bounds(selector_bounds)
-            selector_payload["arrow_click_point"] = {
-                "x": max(selector_bounds["left"] + 6, selector_bounds["right"] - 12),
-                "y": int(selector_bounds["top"] + selector_bounds["height"] / 2),
-            }
-        selector_buttons: dict[str, dict[str, object]] = {}
-        for scenario_name, widget in getattr(self, "demo_scenario_buttons", {}).items():
-            payload = self._control_payload(widget, name=f"scenario:{scenario_name}")
-            if payload is None:
-                continue
-            payload["scenario_name"] = scenario_name
-            payload["display"] = self.demo_name_to_display.get(scenario_name, scenario_name)
-            selector_buttons[scenario_name] = payload
-        if selector_buttons:
-            selector_payload["buttons"] = selector_buttons
-
-        notebook = getattr(self, "diagnostics_notebook", None)
-        notebook_bounds = self._widget_bounds(notebook)
-        tabs_payload = self._build_notebook_tabs_payload()
-        state_payload = {
-            "state_text": self.state_var.get(),
-            "state_badge": self.state_badge_var.get(),
-            "current_stage": self.current_stage_var.get(),
-            "selected_target": self.selected_target_var.get(),
-            "connection": self.connection_var.get(),
-            "prompt": self.prompt_var.get(),
-            "footer": self.footer_var.get(),
-            "selected_tab": next(
-                (name for name, item in tabs_payload.items() if bool(item.get("selected"))),
-                "",
-            ),
-            "artifact_states": {
-                name: str(payload.get("state", ""))
-                for name, payload in controls.items()
-                if name.startswith("open_") or name == "export_bundle"
-            },
-            "demo_busy": self.demo_busy,
-            "scan_enabled": bool(self._demo_action_state.get("scan_enabled", False)),
-            "stage1_enabled": bool(self._demo_action_state.get("stage1_enabled", False)),
-            "stage2_enabled": bool(self._demo_action_state.get("stage2_enabled", False)),
-            "stage3_enabled": bool(self._demo_action_state.get("stage3_enabled", False)),
-            "stop_enabled": bool(self._demo_action_state.get("stop_enabled", False)),
-            "last_demo_idle_marker": self.last_demo_idle_marker,
-            "last_smoke_open_path": str(self.last_smoke_open_path or ""),
-        }
-        session_payload = {
-            "session_id": self.session.session_id,
-            "session_dir": str(self.session_dir),
-            "log_path": str(self.log_path),
-            "report_path": str(self.report_path),
-            "transcript_path": str(self.transcript_path),
-            "settings_path": str(self.settings_path),
-            "manifest_path": str(self.manifest_path),
-            "bundle_path": str(self.bundle_path),
-            "event_timeline_path": str(self.event_timeline_path),
-            "dashboard_snapshot_path": (
-                str(self.dashboard_snapshot_path) if self.dashboard_snapshot_path else ""
-            ),
-        }
-        return {
-            "generated_at": timestamp(),
-            "window": {
-                "title": window_title,
-                "bounds": window_bounds,
-                "click_point": self._click_point_from_bounds(window_bounds),
-            },
-            "controls": controls,
-            "tabs": {
-                "container": notebook_bounds,
-                "items": tabs_payload,
-            },
-            "selector": selector_payload,
-            "state": state_payload,
-            "session": session_payload,
-        }
-
-    def _refresh_automation_overlay(self, payload: dict[str, object] | None = None) -> None:
-        if not self.automation_overlay_enabled:
-            return
-        if payload is None:
-            payload = self._build_automation_map()
-        window_payload = payload.get("window", {})
-        window_bounds = window_payload.get("bounds") if isinstance(window_payload, dict) else None
-        if not isinstance(window_bounds, dict):
-            return
-        overlay = self._automation_overlay
-        canvas = self._automation_overlay_canvas
-        if overlay is None or canvas is None or not overlay.winfo_exists():
-            overlay = tk.Toplevel(self.window)
-            overlay.overrideredirect(True)
-            overlay.attributes("-topmost", True)
-            try:
-                overlay.attributes("-alpha", 0.22)
-            except tk.TclError:
-                canvas = None
-            canvas = tk.Canvas(overlay, highlightthickness=0, bg="black")
-            canvas.pack(fill="both", expand=True)
-            self._automation_overlay = overlay
-            self._automation_overlay_canvas = canvas
-        overlay.geometry(
-            f"{window_bounds['width']}x{window_bounds['height']}+{window_bounds['left']}+{window_bounds['top']}"
-        )
-        canvas.configure(width=window_bounds["width"], height=window_bounds["height"])
-        canvas.delete("all")
-
-        def draw_target(label: str, bounds: dict[str, int], color: str) -> None:
-            left = bounds["left"] - window_bounds["left"]
-            top = bounds["top"] - window_bounds["top"]
-            right = bounds["right"] - window_bounds["left"]
-            bottom = bounds["bottom"] - window_bounds["top"]
-            canvas.create_rectangle(left, top, right, bottom, outline=color, width=2)
-            center_x = int((left + right) / 2)
-            center_y = int((top + bottom) / 2)
-            canvas.create_oval(
-                center_x - 3,
-                center_y - 3,
-                center_x + 3,
-                center_y + 3,
-                fill=color,
-                outline=color,
-            )
-            canvas.create_text(left + 4, max(8, top + 8), text=label, anchor="w", fill=color)
-
-        controls = payload.get("controls", {})
-        if isinstance(controls, dict):
-            for name, item in controls.items():
-                if isinstance(item, dict):
-                    bounds = item.get("bounds")
-                    if isinstance(bounds, dict):
-                        draw_target(str(name), bounds, "#7dd3fc")
-        tabs = payload.get("tabs", {})
-        if isinstance(tabs, dict):
-            tab_items = tabs.get("items", {})
-            if isinstance(tab_items, dict):
-                for name, item in tab_items.items():
-                    if isinstance(item, dict):
-                        bounds = item.get("bounds")
-                        if isinstance(bounds, dict):
-                            draw_target(f"tab:{name}", bounds, "#86efac")
-        selector = payload.get("selector", {})
-        if isinstance(selector, dict):
-            bounds = selector.get("bounds")
-            if isinstance(bounds, dict):
-                draw_target("selector", bounds, "#fca5a5")
-
-    def _refresh_automation_map(self) -> None:
-        if not self.automation_map_enabled and not self.automation_overlay_enabled:
-            return
-        try:
-            payload = self._build_automation_map()
-        except Exception as exc:
-            if self.smoke_mode and self.demo_mode:
-                self._log_demo_ui_action("Automation map refresh failed", repr(exc), level="debug")
-            return
-        if self.automation_map_enabled:
-            self.automation_map_path.parent.mkdir(parents=True, exist_ok=True)
-            self.automation_map_path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        self._refresh_automation_overlay(payload)
-
     def _refresh_preflight_paths(self) -> None:
         path_map = (
             ("log_path_var", self.log_path),
@@ -1512,8 +1294,6 @@ class CiscoAutoFlashDesktop:
             artifact_bundle_button.configure(
                 state="normal" if self.bundle_path.exists() else "disabled"
             )
-        self._refresh_automation_map()
-
     def _load_runbook_text(self) -> str:
         docs_dir = self.config.project_root / "docs" / "pre_hardware"
         sections = [
@@ -1808,7 +1588,6 @@ class CiscoAutoFlashDesktop:
             return
         if tab_text:
             self._log_demo_ui_action("Открыта вкладка", tab_text, level="debug")
-            self._refresh_automation_map()
 
     def _log_demo_ui_action(self, action: str, detail: str = "", level: str = "info") -> None:
         if not self.demo_mode:
@@ -1861,12 +1640,6 @@ class CiscoAutoFlashDesktop:
         if not Path(path).exists():
             messagebox.showinfo("Артефакт пока не создан", f"Путь ещё не существует:\n{path}")
             return
-        if self.smoke_mode:
-            self.last_smoke_open_path = Path(path)
-            self.footer_var.set(f"Smoke check: путь подтверждён -> {Path(path).name}")
-            self._log_demo_ui_action("Smoke-mode open suppressed", str(path), level="debug")
-            self._refresh_automation_map()
-            return
         try:
             # Intentional local file open in desktop UI.
             os.startfile(str(path))  # nosec
@@ -1874,7 +1647,6 @@ class CiscoAutoFlashDesktop:
             messagebox.showinfo("Путь к артефакту", str(path))
 
     def _drain_events(self) -> None:
-        handled_any = False
         self._drain_hardware_day_refresh_results()
         while True:
             try:
@@ -1883,9 +1655,6 @@ class CiscoAutoFlashDesktop:
                 break
             self._handle_event(event)
             self._record_event_timeline_entry(event)
-            handled_any = True
-        if handled_any:
-            self._refresh_automation_map()
         self.window.after(100, self._drain_events)
 
     def _cancel_window_after(self, attr_name: str) -> None:
@@ -2311,18 +2080,16 @@ class CiscoAutoFlashDesktop:
             self.demo_scenario_var.set("")
             self.demo_description_var.set("Сценарии demo mode не найдены.")
             self.demo_actions_var.set("Доступно: —")
-            self._refresh_automation_map()
             return
         self.demo_scenario_var.set(self.demo_name_to_display.get(scenario.name, scenario.name))
         self.demo_description_var.set(
-            scenario.description or "Сценарий готов для click-smoke без оборудования."
+            scenario.description or "Сценарий готов для ручной проверки без оборудования."
         )
         self.demo_actions_var.set(self._friendly_demo_actions(scenario.supported_actions))
         for scenario_name, button in getattr(self, "demo_scenario_buttons", {}).items():
             button.configure(
                 bootstyle="primary" if scenario_name == scenario.name else "secondary"
             )
-        self._refresh_automation_map()
 
 
 def main(argv: list[str] | None = None) -> int:

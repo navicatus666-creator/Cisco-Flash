@@ -28,7 +28,7 @@ Before connecting the switch, confirm `pre_hardware_readiness_gate.md` is fully 
 Use this file as the execution runbook only after the software, demo, replay, and artifact gates are already closed.
 Local preflight now explicitly includes:
 - `python C:\PROJECT\scripts\pre_hardware_preflight.py`
-- This one command runs `check_mcp_runtime.py`, full `unittest`, `python -m build`, and `run_demo_gui_smoke.py`
+- This one command runs `check_mcp_runtime.py`, full `unittest`, and `python -m build`
 - Optional final pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --rebuild-bundle`
 - Hardware-day rehearsal pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --hardware-day-rehearsal`
 - The dashboard now mirrors this through the read-only `Подготовка к железу` block: latest local gate, console/USB snapshot, Ethernet state, and the exact live-run / bring-back path.

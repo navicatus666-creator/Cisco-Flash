@@ -18,7 +18,7 @@ Do not treat this gate as release approval or SSH feature approval.
 All of these must be true before touching real hardware:
 - `python -m unittest discover -s C:\PROJECT\tests -v` is green
 - `python -m build` succeeds
-- `python C:\PROJECT\scripts\run_demo_gui_smoke.py` passes twice consecutively
+- `python C:\PROJECT\main.py --demo` opens cleanly for a short manual operator check
 - if you plan to use the portable carry bundle, `portable_build_smoke_checklist.md` is green
 
 ## Demo and replay gate

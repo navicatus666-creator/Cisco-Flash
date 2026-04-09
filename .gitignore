@@ -14,6 +14,8 @@ __pycache__/
 build/
 dist/
 *.spec.tmp
+*.egg-info/
+Возьму С Собой/
 
 # Local runtime artifacts
 logs/

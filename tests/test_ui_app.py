@@ -6,7 +6,6 @@ import types
 import unittest
 from pathlib import Path
 from queue import Queue
-from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
 
@@ -408,12 +407,6 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.settings = AppSettings(preferred_target_id="")
         app.scan_results = {}
         app.demo_mode = False
-        app.smoke_mode = False
-        app.automation_map_enabled = False
-        app.automation_overlay_enabled = False
-        app.automation_map_path = session_dir / "automation_map.json"
-        app._automation_overlay = None
-        app.last_smoke_open_path = None
         app.last_demo_idle_marker = ""
         app.demo_busy = False
         app._event_timeline = []
@@ -877,8 +870,6 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         handled: list[str] = []
         app._handle_event = lambda event: handled.append(event.kind)
         app._record_event_timeline_entry = Mock()
-        if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
-            app._refresh_automation_map = Mock()
         app.event_queue.put(AppEvent("log", {"line": "a"}))
         app.event_queue.put(AppEvent("progress", {"percent": 10}))
 
@@ -886,8 +877,6 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
 
         self.assertEqual(handled, ["log", "progress"])
         self.assertEqual(app._record_event_timeline_entry.call_count, 2)
-        if hasattr(CiscoAutoFlashDesktop, "_refresh_automation_map"):
-            app._refresh_automation_map.assert_called_once_with()
         self.assertEqual(app.window.after_calls[0][0], 100)
 
     def test_open_helpers_delegate_to_open_path(self) -> None:
@@ -1067,61 +1056,6 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
             app._open_path(existing)
             startfile.assert_called_once_with(str(existing))
 
-    def test_open_path_in_smoke_mode_skips_startfile_and_tracks_path(self) -> None:
-        app = self.make_app_shell()
-        app.demo_mode = True
-        app.smoke_mode = True
-        app._log_demo_ui_action = Mock()
-        app._refresh_automation_map = Mock()
-        existing = Path(__file__)
-
-        with patch("ciscoautoflash.ui.app.os.startfile") as startfile:
-            app._open_path(existing)
-            startfile.assert_not_called()
-
-        self.assertEqual(app.last_smoke_open_path, existing)
-        self.assertIn(existing.name, app.footer_var.get())
-        app._log_demo_ui_action.assert_called_once_with(
-            "Smoke-mode open suppressed", str(existing), level="debug"
-        )
-        app._refresh_automation_map.assert_called_once_with()
-
-    def test_build_automation_map_collects_bounds_and_state(self) -> None:
-        build_map = getattr(CiscoAutoFlashDesktop, "_build_automation_map", None)
-        if build_map is None:
-            self.skipTest("automation map builder is not implemented yet")
-        app = self.make_app_shell()
-        app.demo_mode = True
-        app.smoke_mode = True
-        app.selected_target_var.set("COM5")
-        app.state_var.set("СКАНИРОВАНИЕ")
-        app.current_stage_var.set("Этап 3")
-        app.demo_scenario_var.set("Этап 3: verify")
-        app._build_automation_map = build_map.__get__(app, CiscoAutoFlashDesktop)
-
-        data = app._build_automation_map()
-
-        self.assertEqual(data["window"]["bounds"]["width"], 1320)
-        self.assertEqual(data["controls"]["scan"]["click_point"]["x"], 960)
-        self.assertEqual(data["controls"]["open_report"]["state"], "disabled")
-        self.assertEqual(data["selector"]["current_display"], "Этап 3: verify")
-        self.assertEqual(
-            data["selector"]["buttons"]["stage3_verify"]["click_point"]["x"],
-            850,
-        )
-        self.assertEqual(data["tabs"]["container"]["width"], 480)
-        self.assertEqual(data["tabs"]["items"], {})
-        self.assertEqual(data["state"]["selected_target"], "COM5")
-        self.assertEqual(data["state"]["state_text"], "СКАНИРОВАНИЕ")
-        self.assertFalse(data["state"]["demo_busy"])
-        self.assertFalse(data["state"]["stage2_enabled"])
-        self.assertEqual(data["state"]["last_demo_idle_marker"], "")
-        self.assertEqual(data["state"]["last_smoke_open_path"], "")
-        self.assertEqual(data["session"]["session_dir"], str(app.session_dir))
-        self.assertEqual(data["session"]["event_timeline_path"], str(app.event_timeline_path))
-        self.assertEqual(data["session"]["dashboard_snapshot_path"], "")
-        self.assertIn("generated_at", data)
-
     def test_record_event_timeline_writes_normalized_json(self) -> None:
         app = self.make_app_shell()
         app.current_state_name = "FAILED"
@@ -1177,43 +1111,6 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(image_grab.grab.call_count, 1)
         self.assertTrue(str(app.dashboard_snapshot_path).endswith("dashboard_snapshot_failed.png"))
         image.save.assert_called_once()
-
-    def test_refresh_automation_map_writes_json_only_when_enabled(self) -> None:
-        refresh_map = getattr(CiscoAutoFlashDesktop, "_refresh_automation_map", None)
-        if refresh_map is None:
-            self.skipTest("automation map refresh is not implemented yet")
-        app = self.make_app_shell()
-        payload = {"window": {"width": 1320}, "generated_at": "2026-03-19T22:00:00"}
-        app._build_automation_map = Mock(return_value=payload)
-        app._refresh_automation_map = refresh_map.__get__(app, CiscoAutoFlashDesktop)
-
-        with TemporaryDirectory() as temp_dir:
-            app.automation_map_path = Path(temp_dir) / "current" / "automation_map.json"
-
-            app.automation_map_enabled = False
-            app._refresh_automation_map()
-            self.assertFalse(app.automation_map_path.exists())
-
-            app.automation_map_enabled = True
-            app._refresh_automation_map()
-            self.assertTrue(app.automation_map_path.exists())
-            saved = json.loads(app.automation_map_path.read_text(encoding="utf-8"))
-            self.assertEqual(saved, payload)
-
-    def test_refresh_automation_overlay_is_noop_when_disabled(self) -> None:
-        refresh_overlay = getattr(CiscoAutoFlashDesktop, "_refresh_automation_overlay", None)
-        if refresh_overlay is None:
-            self.skipTest("automation overlay refresh is not implemented yet")
-        app = self.make_app_shell()
-        app.automation_overlay_enabled = False
-        app._automation_overlay = None
-        app._build_automation_map = Mock(return_value={"window": {"width": 1320}})
-        app._refresh_automation_overlay = refresh_overlay.__get__(app, CiscoAutoFlashDesktop)
-
-        app._refresh_automation_overlay()
-
-        self.assertIsNone(app._automation_overlay)
-        app._build_automation_map.assert_not_called()
 
     def test_on_close_disposes_controller_and_window(self) -> None:
         app = self.make_app_shell()
