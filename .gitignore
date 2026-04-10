@@ -16,6 +16,9 @@ dist/
 *.spec.tmp
 *.egg-info/
 Возьму С Собой/
+artifacts/
+testsprite_tests/
+NVIDIA Corporation/
 
 # Local runtime artifacts
 logs/
