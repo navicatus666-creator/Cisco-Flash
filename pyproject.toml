@@ -11,7 +11,7 @@ requires-python = ">=3.14"
 dependencies = [
   "Pillow>=12.2",
   "pyserial>=3.5",
-  "ttkbootstrap>=1.20",
+  "ttkbootstrap>=1.20.2",
 ]
 
 [project.optional-dependencies]
