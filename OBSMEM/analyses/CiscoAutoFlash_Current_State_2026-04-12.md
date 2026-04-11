@@ -63,3 +63,15 @@ UI/UX still needs final polish in spacing, density, and visual hierarchy, but st
 - [`C:\PROJECT\AGENTS.md`](C:\PROJECT\AGENTS.md)
 - [`C:\PROJECT\docs\ui\operator_dashboard_references.md`](C:\PROJECT\docs\ui\operator_dashboard_references.md)
 - [`C:\PROJECT\docs\pre_hardware\first_hardware_run.md`](C:\PROJECT\docs\pre_hardware\first_hardware_run.md)
+---
+type: analysis
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\README.md
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\docs
+  - C:\PROJECT\tests
+  - C:\PROJECT\ciscoautoflash
+last_verified: 2026-04-12
+---

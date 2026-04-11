@@ -10,3 +10,9 @@
 - Добавлена явная модель памяти и ролей между repo, OBSMEM, EchoVault и vector-memory.
 - Добавлены страницы о текущем состоянии `CiscoAutoFlash`, hardware workflow и session artifacts flow.
 - `projects/CiscoAutoFlash.md` обновлена как главный проектный entrypoint для vault.
+
+## [2026-04-12] harden | Promotion, frontmatter, mirrors, and lint rules
+- Добавлены `promotion rule` и `session close protocol` в repo и OBSMEM AGENTS.
+- Для ключевых страниц и шаблонов введён frontmatter-контракт с `type`, `status`, `source_of_truth`, `repo_refs`, `last_verified`.
+- Добавлен слой `mirrors/` для кратких карт repo-state, рисков, открытых вопросов и hardware gate.
+- Зафиксирован короткий `memory lint` workflow для проверки stale refs, superseded решений и дубликатов.

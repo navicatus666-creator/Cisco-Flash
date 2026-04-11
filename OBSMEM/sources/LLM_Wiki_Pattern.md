@@ -34,3 +34,12 @@
 - [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
 - [Operator Console UI](C:\PROJECT\OBSMEM\concepts\Operator_Console_UI.md)
 - [OBSMEM index](C:\PROJECT\OBSMEM\index.md)
+---
+type: source-summary
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\OBSMEM\AGENTS.md
+last_verified: 2026-04-12
+---

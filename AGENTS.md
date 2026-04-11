@@ -96,6 +96,8 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Operator/runtime artifacts must still stay under `%LOCALAPPDATA%\CiscoAutoFlash\`; do not redirect desktop-app session data into Codex or MCP storage paths
 - Supplemental Obsidian knowledge vault lives in `C:\PROJECT\OBSMEM\`; use it for long-form research, syntheses, and human-readable knowledge pages, but do not treat it as the source of truth over repo code/docs/tests
 - Durable implementation truth still goes into repo docs/code/tests first; mirror only the stable synthesis into `C:\PROJECT\OBSMEM\`, and update its `index.md` and `log.md` when that wiki gains meaningful new pages
+- Promotion rule: if knowledge changes project behavior, architecture contracts, test expectations, operator workflow, or implementation decisions, it must be written back into repo files; `OBSMEM` may keep the long-form reasoning, but it must not be the only place where implementation-relevant truth exists
+- Session close protocol: before ending a substantial session, update repo truth first when needed, then mirror durable synthesis into `C:\PROJECT\OBSMEM\`, then save a concise continuity checkpoint to `EchoVault`; do not leave the latest project truth only in `vector-memory`
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow
 - Primary first-switch runbook: `docs/pre_hardware/first_hardware_run.md`
 - Additional Cisco families are still planned later; do not assume they already exist in code unless verified

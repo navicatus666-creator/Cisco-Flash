@@ -28,3 +28,12 @@
 
 ## Why this matters
 This keeps post-run debugging deterministic and avoids losing time in ad hoc artifact collection.
+---
+type: concept
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\ciscoautoflash
+  - C:\PROJECT\docs\pre_hardware
+last_verified: 2026-04-12
+---

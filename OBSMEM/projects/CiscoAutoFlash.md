@@ -1,3 +1,16 @@
+---
+type: project-note
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\README.md
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\docs
+  - C:\PROJECT\tests
+  - C:\PROJECT\ciscoautoflash
+last_verified: 2026-04-12
+---
+
 # CiscoAutoFlash
 
 ## Role

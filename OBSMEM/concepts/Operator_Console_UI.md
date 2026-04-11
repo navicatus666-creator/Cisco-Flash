@@ -23,3 +23,12 @@ Dense desktop console for operational work, not a marketing dashboard.
 - decorative KPI tiles with equal weight
 - long repeated labels in compact spaces
 - putting live workflow and artifacts on the same crowded screen
+---
+type: concept
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\docs\ui\operator_dashboard_references.md
+  - C:\PROJECT\ciscoautoflash\ui\app.py
+last_verified: 2026-04-12
+---

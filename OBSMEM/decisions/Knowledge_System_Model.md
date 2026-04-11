@@ -1,3 +1,15 @@
+---
+type: decision
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\README.md
+  - C:\PROJECT\docs
+  - C:\PROJECT\tests
+last_verified: 2026-04-12
+---
+
 # Knowledge System Model
 
 ## Context
@@ -49,3 +61,4 @@ Use for:
 - Always write implementation truth into repo first.
 - Then mirror the durable synthesis into OBSMEM.
 - Keep `index.md` and `log.md` updated when OBSMEM grows.
+- Periodically lint OBSMEM for stale repo refs, duplicates, and superseded decisions.

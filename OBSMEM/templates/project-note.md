@@ -1,3 +1,11 @@
+---
+type: project-note
+status: active
+source_of_truth: repo
+repo_refs: []
+last_verified: 2026-04-12
+---
+
 # Project Note
 
 ## Topic

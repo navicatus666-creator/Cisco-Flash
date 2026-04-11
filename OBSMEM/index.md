@@ -11,6 +11,12 @@
 - [CiscoAutoFlash Current State](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State_2026-04-12.md) — актуальный снимок состояния проекта
 - [Hardware Workflow](C:\PROJECT\OBSMEM\projects\Hardware_Workflow.md) — serial-first реальный run и возврат артефактов
 
+## Mirrors
+- [CiscoAutoFlash Current State Mirror](C:\PROJECT\OBSMEM\mirrors\CiscoAutoFlash_Current_State.md) — короткая карта текущего repo-state
+- [Active Risks](C:\PROJECT\OBSMEM\mirrors\Active_Risks.md) — активные риски и ограничения
+- [Open Architecture Questions](C:\PROJECT\OBSMEM\mirrors\Open_Architecture_Questions.md) — открытые архитектурные вопросы
+- [Hardware Smoke Gate](C:\PROJECT\OBSMEM\mirrors\Hardware_Smoke_Gate.md) — краткий статус готовности к реальному железу
+
 ## Concepts
 - [Operator Console UI](C:\PROJECT\OBSMEM\concepts\Operator_Console_UI.md) — принципы UI/UX для плотной desktop-консоли
 - [Session Artifacts Flow](C:\PROJECT\OBSMEM\concepts\Session_Artifacts_Flow.md) — как session folder, manifest и bundle используются в процессе
@@ -25,4 +31,5 @@
 - [analyses](C:\PROJECT\OBSMEM\analyses\README.md) — сравнения и syntheses
 - [decisions](C:\PROJECT\OBSMEM\decisions\README.md) — долговечные решения
 - [daily](C:\PROJECT\OBSMEM\daily\README.md) — заметки по дням
+- [mirrors](C:\PROJECT\OBSMEM\mirrors\README.md) — краткие зеркала repo-state и открытых рисков
 - [templates](C:\PROJECT\OBSMEM\templates\README.md) — шаблоны страниц
