@@ -6,6 +6,10 @@ repo_refs:
   - C:\PROJECT\README.md
   - C:\PROJECT\AGENTS.md
   - C:\PROJECT\docs
+related:
+  - "[[Active_Risks]]"
+  - "[[Hardware_Smoke_Gate]]"
+  - "[[Open_Architecture_Questions]]"
 last_verified: 2026-04-12
 ---
 
@@ -20,3 +24,12 @@ Use these pages for:
 - hardware readiness gates
 
 Do not duplicate full docs here. Keep pages compact and point back to repo files via `repo_refs`.
+
+## Canonical pages
+- [[Active_Risks]]
+- [[Open_Architecture_Questions]]
+- [[Hardware_Smoke_Gate]]
+
+## Read next
+- [[CiscoAutoFlash]]
+- [[CiscoAutoFlash_Current_State]]

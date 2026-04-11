@@ -1,6 +1,8 @@
 ---
 type: mirror
 status: active
+aliases:
+  - Open Architecture Questions
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

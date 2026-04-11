@@ -1,6 +1,8 @@
 ---
 type: analysis
 status: active
+aliases:
+  - Memory Lint Checklist
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

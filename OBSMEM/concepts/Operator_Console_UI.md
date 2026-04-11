@@ -1,6 +1,8 @@
 ---
 type: concept
 status: active
+aliases:
+  - Operator Console UI
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\docs\ui\operator_dashboard_references.md

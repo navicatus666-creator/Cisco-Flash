@@ -1,6 +1,8 @@
 ---
 type: source-summary
 status: active
+aliases:
+  - LLM Wiki Pattern
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

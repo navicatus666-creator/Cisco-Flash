@@ -1,6 +1,8 @@
 ---
 type: concept
 status: active
+aliases:
+  - Knowledge System Model
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

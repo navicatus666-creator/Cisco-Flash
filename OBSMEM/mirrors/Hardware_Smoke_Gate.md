@@ -1,6 +1,8 @@
 ---
 type: mirror
 status: active
+aliases:
+  - Hardware Smoke Gate
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\docs\pre_hardware\first_hardware_run.md

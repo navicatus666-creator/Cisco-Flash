@@ -1,6 +1,8 @@
 ---
 type: analysis
 status: active
+aliases:
+  - CiscoAutoFlash Current State
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\README.md

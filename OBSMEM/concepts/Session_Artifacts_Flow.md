@@ -1,6 +1,8 @@
 ---
 type: concept
 status: active
+aliases:
+  - Session Artifacts Flow
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\ciscoautoflash

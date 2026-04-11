@@ -1,6 +1,8 @@
 ---
 type: mirror
 status: active
+aliases:
+  - Decisions Index
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

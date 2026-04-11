@@ -1,6 +1,8 @@
 ---
 type: project-note
 status: active
+aliases:
+  - Hardware Workflow
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\docs\pre_hardware\first_hardware_run.md

@@ -1,6 +1,8 @@
 ---
 type: mirror
 status: active
+aliases:
+  - Active Risks
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md

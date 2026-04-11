@@ -1,6 +1,8 @@
 ---
 type: project-note
 status: active
+aliases:
+  - CiscoAutoFlash
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\README.md
