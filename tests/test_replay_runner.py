@@ -12,6 +12,8 @@ from ciscoautoflash.replay.loader import load_scenario
 from ciscoautoflash.replay.runner import ReplayRunner
 from ciscoautoflash.replay.runner import main as replay_main
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 ALLOWED_EVENT_KINDS = {
     "actions_changed",
     "device_snapshot",
@@ -24,7 +26,7 @@ ALLOWED_EVENT_KINDS = {
     "session_paths",
     "state_changed",
 }
-SCENARIO_DIR = Path(r"C:\PROJECT\replay_scenarios")
+SCENARIO_DIR = PROJECT_ROOT / "replay_scenarios"
 
 
 class ReplayRunnerTests(unittest.TestCase):

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from ciscoautoflash.devtools import session_return_triage
 
@@ -259,6 +261,25 @@ class SessionReturnTriageTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertTrue((output_dir / "20260330_123456_triage.json").exists())
             self.assertTrue((output_dir / "20260330_123456_triage.md").exists())
+
+    def test_main_prints_safely_to_cp1252_stdout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            session_dir, _bundle_path = _write_fixture(root)
+            output_dir = root / "triage"
+            stdout_bytes = io.BytesIO()
+            stdout = io.TextIOWrapper(stdout_bytes, encoding="cp1252", errors="strict")
+
+            with patch("sys.stdout", stdout):
+                exit_code = session_return_triage.main(
+                    [str(session_dir), "--output-dir", str(output_dir)]
+                )
+
+            stdout.flush()
+            rendered = stdout_bytes.getvalue().decode("cp1252", errors="replace")
+            self.assertEqual(exit_code, 0)
+            self.assertIn("CiscoAutoFlash Session Triage", rendered)
+            self.assertIn("JSON:", rendered)
 
 
 if __name__ == "__main__":

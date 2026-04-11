@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -82,6 +83,28 @@ def _safe_json_loads(text: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _print_console_text(text: str) -> None:
+    output = text if text.endswith("\n") else f"{text}\n"
+    stream = sys.stdout
+    try:
+        stream.write(output)
+        stream.flush()
+        return
+    except UnicodeEncodeError:
+        pass
+
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    payload = output.encode(encoding, errors="replace")
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        buffer.write(payload)
+        buffer.flush()
+        return
+
+    stream.write(payload.decode(encoding, errors="replace"))
+    stream.flush()
 
 
 def _match_zip_member(names: list[str], pattern: str) -> str | None:
@@ -881,11 +904,11 @@ def main(argv: list[str] | None = None) -> int:
         md_out.parent.mkdir(parents=True, exist_ok=True)
         md_out.write_text(markdown, encoding="utf-8")
 
-    print(markdown)
+    _print_console_text(markdown)
     if json_out is not None:
-        print(f"\nJSON: {json_out}")
+        _print_console_text(f"\nJSON: {json_out}")
     if md_out is not None:
-        print(f"Markdown: {md_out}")
+        _print_console_text(f"Markdown: {md_out}")
     return 0
 
 

@@ -65,6 +65,28 @@ def _default_steps() -> list[tuple[str, list[str]]]:
     ]
 
 
+def _print_console_text(text: str) -> None:
+    output = text if text.endswith("\n") else f"{text}\n"
+    stream = sys.stdout
+    try:
+        stream.write(output)
+        stream.flush()
+        return
+    except UnicodeEncodeError:
+        pass
+
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    payload = output.encode(encoding, errors="replace")
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        buffer.write(payload)
+        buffer.flush()
+        return
+
+    stream.write(payload.decode(encoding, errors="replace"))
+    stream.flush()
+
+
 def _run_step(name: str, command: list[str], output_dir: Path) -> StepResult:
     started = time.perf_counter()
     completed = subprocess.run(  # nosec B603
@@ -283,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
 
-    print(rendered_markdown)
+    _print_console_text(rendered_markdown)
     if args.hardware_day_rehearsal:
         return 0 if not failing_step and hardware_day_status == "READY_FOR_HARDWARE" else 1
     return 0 if not failing_step else 1

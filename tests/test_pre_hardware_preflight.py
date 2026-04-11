@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
@@ -233,6 +234,68 @@ class PreHardwarePreflightTests(unittest.TestCase):
             summary = json.loads(summary_files[0].read_text(encoding="utf-8"))
             self.assertEqual(summary["status"], "READY")
             self.assertEqual(summary["hardware_day_status"], "NOT_READY")
+
+    def test_main_hardware_day_rehearsal_prints_safely_to_cp1252_stdout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir)
+            step_outputs = [
+                CompletedProcess(args=["check"], returncode=0, stdout="mcp ok\n", stderr=""),
+                CompletedProcess(args=["tests"], returncode=0, stdout="tests ok\n", stderr=""),
+                CompletedProcess(args=["build"], returncode=0, stdout="build ok\n", stderr=""),
+            ]
+            stdout_bytes = io.BytesIO()
+            stdout = io.TextIOWrapper(stdout_bytes, encoding="cp1252", errors="strict")
+
+            with (
+                patch.object(pre_hardware_preflight, "PROJECT_ROOT", output_root),
+                patch.object(
+                    pre_hardware_preflight,
+                    "BUILD_ROOT",
+                    output_root / "build" / "preflight",
+                ),
+                patch(
+                    "scripts.pre_hardware_preflight.subprocess.run",
+                    side_effect=step_outputs,
+                ),
+                patch(
+                    "scripts.pre_hardware_preflight._load_hardware_day_helpers",
+                    return_value=(
+                        lambda **_: {
+                            "status": "NOT_READY",
+                            "next_steps": ["Подключите основной console path."],
+                        },
+                        lambda **_: {
+                            "console": {"ready": False, "items": []},
+                            "network": {"ethernet_up": []},
+                            "ping": {"attempted": False},
+                            "ssh_probe": {"attempted": False},
+                        },
+                        lambda _: {
+                            "console": "COM не видны",
+                            "ethernet": "Ethernet down",
+                            "ssh": "not checked",
+                            "live_run_path": (
+                                "console -> scan -> stage1 -> stage2 -> "
+                                "stage3 -> bundle"
+                            ),
+                            "return_path": (
+                                "session bundle -> session folder -> "
+                                "triage_session_return.py"
+                            ),
+                        },
+                        pre_hardware_preflight._load_hardware_day_helpers()[3],
+                    ),
+                ),
+                patch.dict("os.environ", {"LOCALAPPDATA": str(output_root / "localappdata")}),
+                patch("sys.stdout", stdout),
+            ):
+                exit_code = pre_hardware_preflight.main(["--hardware-day-rehearsal"])
+
+            stdout.flush()
+            rendered = stdout_bytes.getvalue().decode("cp1252", errors="replace")
+            self.assertEqual(exit_code, 1)
+            self.assertIn("Status: READY", rendered)
+            self.assertIn("Hardware-Day", rendered)
 
 
 if __name__ == "__main__":
