@@ -230,7 +230,6 @@ class DummyNotebook:
     ) -> None:
         self.labels = labels or {
             "log": "Журнал",
-            "artifacts": "Артефакты сессии",
             "runbook": "Памятка",
         }
         self.current = current or next(iter(self.labels))
@@ -353,6 +352,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.footer_var = DummyVar()
         app.port_var = DummyVar()
         app.device_status_var = DummyVar()
+        app.device_status_summary_var = DummyVar()
         app.model_var = DummyVar()
         app.current_fw_var = DummyVar()
         app.flash_var = DummyVar()
@@ -564,6 +564,29 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.manual_override_var.get(), "Выбор цели: вручную")
         self.assertEqual(app.operator_next_step_var.get(), "Запустите этап 1 или этап 3.")
 
+    def test_handle_event_normalizes_unknown_snapshot_values_to_scan_placeholder(self) -> None:
+        app = self.make_app_shell()
+        snapshot = DeviceSnapshot(
+            port="COM7",
+            status_text="Ответ неполный",
+            connection_state="unknown",
+            prompt_type="",
+            model="Не определена",
+            firmware="",
+            flash="unknown",
+            uptime="—",
+            usb_state="unknown",
+            recommended_next_action="Повторите scan.",
+            is_manual_override=False,
+        )
+
+        app._handle_event(AppEvent("device_snapshot", {"snapshot": snapshot}))
+
+        self.assertEqual(app.model_var.get(), "Определится после scan")
+        self.assertEqual(app.current_fw_var.get(), "Определится после scan")
+        self.assertEqual(app.flash_var.get(), "Определится после scan")
+        self.assertEqual(app.uptime_var.get(), "Определится после scan")
+
     def test_handle_event_updates_progress_and_report_button(self) -> None:
         app = self.make_app_shell()
 
@@ -748,15 +771,58 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.scan_status_var.get(), "Найдено COM-целей: 1. Выбрана цель COM7.")
         self.assertIn("COM7", app.targets_tree.nodes)
         self.assertEqual(app.targets_tree.selection(), ("COM7",))
+        self.assertEqual(app.targets_tree.nodes["COM7"]["values"], ("Готово", "Готово"))
+
+    def test_scan_results_compacts_error_text_for_tree_status(self) -> None:
+        app = self.make_app_shell()
+        results = [
+            ScanResult(
+                target=ConnectionTarget("COM3", "COM3"),
+                available=False,
+                status_message=(
+                    "Ошибка: could not open port 'COM3': "
+                    "OSError(22, 'Превышен таймаут семафора.', None, 121)"
+                ),
+                prompt_type="",
+                connection_state="error",
+                version="",
+            )
+        ]
+
+        app._handle_event(
+            AppEvent(
+                "scan_results",
+                {"results": results, "selected_target_id": "COM3"},
+            )
+        )
+
+        self.assertEqual(app.targets_tree.nodes["COM3"]["values"], ("Таймаут", "Ошибка"))
+        self.assertEqual(app.device_status_summary_var.get(), "Порт не ответил вовремя")
+
+    def test_operator_message_compacts_summary_status_for_dashboard(self) -> None:
+        app = self.make_app_shell()
+        message = SimpleNamespace(
+            title="Ошибка подключения",
+            detail=(
+                "Ошибка: could not open port 'COM3': "
+                "OSError(22, 'Превышен таймаут семафора.', None, 121)"
+            ),
+            next_step="Проверьте COM-порт.",
+            severity="error",
+        )
+
+        app._handle_event(AppEvent("operator_message", {"message": message}))
+
+        self.assertEqual(app.device_status_summary_var.get(), "Порт не ответил вовремя")
 
     def test_notebook_tabs_payload_exposes_hybrid_diagnostics_structure(self) -> None:
         app = self.make_app_shell()
 
         payload = app._build_notebook_tabs_payload()
 
-        self.assertEqual(sorted(payload), ["Артефакты сессии", "Журнал", "Памятка"])
+        self.assertEqual(sorted(payload), ["Журнал", "Памятка"])
         self.assertTrue(payload["Журнал"]["selected"])
-        self.assertIn("click_point", payload["Артефакты сессии"])
+        self.assertIn("click_point", payload["Памятка"])
 
     def test_workspace_tabs_payload_exposes_operator_split(self) -> None:
         app = self.make_app_shell()
@@ -855,12 +921,12 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app = self.make_app_shell()
         app.demo_mode = True
         app._log_demo_ui_action = Mock()
-        app.diagnostics_notebook.current = "artifacts"
+        app.diagnostics_notebook.current = "runbook"
 
         app._on_diagnostics_tab_changed(SimpleNamespace(widget=app.diagnostics_notebook))
 
         app._log_demo_ui_action.assert_called_once_with(
-            "Открыта вкладка", "Артефакты сессии", level="debug"
+            "Открыта вкладка", "Памятка", level="debug"
         )
 
     def test_demo_action_buttons_log_ui_actions(self) -> None:

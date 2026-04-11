@@ -268,10 +268,11 @@ class CiscoAutoFlashDesktop:
         self.demo_badge_var = tk.StringVar(value="DEMO" if self.demo_mode else "")
         self.port_var = tk.StringVar(value="—")
         self.device_status_var = tk.StringVar(value="Ожидание сканирования")
-        self.model_var = tk.StringVar(value="Не определена")
-        self.current_fw_var = tk.StringVar(value="Не определена")
-        self.flash_var = tk.StringVar(value="Не определена")
-        self.uptime_var = tk.StringVar(value="Не определено")
+        self.device_status_summary_var = tk.StringVar(value="Порт ещё не сканировался")
+        self.model_var = tk.StringVar(value="Определится после scan")
+        self.current_fw_var = tk.StringVar(value="Определится после scan")
+        self.flash_var = tk.StringVar(value="Определится после scan")
+        self.uptime_var = tk.StringVar(value="Определится после scan")
         self.usb_var = tk.StringVar(value="USB неизвестен")
         self.connection_var = tk.StringVar(value="Ожидание")
         self.prompt_var = tk.StringVar(value="—")
@@ -288,7 +289,7 @@ class CiscoAutoFlashDesktop:
         self.progress_stage_var = tk.StringVar(value="Ожидание установки")
         self.progress_percent_var = tk.StringVar(value="0%")
         self.progress_meta_var = tk.StringVar(
-            value="Маркеры установки появятся по мере работы archive download-sw."
+            value="Маркеры archive download-sw появятся по ходу установки."
         )
         self.footer_var = tk.StringVar(value="Готов к сканированию COM-портов")
         self.operator_title_var = tk.StringVar(value="Рабочее место готово")
@@ -592,58 +593,28 @@ class CiscoAutoFlashDesktop:
         root = self.window
         root.configure(padx=14, pady=14, background=self.palette["canvas"])
 
-        header = ttk.Frame(root, style="UiA.TFrame")
-        header.pack(fill="x", pady=(0, 8))
-        header.columnconfigure(0, weight=1)
-
-        title_block = ttk.Frame(header, style="UiA.TFrame")
-        title_block.grid(row=0, column=0, sticky="ew")
-        ttk.Label(title_block, text="CiscoAutoFlash", style="UiL.TLabel").pack(anchor="w")
-        ttk.Label(
-            title_block,
-            text="Cisco Catalyst 2960-X • Serial/USB first • hidden SSH backend ready",
-            style="UiM.TLabel",
-        ).pack(anchor="w", pady=(2, 0))
-
-        self.state_card = ttk.Labelframe(
-            header,
-            text="Статус сессии",
-            padding=6,
-            style="UiF.TLabelframe",
-        )
-        self.state_card.grid(row=0, column=1, sticky="ne", padx=(12, 0))
-        self.state_badge = ttk.Label(
-            self.state_card,
-            textvariable=self.state_badge_var,
-            style="UiQ.TLabel",
-        )
-        self.state_badge.pack(anchor="e")
-        if self.demo_mode:
-            self.demo_badge = ttk.Label(
-                self.state_card,
-                textvariable=self.demo_badge_var,
-                style="UiQ.TLabel",
-            )
-            self.demo_badge.pack(anchor="e", pady=(6, 0))
-        ttk.Label(
-            self.state_card,
-            textvariable=self.transport_mode_var,
-            style="UiO.TLabel",
-        ).pack(anchor="e", pady=(6, 0))
-
         self.status_strip_card = ttk.Labelframe(
             root,
-            text="Текущее действие",
-            padding=6,
+            text=" ",
+            padding=4,
             style="UiF.TLabelframe",
         )
         self.status_strip_card.pack(fill="x", pady=(0, 8))
-        self.status_strip_card.columnconfigure(0, weight=7)
+        self.status_strip_card.columnconfigure(0, weight=2)
         self.status_strip_card.columnconfigure(1, weight=5)
-        self.status_strip_card.columnconfigure(2, weight=1, minsize=110)
-        self.status_strip_card.columnconfigure(3, weight=1, minsize=110)
+        self.status_strip_card.columnconfigure(2, weight=3)
+
+        status_title = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
+        status_title.grid(row=0, column=0, sticky="w")
+        ttk.Label(status_title, text="CiscoAutoFlash", style="UiL.TLabel").pack(anchor="w")
+        ttk.Label(
+            status_title,
+            text="Операторская консоль",
+            style="UiM.TLabel",
+        ).pack(anchor="w", pady=(1, 0))
+
         status_primary = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
-        status_primary.grid(row=0, column=0, rowspan=2, sticky="nsew")
+        status_primary.grid(row=0, column=1, sticky="nsew", padx=(12, 12))
         status_primary.columnconfigure(0, weight=1)
         self.state_message_label = ttk.Label(
             status_primary,
@@ -654,34 +625,37 @@ class CiscoAutoFlashDesktop:
         )
         self.state_message_label.grid(row=0, column=0, sticky="ew")
         self._bind_responsive_wrap(self.state_message_label, status_primary, min_wrap=260)
-        status_secondary = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
-        status_secondary.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(12, 0))
-        status_secondary.columnconfigure(0, weight=1)
         self.device_status_label = ttk.Label(
-            status_secondary,
+            status_primary,
             textvariable=self.device_status_var,
             style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
-        self.device_status_label.grid(row=0, column=0, sticky="ew")
-        self._bind_responsive_wrap(self.device_status_label, status_secondary, min_wrap=220)
-        ttk.Label(self.status_strip_card, text="Профиль", style="UiO.TLabel").grid(
-            row=0, column=2, sticky="e"
+        self.device_status_label.grid(row=1, column=0, sticky="ew", pady=(1, 0))
+        self._bind_responsive_wrap(self.device_status_label, status_primary, min_wrap=180)
+
+        status_meta = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
+        status_meta.grid(row=0, column=2, sticky="e")
+        self.state_badge = ttk.Label(
+            status_meta,
+            textvariable=self.state_badge_var,
+            style="UiQ.TLabel",
         )
+        self.state_badge.pack(anchor="e")
+        if self.demo_mode:
+            self.demo_badge = ttk.Label(
+                status_meta,
+                textvariable=self.demo_badge_var,
+                style="UiQ.TLabel",
+            )
+            self.demo_badge.pack(anchor="e", pady=(6, 0))
+        ttk.Label(status_meta, text="Режим", style="UiO.TLabel").pack(anchor="e", pady=(6, 0))
         ttk.Label(
-            self.status_strip_card,
-            textvariable=self.profile_var,
-            style="UiN.TLabel",
-        ).grid(row=1, column=2, sticky="e")
-        ttk.Label(self.status_strip_card, text="Режим", style="UiO.TLabel").grid(
-            row=0, column=3, sticky="e"
-        )
-        ttk.Label(
-            self.status_strip_card,
+            status_meta,
             textvariable=self.transport_mode_var,
             style="UiN.TLabel",
-        ).grid(row=1, column=3, sticky="e")
+        ).pack(anchor="e")
 
         self.workspace_notebook = ttk.Notebook(root, style="UiS.TNotebook")
         self.workspace_notebook.pack(fill="both", expand=True)
@@ -695,21 +669,21 @@ class CiscoAutoFlashDesktop:
 
         body = ttk.Frame(flash_workspace_tab, style="UiA.TFrame")
         body.pack(fill="both", expand=True)
-        body.columnconfigure(0, weight=5, minsize=370)
-        body.columnconfigure(1, weight=7, minsize=700)
-        body.columnconfigure(2, weight=4, minsize=430)
+        body.columnconfigure(0, weight=4, minsize=390)
+        body.columnconfigure(1, weight=10, minsize=700)
+        body.columnconfigure(2, weight=2, minsize=240)
         body.rowconfigure(0, weight=1)
 
         left_panel = ttk.Frame(body, padding=2, style="UiA.TFrame")
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(0, weight=1)
+        left_panel.rowconfigure(0, weight=5)
+        left_panel.rowconfigure(1, weight=2)
 
         center_panel = ttk.Frame(body, padding=2, style="UiA.TFrame")
-        center_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        center_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
         center_panel.columnconfigure(0, weight=1)
-        center_panel.rowconfigure(0, weight=5)
-        center_panel.rowconfigure(1, weight=3)
+        center_panel.rowconfigure(0, weight=1)
 
         right_panel = ttk.Frame(body, padding=2, style="UiA.TFrame")
         right_panel.grid(row=0, column=2, sticky="nsew")
@@ -722,15 +696,23 @@ class CiscoAutoFlashDesktop:
             padding=10,
             style="UiE.TLabelframe",
         )
-        targets_card.grid(row=0, column=0, sticky="nsew")
+        targets_card.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
         targets_card.rowconfigure(1, weight=1)
         targets_card.columnconfigure(0, weight=1)
-        ttk.Label(targets_card, textvariable=self.scan_status_var, style="UiO.TLabel").grid(
+        scan_status_label = ttk.Label(
+            targets_card,
+            textvariable=self.scan_status_var,
+            style="UiO.TLabel",
+            justify="left",
+            anchor="w",
+        )
+        scan_status_label.grid(
             row=0, column=0, sticky="w", pady=(0, 8)
         )
+        self._bind_responsive_wrap(scan_status_label, targets_card, min_wrap=220)
         self.targets_tree = ttk.Treeview(
             targets_card,
-            columns=("status", "state", "prompt", "version"),
+            columns=("status", "state"),
             show="tree headings",
             height=18,
             selectmode="browse",
@@ -739,13 +721,9 @@ class CiscoAutoFlashDesktop:
         self.targets_tree.heading("#0", text="Порт")
         self.targets_tree.heading("status", text="Статус")
         self.targets_tree.heading("state", text="Соединение")
-        self.targets_tree.heading("prompt", text="Prompt")
-        self.targets_tree.heading("version", text="Версия")
-        self.targets_tree.column("#0", width=100, stretch=False)
-        self.targets_tree.column("status", width=200, stretch=True)
-        self.targets_tree.column("state", width=120, stretch=False)
-        self.targets_tree.column("prompt", width=96, stretch=False)
-        self.targets_tree.column("version", width=112, stretch=False)
+        self.targets_tree.column("#0", width=94, stretch=False)
+        self.targets_tree.column("status", width=220, stretch=True)
+        self.targets_tree.column("state", width=110, stretch=False)
         self.targets_tree.grid(row=1, column=0, sticky="nsew")
         self.targets_tree.bind("<<TreeviewSelect>>", self._on_target_selected)
         tree_scroll = ttk.Scrollbar(
@@ -754,21 +732,53 @@ class CiscoAutoFlashDesktop:
         tree_scroll.grid(row=1, column=1, sticky="ns")
         self.targets_tree.configure(yscrollcommand=tree_scroll.set)
 
+        selected_target_card = ttk.Labelframe(
+            left_panel,
+            text="Выбранная цель",
+            padding=8,
+            style="UiD.TLabelframe",
+        )
+        selected_target_card.grid(row=1, column=0, sticky="nsew")
+        for column in (1, 3):
+            selected_target_card.columnconfigure(column, weight=1)
+        self._build_preflight_value(
+            selected_target_card, 0, 0, "Порт", self.selected_target_var, min_wrap=120
+        )
+        self._build_preflight_value(
+            selected_target_card, 0, 2, "Соединение", self.connection_var, min_wrap=120
+        )
+        self._build_preflight_value(
+            selected_target_card, 1, 0, "Prompt", self.prompt_var, min_wrap=120
+        )
+        self._build_preflight_value(
+            selected_target_card, 1, 2, "USB", self.usb_var, min_wrap=120
+        )
+        self._build_preflight_value(
+            selected_target_card, 2, 0, "Модель", self.model_var, min_wrap=120
+        )
+        self._build_preflight_value(
+            selected_target_card, 2, 2, "IOS", self.current_fw_var, min_wrap=120
+        )
+
         workflow_card = ttk.Labelframe(
             center_panel,
             text="Текущий сеанс и действия",
-            padding=10,
+            padding=8,
             style="UiD.TLabelframe",
         )
-        workflow_card.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        workflow_card.grid(row=0, column=0, sticky="nsew")
         workflow_card.columnconfigure(0, weight=1)
+        workflow_card.rowconfigure(2, weight=1)
 
         summary_grid = ttk.Frame(workflow_card, style="UiAA.TFrame")
-        summary_grid.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        for column in range(4):
+        summary_grid.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        for column in range(2):
             summary_grid.columnconfigure(column, weight=1, uniform="summary")
+        for row in range(2):
+            summary_grid.rowconfigure(row, weight=1)
         self._build_summary_card(
             summary_grid,
+            0,
             0,
             "Выбранный порт",
             self.port_var,
@@ -776,68 +786,274 @@ class CiscoAutoFlashDesktop:
         )
         self._build_summary_card(
             summary_grid,
+            0,
             1,
             "Состояние соединения",
             self.connection_var,
-            self.device_status_var,
+            self.device_status_summary_var,
         )
-        self._build_summary_card(summary_grid, 2, "Prompt", self.prompt_var, self.usb_var)
         self._build_summary_card(
             summary_grid,
-            3,
-            "Версия / модель",
+            1,
+            0,
+            "Prompt / USB",
+            self.prompt_var,
+            self.usb_var,
+        )
+        self._build_summary_card(
+            summary_grid,
+            1,
+            1,
+            "Модель / IOS",
             self.current_fw_var,
             self.model_var,
         )
 
         controls = ttk.Frame(workflow_card, style="UiA.TFrame")
         controls.grid(row=1, column=0, sticky="ew")
-        controls.columnconfigure(0, weight=1)
+        controls.columnconfigure(0, weight=5)
+        controls.columnconfigure(1, weight=4)
 
-        operator_bar = ttk.Frame(controls, padding=(10, 8), style="UiAA.TFrame")
-        operator_bar.grid(row=0, column=0, sticky="ew")
-        operator_bar.columnconfigure(1, weight=3)
-        ttk.Label(operator_bar, text="Firmware", style="UiAB.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(0, 8)
+        prep_card = ttk.Frame(controls, padding=(10, 8), style="UiAA.TFrame")
+        prep_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        prep_card.columnconfigure(1, weight=1)
+        ttk.Label(prep_card, text="Подготовка и scan", style="UiAB.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 6)
         )
-        firmware_entry = ttk.Entry(operator_bar, textvariable=self.firmware_input_var)
-        firmware_entry.grid(row=0, column=1, sticky="ew", padx=(0, 10))
+        ttk.Label(prep_card, text="Firmware", style="UiAB.TLabel").grid(
+            row=1, column=0, sticky="w", padx=(0, 8)
+        )
+        firmware_entry = ttk.Entry(prep_card, textvariable=self.firmware_input_var)
+        firmware_entry.grid(row=1, column=1, sticky="ew", padx=(0, 10))
 
         self.scan_button = ttk.Button(
-            operator_bar,
+            prep_card,
             text="Сканировать",
             style="UiT.TButton",
             command=self._on_scan,
         )
-        self.scan_button.grid(row=0, column=2, padx=(0, 6), sticky="ew")
+        self.scan_button.grid(row=1, column=2, sticky="ew")
+        prep_hint_label = ttk.Label(
+            prep_card,
+            text="Модель, IOS и prompt появятся после успешного scan.",
+            style="UiAD.TLabel",
+            justify="left",
+            anchor="w",
+        )
+        prep_hint_label.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+        self._bind_responsive_wrap(prep_hint_label, prep_card, min_wrap=280)
+
+        stages_card = ttk.Frame(controls, padding=(10, 8), style="UiAA.TFrame")
+        stages_card.grid(row=0, column=1, sticky="nsew")
+        for column in range(3):
+            stages_card.columnconfigure(column, weight=1, uniform="stages")
+        ttk.Label(stages_card, text="Этапы прошивки", style="UiAB.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 6)
+        )
         self.stage1_button = ttk.Button(
-            operator_bar,
+            stages_card,
             text="Этап 1",
             style="UiW.TButton",
             command=self._on_stage1,
         )
-        self.stage1_button.grid(row=0, column=3, padx=(0, 6), sticky="ew")
+        self.stage1_button.grid(row=1, column=0, padx=(0, 4), sticky="ew")
         self.stage2_button = ttk.Button(
-            operator_bar,
+            stages_card,
             text="Этап 2",
             style="UiU.TButton",
             command=self._on_stage2,
         )
-        self.stage2_button.grid(row=0, column=4, padx=(0, 6), sticky="ew")
+        self.stage2_button.grid(row=1, column=1, padx=4, sticky="ew")
         self.stage3_button = ttk.Button(
-            operator_bar,
+            stages_card,
             text="Этап 3",
             style="UiV.TButton",
             command=self._on_stage3,
         )
-        self.stage3_button.grid(row=0, column=5, padx=(0, 6), sticky="ew")
+        self.stage3_button.grid(row=1, column=2, padx=(4, 0), sticky="ew")
         self.stop_button = ttk.Button(
-            operator_bar,
+            stages_card,
             text="Стоп",
             style="UiX.TButton",
             command=self._on_stop,
         )
-        self.stop_button.grid(row=0, column=6, sticky="ew")
+        self.stop_button.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+        stage_hint_label = ttk.Label(
+            stages_card,
+            text="Порядок: scan -> 1 -> 2 -> 3.",
+            style="UiAD.TLabel",
+            justify="left",
+            anchor="w",
+        )
+        stage_hint_label.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+        self._bind_responsive_wrap(stage_hint_label, stages_card, min_wrap=220)
+
+        live_grid = ttk.Frame(workflow_card, style="UiA.TFrame")
+        live_grid.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        live_grid.columnconfigure(0, weight=6)
+        live_grid.columnconfigure(1, weight=4)
+        live_grid.rowconfigure(0, weight=1)
+
+        self.operator_card = ttk.Labelframe(
+            live_grid,
+            text="Что происходит сейчас",
+            padding=8,
+            style="UiD.TLabelframe",
+        )
+        self.operator_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        self.operator_card.columnconfigure(0, weight=1)
+        operator_header = ttk.Frame(self.operator_card, style="UiC.TFrame")
+        operator_header.pack(fill="x")
+        ttk.Label(
+            operator_header,
+            textvariable=self.operator_title_var,
+            style="UiN.TLabel",
+        ).pack(side="left", anchor="w")
+        self.operator_badge = ttk.Label(
+            operator_header,
+            textvariable=self.operator_severity_var,
+            style="UiQ.TLabel",
+        )
+        self.operator_badge.pack(side="right", anchor="e")
+        self.operator_detail_label = ttk.Label(
+            self.operator_card,
+            textvariable=self.operator_detail_var,
+            justify="left",
+            style="UiO.TLabel",
+            anchor="w",
+        )
+        self.operator_detail_label.pack(fill="x", anchor="w", pady=(4, 2))
+        self._bind_responsive_wrap(self.operator_detail_label, self.operator_card, min_wrap=280)
+        ttk.Separator(self.operator_card).pack(fill="x", pady=(8, 8))
+        ttk.Label(
+            self.operator_card,
+            text="Что делать дальше",
+            style="UiAB.TLabel",
+        ).pack(anchor="w")
+        self.operator_next_step_label = ttk.Label(
+            self.operator_card,
+            textvariable=self.operator_next_step_var,
+            justify="left",
+            anchor="w",
+            style="UiO.TLabel",
+        )
+        self.operator_next_step_label.pack(fill="x", anchor="w", pady=(4, 0))
+        self._bind_responsive_wrap(self.operator_next_step_label, self.operator_card, min_wrap=280)
+        operator_meta = ttk.Frame(self.operator_card, style="UiC.TFrame")
+        operator_meta.pack(fill="x", pady=(10, 0))
+        operator_meta.columnconfigure(0, weight=1)
+        operator_meta.columnconfigure(1, weight=1)
+        ttk.Label(
+            operator_meta,
+            textvariable=self.current_stage_var,
+            style="UiO.TLabel",
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            operator_meta,
+            textvariable=self.last_scan_time_var,
+            style="UiO.TLabel",
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w", padx=(12, 0))
+        operator_mode_meta = ttk.Frame(self.operator_card, style="UiC.TFrame")
+        operator_mode_meta.pack(fill="x", pady=(8, 0))
+        operator_mode_meta.columnconfigure(0, weight=1)
+        operator_mode_meta.columnconfigure(1, weight=1)
+        ttk.Label(
+            operator_mode_meta,
+            textvariable=self.manual_override_var,
+            style="UiO.TLabel",
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            operator_mode_meta,
+            textvariable=self.connection_var,
+            style="UiO.TLabel",
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w", padx=(12, 0))
+
+        status_side_card = ttk.Labelframe(
+            live_grid,
+            text="Ход прошивки и данные цели",
+            padding=8,
+            style="UiD.TLabelframe",
+        )
+        status_side_card.grid(row=0, column=1, sticky="nsew")
+        status_side_card.columnconfigure(0, weight=1)
+        ttk.Label(
+            status_side_card,
+            text="Ход прошивки",
+            style="UiAB.TLabel",
+        ).pack(anchor="w")
+        ttk.Label(
+            status_side_card,
+            textvariable=self.progress_stage_var,
+            style="UiN.TLabel",
+        ).pack(anchor="w", pady=(2, 0))
+        self.progress = ttk.Floodgauge(
+            status_side_card,
+            value=0,
+            maximum=100,
+            text=self.progress_percent_var.get(),
+            bootstyle="primary",
+            thickness=18,
+        )
+        self.progress.pack(fill="x", pady=(6, 6))
+        self.progress_meta_label = ttk.Label(
+            status_side_card,
+            textvariable=self.progress_meta_var,
+            style="UiO.TLabel",
+            justify="left",
+            anchor="w",
+        )
+        self.progress_meta_label.pack(fill="x", anchor="w", pady=(0, 8))
+        self._bind_responsive_wrap(self.progress_meta_label, status_side_card, min_wrap=220)
+        ttk.Separator(status_side_card).pack(fill="x", pady=(8, 8))
+        ttk.Label(
+            status_side_card,
+            text="Данные цели",
+            style="UiAB.TLabel",
+        ).pack(anchor="w")
+        progress_facts = ttk.Frame(status_side_card, style="UiC.TFrame")
+        progress_facts.pack(fill="both", expand=True)
+        progress_facts.columnconfigure(0, weight=1)
+        progress_facts.columnconfigure(1, weight=1)
+        ttk.Label(progress_facts, text="IOS", style="UiAB.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Label(progress_facts, text="Flash", style="UiAB.TLabel").grid(
+            row=0, column=1, sticky="w", padx=(12, 0)
+        )
+        ttk.Label(progress_facts, textvariable=self.current_fw_var, style="UiAC.TLabel").grid(
+            row=1, column=0, sticky="w"
+        )
+        ttk.Label(progress_facts, textvariable=self.flash_var, style="UiAC.TLabel").grid(
+            row=1, column=1, sticky="w", padx=(12, 0)
+        )
+        ttk.Label(progress_facts, text="Uptime", style="UiAB.TLabel").grid(
+            row=2, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Label(progress_facts, text="USB", style="UiAB.TLabel").grid(
+            row=2, column=1, sticky="w", padx=(12, 0), pady=(8, 0)
+        )
+        ttk.Label(progress_facts, textvariable=self.uptime_var, style="UiAC.TLabel").grid(
+            row=3, column=0, sticky="w"
+        )
+        ttk.Label(progress_facts, textvariable=self.usb_var, style="UiAC.TLabel").grid(
+            row=3, column=1, sticky="w", padx=(12, 0)
+        )
+        ttk.Label(progress_facts, text="Prompt", style="UiAB.TLabel").grid(
+            row=4, column=0, sticky="w", pady=(8, 0)
+        )
+        ttk.Label(progress_facts, text="Статус", style="UiAB.TLabel").grid(
+            row=4, column=1, sticky="w", padx=(12, 0), pady=(8, 0)
+        )
+        ttk.Label(progress_facts, textvariable=self.prompt_var, style="UiAC.TLabel").grid(
+            row=5, column=0, sticky="w"
+        )
+        ttk.Label(progress_facts, textvariable=self.device_status_var, style="UiAC.TLabel").grid(
+            row=5, column=1, sticky="w", padx=(12, 0)
+        )
 
         if self.demo_mode:
             demo_card = ttk.Labelframe(
@@ -895,9 +1111,15 @@ class CiscoAutoFlashDesktop:
 
         metrics_body = ttk.Frame(metrics_workspace_tab, style="UiA.TFrame")
         metrics_body.pack(fill="both", expand=True)
-        metrics_body.columnconfigure(0, weight=3, minsize=760)
-        metrics_body.columnconfigure(1, weight=2, minsize=420)
+        metrics_body.columnconfigure(0, weight=3, minsize=720)
+        metrics_body.columnconfigure(1, weight=2, minsize=480)
         metrics_body.rowconfigure(0, weight=1)
+
+        status_stack = ttk.Frame(metrics_body, style="UiA.TFrame")
+        status_stack.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        status_stack.columnconfigure(0, weight=1)
+        status_stack.rowconfigure(0, weight=1)
+        status_stack.rowconfigure(1, weight=1)
 
         utility_card = ttk.Labelframe(
             metrics_body,
@@ -905,144 +1127,129 @@ class CiscoAutoFlashDesktop:
             padding=8,
             style="UiD.TLabelframe",
         )
-        utility_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-        for column in range(3):
-            utility_card.columnconfigure(column, weight=1)
-        utility_buttons = (
-            ("log_button", "Открыть лог", self._open_log, "normal"),
-            ("report_button", "Открыть отчёт", self._open_report, "disabled"),
-            ("transcript_button", "Открыть транскрипт", self._open_transcript, "normal"),
-            ("logs_dir_button", "Открыть папку логов", self._open_logs_dir, "normal"),
-            (
-                "session_folder_button",
-                "Открыть папку сессии",
-                self._open_session_folder,
-                "normal",
+        utility_card.grid(row=0, column=1, sticky="nsew")
+        utility_card.columnconfigure(1, weight=1)
+        utility_card.columnconfigure(2, weight=1)
+        self.artifacts_intro_label = ttk.Label(
+            utility_card,
+            text=(
+                "Все файлы текущей сессии и быстрые действия "
+                "для возврата артефактов собраны здесь."
             ),
-            (
-                "bundle_export_button",
-                "Экспортировать bundle",
-                self._export_session_bundle,
-                "normal",
-            ),
+            style="UiO.TLabel",
+            justify="left",
+            anchor="w",
         )
-        for index, (attr_name, text, command, state) in enumerate(utility_buttons):
-            button = ttk.Button(
-                utility_card,
-                text=text,
-                style="UiY.TButton",
-                command=command,
-                state=state,
-            )
-            button.grid(row=index // 3, column=index % 3, padx=4, pady=4, sticky="ew")
-            setattr(self, attr_name, button)
+        self.artifacts_intro_label.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 10))
+        self._bind_responsive_wrap(self.artifacts_intro_label, utility_card, min_wrap=360)
+
+        utility_actions = ttk.Frame(utility_card, style="UiB.TFrame")
+        utility_actions.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(0, 10))
+        for column in range(3):
+            utility_actions.columnconfigure(column, weight=1)
+        self.logs_dir_button = ttk.Button(
+            utility_actions,
+            text="Открыть папку логов",
+            style="UiY.TButton",
+            command=self._open_logs_dir,
+        )
+        self.logs_dir_button.grid(row=0, column=0, padx=(0, 4), sticky="ew")
+        self.session_folder_button = ttk.Button(
+            utility_actions,
+            text="Открыть папку сессии",
+            style="UiY.TButton",
+            command=self._open_session_folder,
+        )
+        self.session_folder_button.grid(row=0, column=1, padx=4, sticky="ew")
+        self.bundle_export_button = ttk.Button(
+            utility_actions,
+            text="Экспортировать bundle",
+            style="UiY.TButton",
+            command=self._export_session_bundle,
+        )
+        self.bundle_export_button.grid(row=0, column=2, padx=(4, 0), sticky="ew")
 
         overview_card = ttk.Labelframe(
-            metrics_body,
-            text="Контекст и ход выполнения",
+            status_stack,
+            text="Контекст и готовность",
             padding=8,
             style="UiD.TLabelframe",
         )
-        overview_card.grid(row=0, column=0, sticky="nsew")
-        for column in (1, 3, 5):
+        overview_card.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        for column in (1, 3):
             overview_card.columnconfigure(column, weight=1)
         self._build_preflight_value(overview_card, 0, 0, "Выбранная цель", self.selected_target_var)
         self._build_preflight_value(overview_card, 0, 2, "Firmware", self.firmware_input_var)
-        self._build_preflight_value(overview_card, 0, 4, "ID сессии", self.session_id_var)
-        self._build_preflight_value(overview_card, 1, 0, "Текущий этап", self.current_stage_var)
-        self._build_preflight_value(overview_card, 1, 2, "Последний scan", self.last_scan_time_var)
-        self._build_preflight_value(overview_card, 1, 4, "Статус", self.state_badge_var)
+        self._build_preflight_value(overview_card, 1, 0, "ID сессии", self.session_id_var)
+        self._build_preflight_value(overview_card, 1, 2, "Статус", self.state_badge_var)
         self._build_preflight_value(overview_card, 2, 0, "Локальный gate", self.hardware_gate_var)
         self._build_preflight_value(
             overview_card, 2, 2, "Готовность к железу", self.hardware_day_status_var
         )
-        self._build_preflight_value(overview_card, 2, 4, "Console / USB", self.hardware_console_var)
+        self._build_preflight_value(overview_card, 3, 0, "Console / USB", self.hardware_console_var)
+        self._build_preflight_value(overview_card, 3, 2, "Ethernet", self.hardware_ethernet_var)
+        self._build_preflight_value(overview_card, 4, 0, "Optional SSH", self.hardware_ssh_var)
         self._build_preflight_value(
-            overview_card, 3, 0, "Ethernet", self.hardware_ethernet_var
+            overview_card, 4, 2, "Возврат артефактов", self.hardware_return_var
         )
-        self._build_preflight_value(overview_card, 3, 2, "Optional SSH", self.hardware_ssh_var)
-        self._build_preflight_value(
-            overview_card, 3, 4, "Возврат артефактов", self.hardware_return_var
+
+        execution_card = ttk.Labelframe(
+            status_stack,
+            text="Подсказка оператора",
+            padding=8,
+            style="UiD.TLabelframe",
         )
-        ttk.Separator(overview_card).grid(row=4, column=0, columnspan=6, sticky="ew", pady=(4, 3))
-        self.operator_card = ttk.Frame(overview_card, style="UiC.TFrame")
-        self.operator_card.grid(row=5, column=0, columnspan=6, sticky="ew", pady=(2, 3))
-        self.operator_card.columnconfigure(0, weight=1)
-        operator_header = ttk.Frame(self.operator_card, style="UiC.TFrame")
-        operator_header.pack(fill="x")
+        execution_card.grid(row=1, column=0, sticky="nsew")
+        execution_card.columnconfigure(0, weight=1)
+        metrics_operator_card = ttk.Frame(execution_card, style="UiC.TFrame")
+        metrics_operator_card.grid(row=0, column=0, sticky="nsew")
+        metrics_operator_card.columnconfigure(0, weight=1)
+        metrics_operator_header = ttk.Frame(metrics_operator_card, style="UiC.TFrame")
+        metrics_operator_header.pack(fill="x")
         ttk.Label(
-            operator_header,
+            metrics_operator_header,
             textvariable=self.operator_title_var,
             style="UiN.TLabel",
         ).pack(side="left", anchor="w")
-        self.operator_badge = ttk.Label(
-            operator_header,
+        ttk.Label(
+            metrics_operator_header,
             textvariable=self.operator_severity_var,
             style="UiQ.TLabel",
-        )
-        self.operator_badge.pack(side="right", anchor="e")
-        self.operator_detail_label = ttk.Label(
-            self.operator_card,
+        ).pack(side="right", anchor="e")
+        metrics_detail_label = ttk.Label(
+            metrics_operator_card,
             textvariable=self.operator_detail_var,
             justify="left",
-            style="UiO.TLabel",
             anchor="w",
+            style="UiO.TLabel",
         )
-        self.operator_detail_label.pack(fill="x", anchor="w", pady=(3, 1))
-        self._bind_responsive_wrap(self.operator_detail_label, self.operator_card, min_wrap=260)
-        self.operator_next_step_label = ttk.Label(
-            self.operator_card,
+        metrics_detail_label.pack(fill="x", anchor="w", pady=(4, 2))
+        self._bind_responsive_wrap(metrics_detail_label, metrics_operator_card, min_wrap=260)
+        metrics_next_step_label = ttk.Label(
+            metrics_operator_card,
             textvariable=self.operator_next_step_var,
             justify="left",
             anchor="w",
             style="UiO.TLabel",
         )
-        self.operator_next_step_label.pack(fill="x", anchor="w", pady=(1, 3))
-        self._bind_responsive_wrap(self.operator_next_step_label, self.operator_card, min_wrap=260)
-        operator_meta = ttk.Frame(self.operator_card, style="UiC.TFrame")
-        operator_meta.pack(fill="x", pady=(0, 2))
-        operator_meta.columnconfigure(0, weight=1)
-        operator_meta.columnconfigure(1, weight=1)
+        metrics_next_step_label.pack(fill="x", anchor="w", pady=(0, 8))
+        self._bind_responsive_wrap(metrics_next_step_label, metrics_operator_card, min_wrap=260)
+        metrics_meta = ttk.Frame(metrics_operator_card, style="UiC.TFrame")
+        metrics_meta.pack(fill="x")
+        metrics_meta.columnconfigure(0, weight=1)
+        metrics_meta.columnconfigure(1, weight=1)
         ttk.Label(
-            operator_meta,
-            textvariable=self.manual_override_var,
+            metrics_meta,
+            textvariable=self.current_stage_var,
             style="UiO.TLabel",
             anchor="w",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
-            operator_meta,
-            textvariable=self.uptime_var,
+            metrics_meta,
+            textvariable=self.last_scan_time_var,
             style="UiO.TLabel",
             anchor="w",
         ).grid(row=0, column=1, sticky="w", padx=(12, 0))
-
-        ttk.Separator(self.operator_card).pack(fill="x", pady=(2, 3))
-        progress_card = ttk.Frame(self.operator_card, style="UiC.TFrame")
-        progress_card.pack(fill="x")
-        progress_card.columnconfigure(0, weight=1)
-        ttk.Label(
-            progress_card,
-            textvariable=self.progress_stage_var,
-            style="UiN.TLabel",
-        ).pack(anchor="w")
-        self.progress = ttk.Floodgauge(
-            progress_card,
-            value=0,
-            maximum=100,
-            text=self.progress_percent_var.get(),
-            bootstyle="primary",
-            thickness=16,
-        )
-        self.progress.pack(fill="x", pady=(4, 3))
-        self.progress_meta_label = ttk.Label(
-            progress_card,
-            textvariable=self.progress_meta_var,
-            style="UiO.TLabel",
-            justify="left",
-            anchor="w",
-        )
-        self.progress_meta_label.pack(fill="x", anchor="w")
-        self._bind_responsive_wrap(self.progress_meta_label, progress_card, min_wrap=260)
         self.diagnostics_notebook = ttk.Notebook(right_panel, style="UiS.TNotebook")
         self.diagnostics_notebook.grid(row=0, column=0, sticky="nsew")
 
@@ -1058,11 +1265,7 @@ class CiscoAutoFlashDesktop:
             ("debug", "info"),
         ):
             ttk.Label(legend, text=label.upper(), bootstyle=style).pack(side="left", padx=(0, 6))
-        ttk.Label(
-            legend,
-            text="Журнал текущей операции, reboot/install и трасса этапов.",
-            style="UiO.TLabel",
-        ).pack(side="right")
+        ttk.Label(legend, text="Текущая операция", style="UiO.TLabel").pack(side="right")
         self.log_box = ScrolledText(
             log_tab,
             font=("Consolas", 10),
@@ -1081,92 +1284,6 @@ class CiscoAutoFlashDesktop:
         self.log_box.tag_config("warn", foreground="#ffd166")
         self.log_box.tag_config("error", foreground="#ff96a3")
         self.log_box.tag_config("debug", foreground="#6fd3ff")
-
-        artifacts_tab = ttk.Frame(
-            self.diagnostics_notebook, padding=12, style="UiB.TFrame"
-        )
-        self.diagnostics_notebook.add(artifacts_tab, text="Артефакты сессии")
-        artifacts_tab.columnconfigure(1, weight=1)
-        artifacts_tab.columnconfigure(2, weight=1)
-        self.artifacts_intro_label = ttk.Label(
-            artifacts_tab,
-            text="Здесь собраны все файлы текущей сессии и краткая подсказка, что в них искать.",
-            style="UiO.TLabel",
-            justify="left",
-            anchor="w",
-        )
-        self.artifacts_intro_label.grid(row=0, column=0, columnspan=4, sticky="ew", pady=(0, 12))
-        self._bind_responsive_wrap(self.artifacts_intro_label, artifacts_tab, min_wrap=420)
-        self._build_artifact_row(
-            artifacts_tab,
-            1,
-            "Лог",
-            self.log_path_var,
-            self.log_status_var,
-            "Ищите общий таймлайн этапов, статусы сканирования и короткие сводки ошибок.",
-            self._open_log,
-            button_text="Открыть",
-        )
-        self._build_artifact_row(
-            artifacts_tab,
-            2,
-            "Отчёт",
-            self.report_path_var,
-            self.report_status_var,
-            "Ищите итоговую версию IOS, boot variable, flash space и финальную проверку.",
-            self._open_report,
-            button_text="Открыть",
-            button_attr="artifact_report_button",
-            enabled=False,
-        )
-        self._build_artifact_row(
-            artifacts_tab,
-            3,
-            "Транскрипт",
-            self.transcript_path_var,
-            self.transcript_status_var,
-            "Ищите сырой READ/WRITE диалог с устройством, prompt и вывод команд.",
-            self._open_transcript,
-            button_text="Открыть",
-        )
-        self._build_artifact_row(
-            artifacts_tab,
-            4,
-            "Настройки",
-            self.settings_path_var,
-            self.settings_status_var,
-            "Ищите последний firmware name, выбранный порт и геометрию окна.",
-            lambda: self._open_path(self.settings_path),
-            button_text="Открыть",
-        )
-        self._build_artifact_row(
-            artifacts_tab,
-            5,
-            "Manifest",
-            self.manifest_path_var,
-            self.manifest_status_var,
-            "Ищите сводку сессии, длительности этапов, финальный state и operator message.",
-            self._open_manifest,
-            button_text="Открыть",
-        )
-        self._build_artifact_row(
-            artifacts_tab,
-            6,
-            "Bundle",
-            self.bundle_path_var,
-            self.bundle_status_var,
-            "ZIP-пакет для баг-репорта: log, report, transcript, settings snapshot и manifest.",
-            self._open_bundle,
-            button_text="Открыть",
-            button_attr="artifact_bundle_button",
-            enabled=False,
-        )
-        ttk.Button(
-            artifacts_tab,
-            text="Открыть папку логов",
-            style="UiY.TButton",
-            command=self._open_logs_dir,
-        ).grid(row=7, column=3, sticky="e", pady=(6, 0))
 
         runbook_tab = ttk.Frame(
             self.diagnostics_notebook,
@@ -1200,28 +1317,89 @@ class CiscoAutoFlashDesktop:
             foreground=self.palette["text"],
             insertbackground=self.palette["text"],
         )
-        self._set_text_widget(self.runbook_box, self._load_runbook_text(), readonly=True)
 
-        self.footer_label = ttk.Label(
-            root,
-            textvariable=self.footer_var,
-            style="UiO.TLabel",
-            justify="left",
-            anchor="w",
+        self.log_button = self._build_artifact_row(
+            utility_card,
+            2,
+            "Лог",
+            self.log_path_var,
+            self.log_status_var,
+            "Общий таймлайн этапов, статусы сканирования и короткие сводки ошибок.",
+            self._open_log,
+            button_text="Открыть",
         )
-        self.footer_label.pack(fill="x", pady=(12, 0))
-        self._bind_responsive_wrap(self.footer_label, root, min_wrap=480)
+        self.report_button = self._build_artifact_row(
+            utility_card,
+            3,
+            "Отчёт",
+            self.report_path_var,
+            self.report_status_var,
+            "Итоговая версия IOS, boot variable, flash space и финальная проверка.",
+            self._open_report,
+            button_text="Открыть",
+            enabled=False,
+        )
+        self.artifact_report_button = self.report_button
+        self.transcript_button = self._build_artifact_row(
+            utility_card,
+            4,
+            "Транскрипт",
+            self.transcript_path_var,
+            self.transcript_status_var,
+            "Сырой READ/WRITE диалог с устройством, prompt и вывод команд.",
+            self._open_transcript,
+            button_text="Открыть",
+        )
+        self._build_artifact_row(
+            utility_card,
+            5,
+            "Настройки",
+            self.settings_path_var,
+            self.settings_status_var,
+            "Последний firmware name, выбранный порт и геометрия окна.",
+            lambda: self._open_path(self.settings_path),
+            button_text="Открыть",
+        )
+        self._build_artifact_row(
+            utility_card,
+            6,
+            "Manifest",
+            self.manifest_path_var,
+            self.manifest_status_var,
+            "Сводка сессии, длительности этапов, финальный state и operator message.",
+            self._open_manifest,
+            button_text="Открыть",
+        )
+        self.artifact_bundle_button = self._build_artifact_row(
+            utility_card,
+            7,
+            "Bundle",
+            self.bundle_path_var,
+            self.bundle_status_var,
+            "ZIP-пакет для баг-репорта: log, report, transcript, settings snapshot и manifest.",
+            self._open_bundle,
+            button_text="Открыть",
+            enabled=False,
+        )
+        self._set_text_widget(self.runbook_box, self._load_runbook_text(), readonly=True)
 
     def _build_summary_card(
         self,
         parent: ttk.Frame,
+        row: int,
         column: int,
         title: str,
         primary_var: tk.StringVar,
         secondary_var: tk.StringVar,
     ) -> None:
-        card = ttk.Frame(parent, padding=(10, 8), style="UiAA.TFrame")
-        card.grid(row=0, column=column, padx=(0 if column == 0 else 8, 0), sticky="nsew")
+        card = ttk.Frame(parent, padding=(8, 6), style="UiAA.TFrame")
+        card.grid(
+            row=row,
+            column=column,
+            padx=(0 if column == 0 else 8, 0),
+            pady=(0 if row == 0 else 8, 0),
+            sticky="nsew",
+        )
         ttk.Label(card, text=title, style="UiAB.TLabel").pack(anchor="w")
         ttk.Label(card, textvariable=primary_var, style="UiAC.TLabel").pack(anchor="w", pady=(2, 0))
         secondary_label = ttk.Label(
@@ -1241,6 +1419,8 @@ class CiscoAutoFlashDesktop:
         column: int,
         title: str,
         value_var: tk.StringVar,
+        *,
+        min_wrap: int = 220,
     ) -> None:
         ttk.Label(parent, text=title, style="UiO.TLabel").grid(
             row=row,
@@ -1260,11 +1440,11 @@ class CiscoAutoFlashDesktop:
             style="UiN.TLabel",
         )
         value_label.grid(row=0, column=0, sticky="ew")
-        self._bind_responsive_wrap(value_label, value_cell, min_wrap=220)
+        self._bind_responsive_wrap(value_label, value_cell, min_wrap=min_wrap)
 
     def _build_artifact_row(
         self,
-        parent: ttk.Frame,
+        parent: Any,
         row: int,
         title: str,
         path_var: tk.StringVar,
@@ -1275,7 +1455,7 @@ class CiscoAutoFlashDesktop:
         button_text: str,
         button_attr: str | None = None,
         enabled: bool = True,
-    ) -> None:
+    ) -> ttk.Button:
         ttk.Label(parent, text=title, font=("Segoe UI", 10, "bold")).grid(
             row=row, column=0, sticky="nw", padx=(0, 10), pady=(0, 10)
         )
@@ -1305,6 +1485,7 @@ class CiscoAutoFlashDesktop:
         button.grid(row=row, column=3, sticky="e", pady=(0, 10))
         if button_attr:
             setattr(self, button_attr, button)
+        return button
 
     def _bind_responsive_wrap(
         self,
@@ -1665,6 +1846,7 @@ class CiscoAutoFlashDesktop:
         mapping = {
             "idle": "Ожидание",
             "ready": "Готово",
+            "error": "Ошибка",
             "unknown": "Не определено",
             "port_busy": "Порт занят",
             "login_required": "Нужен вход",
@@ -1692,6 +1874,60 @@ class CiscoAutoFlashDesktop:
 
     def _friendly_manual_override(self, manual_override: bool) -> str:
         return "Выбор цели: вручную" if manual_override else "Выбор цели: автоматически"
+
+    def _compact_target_status(self, status_message: str, connection_state: str) -> str:
+        text = str(status_message or "").strip()
+        lowered = text.lower()
+        if connection_state == "ready":
+            return "Готово"
+        if "timeout" in lowered or "таймаут" in lowered:
+            return "Таймаут"
+        if "port_busy" in lowered or "порт занят" in lowered:
+            return "Порт занят"
+        if "rommon" in lowered:
+            return "ROMMON"
+        if "login" in lowered or "нужен вход" in lowered:
+            return "Нужен вход"
+        if "config" in lowered:
+            return "Config dialog"
+        if "return" in lowered or "enter" in lowered:
+            return "Нажмите Enter"
+        if text:
+            compact = text.split(":", 1)[0].strip()
+            return compact[:28] if compact else "Статус"
+        return "Статус"
+
+    def _compact_summary_status(self, status_message: str) -> str:
+        text = str(status_message or "").strip()
+        lowered = text.lower()
+        if not text:
+            return "Ожидание сканирования"
+        if "timeout" in lowered or "таймаут" in lowered:
+            return "Порт не ответил вовремя"
+        if "could not open port" in lowered or "open port" in lowered:
+            return "Ошибка открытия COM-порта"
+        if "write timeout" in lowered:
+            return "Таймаут записи"
+        if "порт занят" in lowered or "port_busy" in lowered:
+            return "Порт занят другим процессом"
+        if "готов" in lowered or "switch#" in lowered:
+            return "Устройство отвечает"
+        compact = text.split(":", 1)[-1].strip() if ":" in text else text
+        return compact[:44] if compact else "Статус обновлён"
+
+    def _scan_placeholder_value(self, value: object) -> str:
+        text = str(value or "").strip()
+        if not text or text.lower() in {
+            "unknown",
+            "none",
+            "n/a",
+            "не определено",
+            "не определена",
+            "неизвестно",
+            "—",
+        }:
+            return "Определится после scan"
+        return text
 
     def _friendly_install_stage(self, stage_name: str) -> str:
         mapping = {
@@ -2220,11 +2456,15 @@ class CiscoAutoFlashDesktop:
             target_id = getattr(snapshot, "port", "") or ""
             self.port_var.set(target_id or "—")
             self._update_selected_target(target_id)
-            self.device_status_var.set(getattr(snapshot, "status_text", "Не определено"))
-            self.model_var.set(getattr(snapshot, "model", "Не определена"))
-            self.current_fw_var.set(getattr(snapshot, "firmware", "Не определена"))
-            self.flash_var.set(getattr(snapshot, "flash", "Не определена"))
-            self.uptime_var.set(getattr(snapshot, "uptime", "Не определено"))
+            status_text = str(getattr(snapshot, "status_text", "Не определено") or "Не определено")
+            self.device_status_var.set(status_text)
+            self.device_status_summary_var.set(self._compact_summary_status(status_text))
+            self.model_var.set(self._scan_placeholder_value(getattr(snapshot, "model", "")))
+            self.current_fw_var.set(
+                self._scan_placeholder_value(getattr(snapshot, "firmware", ""))
+            )
+            self.flash_var.set(self._scan_placeholder_value(getattr(snapshot, "flash", "")))
+            self.uptime_var.set(self._scan_placeholder_value(getattr(snapshot, "uptime", "")))
             self.connection_var.set(
                 self._friendly_connection_state(
                     getattr(snapshot, "connection_state", "unknown") or "unknown"
@@ -2247,7 +2487,10 @@ class CiscoAutoFlashDesktop:
             severity = str(getattr(message, "severity", "info") or "info")
             self.operator_message_code = str(getattr(message, "code", "") or "")
             self.operator_title_var.set(getattr(message, "title", ""))
-            self.operator_detail_var.set(getattr(message, "detail", ""))
+            detail = str(getattr(message, "detail", "") or "")
+            self.operator_detail_var.set(detail)
+            if detail:
+                self.device_status_summary_var.set(self._compact_summary_status(detail))
             self.operator_next_step_var.set(getattr(message, "next_step", ""))
             self._apply_operator_style(severity)
         elif event.kind == "progress":
@@ -2273,6 +2516,14 @@ class CiscoAutoFlashDesktop:
             results = list(event.payload.get("results", []))
             selected_target_id = str(event.payload.get("selected_target_id", ""))
             self._update_scan_status(results, selected_target_id)
+            selected_result = next(
+                (result for result in results if result.target.id == selected_target_id),
+                results[0] if results else None,
+            )
+            if selected_result is not None:
+                self.device_status_summary_var.set(
+                    self._compact_summary_status(selected_result.status_message)
+                )
             if hasattr(self, "targets_tree"):
                 self._render_scan_results(results, selected_target_id)
             self._schedule_hardware_day_refresh()
@@ -2302,10 +2553,8 @@ class CiscoAutoFlashDesktop:
             self.targets_tree.delete(item_id)
         for result in results:
             values = (
-                result.status_message,
+                self._compact_target_status(result.status_message, result.connection_state),
                 self._friendly_connection_state(result.connection_state),
-                self._friendly_prompt(result.prompt_type or ""),
-                result.version,
             )
             if self.targets_tree.exists(result.target.id):
                 self.targets_tree.item(result.target.id, text=result.target.id, values=values)
