@@ -41,5 +41,11 @@ jobs:
       - name: Unittest
         run: python -m unittest discover -s tests -v
 
+      - name: Clean packaging artifacts
+        run: |
+          if (Test-Path build) { Remove-Item -Recurse -Force build }
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          Get-ChildItem -Directory -Filter *.egg-info | Remove-Item -Recurse -Force
+
       - name: Build
         run: python -m build .
