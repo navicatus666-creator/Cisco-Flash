@@ -1,3 +1,17 @@
+---
+type: concept
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\ciscoautoflash
+  - C:\PROJECT\docs\pre_hardware
+related:
+  - "[[CiscoAutoFlash]]"
+  - "[[Hardware_Workflow]]"
+  - "[[Hardware_Smoke_Gate]]"
+last_verified: 2026-04-12
+---
+
 # Session Artifacts Flow
 
 ## Core idea
@@ -28,12 +42,12 @@
 
 ## Why this matters
 This keeps post-run debugging deterministic and avoids losing time in ad hoc artifact collection.
----
-type: concept
-status: active
-source_of_truth: repo
-repo_refs:
-  - C:\PROJECT\ciscoautoflash
-  - C:\PROJECT\docs\pre_hardware
-last_verified: 2026-04-12
----
+
+## Related
+- Project: [[CiscoAutoFlash]]
+- Workflow: [[Hardware_Workflow]]
+- Gate summary: [[Hardware_Smoke_Gate]]
+
+## Read next
+- [Hardware Workflow](C:\PROJECT\OBSMEM\projects\Hardware_Workflow.md)
+- [Hardware Smoke Gate](C:\PROJECT\OBSMEM\mirrors\Hardware_Smoke_Gate.md)

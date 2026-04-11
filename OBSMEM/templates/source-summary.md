@@ -3,6 +3,7 @@ type: source-summary
 status: active
 source_of_truth: repo
 repo_refs: []
+related: []
 last_verified: 2026-04-12
 ---
 
@@ -17,3 +18,7 @@ last_verified: 2026-04-12
 ## Contradictions / caveats
 
 ## Links into wiki
+
+## Related
+
+## Read next

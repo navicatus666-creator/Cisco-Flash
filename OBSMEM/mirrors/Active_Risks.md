@@ -6,6 +6,9 @@ repo_refs:
   - C:\PROJECT\AGENTS.md
   - C:\PROJECT\docs\pre_hardware\first_hardware_run.md
   - C:\PROJECT\ciscoautoflash\ui\app.py
+related:
+  - "[[Knowledge_System_Model]]"
+  - "[[CiscoAutoFlash]]"
 last_verified: 2026-04-12
 ---
 
@@ -18,3 +21,7 @@ last_verified: 2026-04-12
 
 ## Handling rule
 - If a risk changes implementation or operator workflow, promote it back into repo docs/tests/code.
+
+## Related
+- Model: [[Knowledge_System_Model]]
+- Project: [[CiscoAutoFlash]]

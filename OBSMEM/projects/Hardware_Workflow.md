@@ -1,3 +1,18 @@
+---
+type: project-note
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\docs\pre_hardware\first_hardware_run.md
+  - C:\PROJECT\scripts\pre_hardware_preflight.py
+  - C:\PROJECT\ciscoautoflash
+related:
+  - "[[CiscoAutoFlash]]"
+  - "[[Session_Artifacts_Flow]]"
+  - "[[Hardware_Smoke_Gate]]"
+last_verified: 2026-04-12
+---
+
 # Hardware Workflow
 
 ## Primary path
@@ -42,13 +57,12 @@ Only after serial success is stable enough:
 ```powershell
 python C:\PROJECT\scripts\run_hidden_ssh_check.py --host <switch-ip> --username <user> --password <password> --secret <enable-secret>
 ```
----
-type: project-note
-status: active
-source_of_truth: repo
-repo_refs:
-  - C:\PROJECT\docs\pre_hardware\first_hardware_run.md
-  - C:\PROJECT\scripts\pre_hardware_preflight.py
-  - C:\PROJECT\ciscoautoflash
-last_verified: 2026-04-12
----
+
+## Related
+- Project: [[CiscoAutoFlash]]
+- Artifacts: [[Session_Artifacts_Flow]]
+- Gate: [[Hardware_Smoke_Gate]]
+
+## Read next
+- [Hardware Smoke Gate](C:\PROJECT\OBSMEM\mirrors\Hardware_Smoke_Gate.md)
+- [Session Artifacts Flow](C:\PROJECT\OBSMEM\concepts\Session_Artifacts_Flow.md)

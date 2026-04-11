@@ -1,3 +1,22 @@
+---
+type: analysis
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\README.md
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\docs
+  - C:\PROJECT\tests
+  - C:\PROJECT\ciscoautoflash
+related:
+  - "[[CiscoAutoFlash]]"
+  - "[[CiscoAutoFlash_Current_State]]"
+  - "[[Hardware_Workflow]]"
+  - "[[Operator_Console_UI]]"
+  - "[[Knowledge_System_Model]]"
+last_verified: 2026-04-12
+---
+
 # CiscoAutoFlash Current State — 2026-04-12
 
 ## Product
@@ -58,20 +77,13 @@ Windows desktop utility for Cisco switch maintenance.
 ## Main current risk
 UI/UX still needs final polish in spacing, density, and visual hierarchy, but structure is now much healthier than the old one-screen overload.
 
-## Repo references
-- [`C:\PROJECT\README.md`](C:\PROJECT\README.md)
-- [`C:\PROJECT\AGENTS.md`](C:\PROJECT\AGENTS.md)
-- [`C:\PROJECT\docs\ui\operator_dashboard_references.md`](C:\PROJECT\docs\ui\operator_dashboard_references.md)
-- [`C:\PROJECT\docs\pre_hardware\first_hardware_run.md`](C:\PROJECT\docs\pre_hardware\first_hardware_run.md)
----
-type: analysis
-status: active
-source_of_truth: repo
-repo_refs:
-  - C:\PROJECT\README.md
-  - C:\PROJECT\AGENTS.md
-  - C:\PROJECT\docs
-  - C:\PROJECT\tests
-  - C:\PROJECT\ciscoautoflash
-last_verified: 2026-04-12
----
+## Related
+- Project: [[CiscoAutoFlash]]
+- UI concept: [[Operator Console UI]]
+- Workflow: [[Hardware Workflow]]
+- Model: [[Knowledge System Model]]
+
+## Read next
+- [CiscoAutoFlash Current State hub](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
+- [Hardware Workflow](C:\PROJECT\OBSMEM\projects\Hardware_Workflow.md)
+- [Active Risks](C:\PROJECT\OBSMEM\mirrors\Active_Risks.md)

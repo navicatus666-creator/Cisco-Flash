@@ -8,6 +8,11 @@ repo_refs:
   - C:\PROJECT\docs
   - C:\PROJECT\tests
   - C:\PROJECT\ciscoautoflash
+related:
+  - "[[Knowledge_System_Model]]"
+  - "[[CiscoAutoFlash_Current_State]]"
+  - "[[Hardware_Workflow]]"
+  - "[[Operator_Console_UI]]"
 last_verified: 2026-04-12
 ---
 
@@ -64,3 +69,13 @@ See also:
 ## Open Threads
 - Final polish of spacing/padding in the flash tab
 - Future hidden SSH/SCP exposure only after serial-first phase is stable
+
+## Related
+- Model: [[Knowledge System Model]]
+- Current state: [[CiscoAutoFlash Current State]]
+- Workflow: [[Hardware Workflow]]
+- UI concept: [[Operator Console UI]]
+
+## Read next
+- [CiscoAutoFlash Current State hub](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
+- [Knowledge System Model hub](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)

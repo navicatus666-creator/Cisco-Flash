@@ -7,6 +7,10 @@ repo_refs:
   - C:\PROJECT\README.md
   - C:\PROJECT\docs
   - C:\PROJECT\tests
+related:
+  - "[[CiscoAutoFlash]]"
+  - "[[Knowledge_System_Model]]"
+  - "[[LLM_Wiki_Pattern]]"
 last_verified: 2026-04-12
 ---
 
@@ -62,3 +66,11 @@ Use for:
 - Then mirror the durable synthesis into OBSMEM.
 - Keep `index.md` and `log.md` updated when OBSMEM grows.
 - Periodically lint OBSMEM for stale repo refs, duplicates, and superseded decisions.
+
+## Related
+- Project: [[CiscoAutoFlash]]
+- Pattern source: [[LLM_Wiki_Pattern]]
+
+## Read next
+- [Concept hub](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
+- [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)

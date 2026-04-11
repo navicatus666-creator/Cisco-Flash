@@ -1,3 +1,16 @@
+---
+type: source-summary
+status: active
+source_of_truth: repo
+repo_refs:
+  - C:\PROJECT\AGENTS.md
+  - C:\PROJECT\OBSMEM\AGENTS.md
+related:
+  - "[[CiscoAutoFlash]]"
+  - "[[Knowledge_System_Model]]"
+last_verified: 2026-04-12
+---
+
 # LLM Wiki Pattern
 
 ## Source
@@ -30,16 +43,11 @@
 - Нельзя подменять repo docs страницами в Obsidian.
 - Wiki полезна только если обновляется дисциплинированно.
 
-## Links into wiki
+## Related
+- Project: [[CiscoAutoFlash]]
+- Model: [[Knowledge_System_Model]]
+
+## Read next
 - [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
-- [Operator Console UI](C:\PROJECT\OBSMEM\concepts\Operator_Console_UI.md)
+- [Knowledge System Model](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
 - [OBSMEM index](C:\PROJECT\OBSMEM\index.md)
----
-type: source-summary
-status: active
-source_of_truth: repo
-repo_refs:
-  - C:\PROJECT\AGENTS.md
-  - C:\PROJECT\OBSMEM\AGENTS.md
-last_verified: 2026-04-12
----

@@ -16,3 +16,9 @@
 - Для ключевых страниц и шаблонов введён frontmatter-контракт с `type`, `status`, `source_of_truth`, `repo_refs`, `last_verified`.
 - Добавлен слой `mirrors/` для кратких карт repo-state, рисков, открытых вопросов и hardware gate.
 - Зафиксирован короткий `memory lint` workflow для проверки stale refs, superseded решений и дубликатов.
+
+## [2026-04-12] link | Hub pages and canonical related links
+- Исправлен frontmatter у ключевых страниц: теперь он находится вверху файла, а не внизу.
+- Добавлены `related`-связи и `Read next` секции для основных project/concept/analysis/source pages.
+- Появились canonical hub pages для `Knowledge System Model` и `CiscoAutoFlash Current State`.
+- Добавлен `Memory Lint Checklist` как отдельная точка входа для проверки связности vault.

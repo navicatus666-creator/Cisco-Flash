@@ -3,6 +3,7 @@ type: decision
 status: active
 source_of_truth: repo
 repo_refs: []
+related: []
 last_verified: 2026-04-12
 ---
 
@@ -17,3 +18,7 @@ last_verified: 2026-04-12
 ## Tradeoffs
 
 ## Follow-up
+
+## Related
+
+## Read next
