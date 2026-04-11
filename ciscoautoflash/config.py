@@ -66,26 +66,22 @@ class AppConfig:
     timing: WorkflowTiming = field(default_factory=WorkflowTiming)
 
     def create_session_paths(self) -> SessionPaths:
-        logs_dir = self.runtime_root / "logs"
-        reports_dir = self.runtime_root / "reports"
-        transcripts_dir = self.runtime_root / "transcripts"
-        sessions_dir = self.runtime_root / "sessions"
-        settings_dir = self.runtime_root / "settings"
-        for path in (
-            self.runtime_root,
-            logs_dir,
-            reports_dir,
-            transcripts_dir,
-            sessions_dir,
-            settings_dir,
-        ):
-            path.mkdir(parents=True, exist_ok=True)
+        base_dir = self._resolve_runtime_base_dir()
+        try:
+            logs_dir, reports_dir, transcripts_dir, sessions_dir, settings_dir = (
+                self._ensure_runtime_directories(base_dir)
+            )
+        except FileExistsError:
+            base_dir = self.runtime_root / "_runtime"
+            logs_dir, reports_dir, transcripts_dir, sessions_dir, settings_dir = (
+                self._ensure_runtime_directories(base_dir)
+            )
         started_at = datetime.now()
         session_id = started_at.strftime("%Y%m%d_%H%M%S")
         session_dir = sessions_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         return SessionPaths(
-            base_dir=self.runtime_root,
+            base_dir=base_dir,
             logs_dir=logs_dir,
             reports_dir=reports_dir,
             transcripts_dir=transcripts_dir,
@@ -103,6 +99,35 @@ class AppConfig:
             event_timeline_path=session_dir / "event_timeline.json",
             dashboard_snapshot_path=None,
         )
+
+    def _resolve_runtime_base_dir(self) -> Path:
+        if self.runtime_root.exists() and not self.runtime_root.is_dir():
+            return self.runtime_root.parent / f"{self.runtime_root.name}_runtime"
+        conflict_names = ("logs", "reports", "transcripts", "sessions", "settings")
+        has_conflicts = any(
+            (self.runtime_root / name).exists() and not (self.runtime_root / name).is_dir()
+            for name in conflict_names
+        )
+        if has_conflicts:
+            return self.runtime_root / "_runtime"
+        return self.runtime_root
+
+    def _ensure_runtime_directories(self, base_dir: Path) -> tuple[Path, Path, Path, Path, Path]:
+        logs_dir = base_dir / "logs"
+        reports_dir = base_dir / "reports"
+        transcripts_dir = base_dir / "transcripts"
+        sessions_dir = base_dir / "sessions"
+        settings_dir = base_dir / "settings"
+        for path in (
+            base_dir,
+            logs_dir,
+            reports_dir,
+            transcripts_dir,
+            sessions_dir,
+            settings_dir,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
+        return logs_dir, reports_dir, transcripts_dir, sessions_dir, settings_dir
 
 
 def default_runtime_root() -> Path:

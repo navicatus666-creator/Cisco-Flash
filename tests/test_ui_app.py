@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import types
 import unittest
+import uuid
 from pathlib import Path
 from queue import Queue
 from types import SimpleNamespace
@@ -265,6 +267,9 @@ class DummyNotebook:
 class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
     def make_app_shell(self) -> CiscoAutoFlashDesktop:
         app = object.__new__(CiscoAutoFlashDesktop)
+        runtime_root = Path("C:/PROJECT/tests/_runtime") / uuid.uuid4().hex
+        runtime_root.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, runtime_root, ignore_errors=True)
         app.window = DummyWindow()
         app.diagnostics_notebook = DummyNotebook()
         app.event_queue = Queue()
@@ -373,22 +378,23 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.demo_scenario_var = DummyVar("")
         app.demo_description_var = DummyVar("")
         app.demo_actions_var = DummyVar("")
-        app.log_path = Path("C:/logs/current.log")
-        app.report_path = Path("C:/logs/report.txt")
-        app.transcript_path = Path("C:/logs/transcript.txt")
-        app.settings_path = Path("C:/logs/settings/settings.json")
-        app.manifest_path = Path("C:/logs/sessions/current/session_manifest.json")
-        app.bundle_path = Path("C:/logs/sessions/current/session_bundle.zip")
-        app.event_timeline_path = Path("C:/logs/sessions/current/event_timeline.json")
+        logs_root = runtime_root / "logs"
+        app.log_path = logs_root / "current.log"
+        app.report_path = logs_root / "report.txt"
+        app.transcript_path = logs_root / "transcript.txt"
+        app.settings_path = logs_root / "settings" / "settings.json"
+        app.manifest_path = logs_root / "sessions" / "current" / "session_manifest.json"
+        app.bundle_path = logs_root / "sessions" / "current" / "session_bundle.zip"
+        app.event_timeline_path = logs_root / "sessions" / "current" / "event_timeline.json"
         app.dashboard_snapshot_path = None
         app.session_started_at_value = 0.0
         app.active_stage_started_at_value = None
-        sessions_dir = Path("C:/logs/sessions")
+        sessions_dir = logs_root / "sessions"
         session_dir = sessions_dir / "current"
         for directory in (sessions_dir, session_dir):
             directory.mkdir(parents=True, exist_ok=True)
         app.session = SimpleNamespace(
-            logs_dir=Path("C:/logs"),
+            logs_dir=logs_root,
             sessions_dir=sessions_dir,
             session_dir=session_dir,
             session_id="test",
@@ -428,7 +434,7 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.controller = Mock()
         app.config = SimpleNamespace(
             project_root=Path("C:/PROJECT"),
-            runtime_root=Path("C:/runtime"),
+            runtime_root=runtime_root,
         )
         app._persist_settings = Mock()
         app._hardware_day_refresh_queue = Queue()

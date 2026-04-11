@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 .coverage.*
+.npm-cache/
 
 # Build and packaging outputs
 build/
@@ -26,6 +27,9 @@ memory/**
 !memory/README.md
 *.log
 *-session.md
+ui_app_tests_*/
+tests/_runtime/
+tests/_runtime_config/
 
 # Environment and editor files
 .venv/

@@ -9,6 +9,7 @@ description = "CiscoAutoFlash desktop tool for Cisco 2960-X serial/USB workflows
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+  "Pillow>=12.2",
   "pyserial>=3.5",
   "ttkbootstrap>=1.20",
 ]
@@ -16,16 +17,15 @@ dependencies = [
 [project.optional-dependencies]
 ssh = [
   "netmiko>=4.6",
-  "paramiko>=4.0",
-  "ntc-templates>=9.0",
 ]
 dev = [
   "bandit>=1.9",
+  "deptry>=0.25",
+  "import-linter>=2.11",
   "mypy>=1.19",
   "pip-audit>=2.10",
+  "pipdeptree>=2.35",
   "pre-commit>=4.5",
-  "pyautogui>=0.9.54",
-  "pywinauto>=0.6.9",
   "pytest>=9.0",
   "types-pyserial>=3.5",
   "ruff>=0.15",
@@ -73,6 +73,19 @@ no_implicit_optional = true
 [tool.bandit]
 exclude_dirs = ["tests", "build", "dist"]
 skips = ["B101"]
+
+[tool.deptry]
+known_first_party = ["ciscoautoflash"]
+extend_exclude = [
+  "CiscoAutoFlash_GUI_Clean\\.py",
+  "\\.mypy_cache",
+  "\\.ruff_cache",
+  "build",
+  "dist",
+  "ciscoautoflash\\.egg-info",
+]
+package_module_name_map = { Pillow = ["PIL"] }
+optional_dependencies_dev_groups = ["dev", "build"]
 
 [[tool.mypy.overrides]]
 module = ["netmiko", "netmiko.*"]

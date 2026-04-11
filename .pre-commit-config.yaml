@@ -7,7 +7,7 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.5
+    rev: v0.15.10
     hooks:
       - id: ruff
         args: ["--fix"]
@@ -30,6 +30,18 @@ repos:
       - id: bandit
         name: bandit
         entry: python -m bandit -r ciscoautoflash
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: deptry
+        name: deptry
+        entry: python -m deptry .
+        language: system
+        pass_filenames: false
+        stages: [manual]
+      - id: import-linter
+        name: import-linter
+        entry: lint-imports
         language: system
         pass_filenames: false
         stages: [manual]

@@ -79,7 +79,9 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - This repository contains the refactored CiscoAutoFlash desktop application in `ciscoautoflash/` and the legacy reference implementation in `CiscoAutoFlash_GUI_Clean.py`.
 - Main desktop entrypoint: `python C:\PROJECT\main.py`
 - Main test command: `python -m unittest discover -s C:\PROJECT\tests -v`
-- Current stack: Python 3.14, `ttkbootstrap`, `pyserial`, `Netmiko`, `Paramiko`, `ntc-templates`
+- Dependency source of truth: `pyproject.toml` + `uv.lock` (`requirements.txt` is compatibility-only)
+- Current stack: Python 3.14, `Pillow`, `ttkbootstrap`, `pyserial`, `Netmiko` (SSH dependencies arrive transitively)
+- Dependency hygiene gates: `deptry .`, `lint-imports`, `python -m pipdeptree --warn fail`, `python -m pip_audit --progress-spinner off`
 - Current operator-facing workflow: Cisco 2960-X over Serial/USB
 - Current dev UI is a Russian-first ttkbootstrap dashboard with preflight, operator status, target selection, notebook diagnostics, session artifact actions, and a dev-only `--demo` replay mode
 - Backend-only SSH/SCP transport in `ciscoautoflash/core/ssh_transport.py` is integration-ready for hidden verify/report/transcript flow and SCP upload helper work, but the UI is still serial-first and does not expose SSH yet

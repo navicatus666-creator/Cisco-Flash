@@ -82,6 +82,29 @@ _LAYOUT_DEFAULT_WIDTH = 1600
 _LAYOUT_DEFAULT_HEIGHT = 960
 _LAYOUT_MIN_WIDTH = 1440
 _LAYOUT_MIN_HEIGHT = 860
+_BRAND_COLORS = {
+    "primary": "#2772c8",
+    "accent": "#00aeef",
+    "slate": "#415b74",
+    "canvas": "#f2f5fa",
+    "surface": "#ffffff",
+    "surface_alt": "#f7fbff",
+    "surface_muted": "#eaf3fb",
+    "border": "#c7d8eb",
+    "text": "#16324a",
+    "muted": "#5c7388",
+    "log_bg": "#10253a",
+    "log_fg": "#e5f4ff",
+    "ok": "#2f9e6f",
+    "warn": "#e0a100",
+    "danger": "#d1495b",
+}
+_TITLE_FONT = ("Segoe UI", 24, "bold")
+_TITLE_LABEL_FONT = ("Segoe UI", 10, "bold")
+_VALUE_FONT = ("Segoe UI", 11, "bold")
+_BADGE_FONT = ("Segoe UI", 9, "bold")
+_STATUS_FONT = ("Segoe UI", 16, "bold")
+_BUTTON_FONT = ("Segoe UI", 9, "bold")
 
 
 def _parse_geometry_size(geometry: str | None) -> tuple[int, int] | None:
@@ -182,6 +205,9 @@ class CiscoAutoFlashDesktop:
         self.window.geometry(geometry)
         self.window.minsize(*min_size)
         self.window.maxsize(*max_size)
+        self.style = ttk.Style()
+        self.palette = dict(_BRAND_COLORS)
+        self._configure_brand_styles()
 
         if controller is not None:
             self.controller = controller
@@ -340,125 +366,397 @@ class CiscoAutoFlashDesktop:
     def _enqueue_event(self, event: AppEvent) -> None:
         self.event_queue.put(event)
 
+    def _configure_brand_styles(self) -> None:
+        palette = self.palette
+        style = self.style
+        self.window.configure(background=palette["canvas"])
+
+        style.configure("UiA.TFrame", background=palette["canvas"])
+        style.configure("UiB.TFrame", background=palette["surface"])
+        style.configure("UiC.TFrame", background=palette["surface_muted"])
+        style.configure(
+            "UiD.TLabelframe",
+            background=palette["surface"],
+            bordercolor=palette["border"],
+            relief="solid",
+            borderwidth=1,
+            lightcolor=palette["border"],
+            darkcolor=palette["border"],
+        )
+        style.configure(
+            "UiD.TLabelframe.Label",
+            background=palette["surface"],
+            foreground=palette["primary"],
+            font=_TITLE_LABEL_FONT,
+        )
+        style.configure(
+            "UiE.TLabelframe",
+            background=palette["surface"],
+            bordercolor=palette["primary"],
+            relief="solid",
+            borderwidth=1,
+            lightcolor=palette["primary"],
+            darkcolor=palette["primary"],
+        )
+        style.configure(
+            "UiE.TLabelframe.Label",
+            background=palette["surface"],
+            foreground=palette["primary"],
+            font=_TITLE_LABEL_FONT,
+        )
+        for style_name, border in (
+            ("UiF.TLabelframe", palette["slate"]),
+            ("UiG.TLabelframe", palette["accent"]),
+            ("UiH.TLabelframe", palette["primary"]),
+            ("UiI.TLabelframe", palette["warn"]),
+            ("UiJ.TLabelframe", palette["ok"]),
+            ("UiK.TLabelframe", palette["danger"]),
+        ):
+            style.configure(
+                style_name,
+                background=palette["surface"],
+                bordercolor=border,
+                relief="solid",
+                borderwidth=1,
+                lightcolor=border,
+                darkcolor=border,
+            )
+            style.configure(
+                f"{style_name}.Label",
+                background=palette["surface"],
+                foreground=border,
+                font=_TITLE_LABEL_FONT,
+            )
+
+        style.configure(
+            "UiL.TLabel",
+            background=palette["canvas"],
+            foreground=palette["primary"],
+            font=_TITLE_FONT,
+        )
+        style.configure(
+            "UiM.TLabel",
+            background=palette["canvas"],
+            foreground=palette["muted"],
+            font=("Segoe UI", 10),
+        )
+        style.configure(
+            "UiN.TLabel",
+            background=palette["surface"],
+            foreground=palette["text"],
+            font=_VALUE_FONT,
+        )
+        style.configure(
+            "UiO.TLabel",
+            background=palette["surface"],
+            foreground=palette["muted"],
+            font=("Segoe UI", 9),
+        )
+        style.configure(
+            "UiP.TLabel",
+            background=palette["surface"],
+            foreground=palette["text"],
+            font=_STATUS_FONT,
+        )
+        style.configure(
+            "UiQ.TLabel",
+            background=palette["surface_muted"],
+            foreground=palette["primary"],
+            font=_BADGE_FONT,
+            padding=(10, 4),
+        )
+        style.configure(
+            "UiR.Treeview",
+            background=palette["surface"],
+            fieldbackground=palette["surface"],
+            foreground=palette["text"],
+            bordercolor=palette["border"],
+            lightcolor=palette["border"],
+            darkcolor=palette["border"],
+            rowheight=30,
+            relief="flat",
+            font=("Segoe UI", 9),
+        )
+        style.map(
+            "UiR.Treeview",
+            background=[("selected", palette["surface_muted"])],
+            foreground=[("selected", palette["text"])],
+        )
+        style.configure(
+            "UiR.Treeview.Heading",
+            background=palette["surface_muted"],
+            foreground=palette["primary"],
+            bordercolor=palette["border"],
+            relief="flat",
+            padding=(10, 8),
+            font=_TITLE_LABEL_FONT,
+        )
+        style.map(
+            "UiR.Treeview.Heading",
+            background=[("active", palette["canvas"])],
+            foreground=[("active", palette["primary"])],
+        )
+        style.configure(
+            "UiS.TNotebook",
+            background=palette["surface"],
+            bordercolor=palette["border"],
+            tabmargins=(0, 0, 0, 0),
+        )
+        style.configure(
+            "UiS.TNotebook.Tab",
+            background=palette["surface_muted"],
+            foreground=palette["muted"],
+            bordercolor=palette["border"],
+            padding=(12, 8),
+            font=_BADGE_FONT,
+        )
+        style.map(
+            "UiS.TNotebook.Tab",
+            background=[
+                ("selected", palette["primary"]),
+                ("active", palette["canvas"]),
+            ],
+            foreground=[
+                ("selected", palette["surface"]),
+                ("active", palette["primary"]),
+            ],
+        )
+        for style_name, background, foreground in (
+            ("UiT.TButton", palette["primary"], palette["surface"]),
+            ("UiU.TButton", palette["accent"], palette["text"]),
+            ("UiV.TButton", palette["ok"], palette["surface"]),
+            ("UiW.TButton", palette["warn"], palette["text"]),
+            ("UiX.TButton", palette["danger"], palette["surface"]),
+            ("UiY.TButton", palette["surface_muted"], palette["primary"]),
+        ):
+            style.configure(
+                style_name,
+                background=background,
+                foreground=foreground,
+                bordercolor=background,
+                darkcolor=background,
+                lightcolor=background,
+                focusthickness=0,
+                focuscolor=background,
+                relief="flat",
+                padding=(10, 8),
+                font=_BUTTON_FONT,
+            )
+            style.map(
+                style_name,
+                background=[("active", background), ("pressed", background)],
+                foreground=[("active", foreground), ("pressed", foreground)],
+            )
+
+    def _state_card_style(self, state_name: str) -> str:
+        mapping = {
+            "IDLE": "UiF.TLabelframe",
+            "DISCOVERING": "UiG.TLabelframe",
+            "CONNECTING": "UiH.TLabelframe",
+            "PRECHECK": "UiH.TLabelframe",
+            "ERASING": "UiI.TLabelframe",
+            "INSTALLING": "UiG.TLabelframe",
+            "REBOOTING": "UiI.TLabelframe",
+            "VERIFYING": "UiJ.TLabelframe",
+            "DONE": "UiJ.TLabelframe",
+            "FAILED": "UiK.TLabelframe",
+        }
+        return mapping.get(state_name, "UiF.TLabelframe")
+
     def _build_ui(self) -> None:
         root = self.window
-        root.configure(padx=18, pady=18)
+        root.configure(padx=18, pady=18, background=self.palette["canvas"])
 
-        header = ttk.Frame(root)
+        header = ttk.Frame(root, style="UiA.TFrame")
         header.pack(fill="x", pady=(0, 12))
         header.columnconfigure(0, weight=1)
 
-        title_block = ttk.Frame(header)
+        title_block = ttk.Frame(header, style="UiA.TFrame")
         title_block.grid(row=0, column=0, sticky="ew")
-        ttk.Label(title_block, text="CiscoAutoFlash", font=("Segoe UI", 24, "bold")).pack(
-            anchor="w"
-        )
+        ttk.Label(title_block, text="CiscoAutoFlash", style="UiL.TLabel").pack(anchor="w")
         ttk.Label(
             title_block,
             text="Рабочее место прошивки Cisco Catalyst 2960-X | Serial/USB V1 | SSH backend готов",
-            font=("Segoe UI", 10),
-            bootstyle="secondary",
+            style="UiM.TLabel",
         ).pack(anchor="w", pady=(4, 0))
 
         self.state_card = ttk.Labelframe(
             header,
             text="Статус сессии",
             padding=10,
-            bootstyle="info",
+            style="UiF.TLabelframe",
         )
         self.state_card.grid(row=0, column=1, sticky="ne", padx=(12, 0))
         self.state_badge = ttk.Label(
             self.state_card,
             textvariable=self.state_badge_var,
-            font=("Segoe UI", 12, "bold"),
-            bootstyle="info",
+            style="UiQ.TLabel",
         )
         self.state_badge.pack(anchor="e")
         if self.demo_mode:
             self.demo_badge = ttk.Label(
                 self.state_card,
                 textvariable=self.demo_badge_var,
-                font=("Segoe UI", 9, "bold"),
-                bootstyle="warning",
+                style="UiQ.TLabel",
             )
             self.demo_badge.pack(anchor="e", pady=(6, 0))
         ttk.Label(
-            self.state_card, textvariable=self.transport_mode_var, bootstyle="secondary"
+            self.state_card,
+            textvariable=self.transport_mode_var,
+            style="UiO.TLabel",
         ).pack(anchor="e", pady=(6, 0))
 
         self.status_strip_card = ttk.Labelframe(
             root,
             text="Текущее действие",
             padding=10,
-            bootstyle="primary",
+            style="UiF.TLabelframe",
         )
         self.status_strip_card.pack(fill="x", pady=(0, 12))
         self.status_strip_card.columnconfigure(0, weight=5)
         self.status_strip_card.columnconfigure(1, weight=4)
         self.status_strip_card.columnconfigure(2, weight=1, minsize=120)
         self.status_strip_card.columnconfigure(3, weight=1, minsize=120)
-        status_primary = ttk.Frame(self.status_strip_card)
+        status_primary = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
         status_primary.grid(row=0, column=0, rowspan=2, sticky="nsew")
         status_primary.columnconfigure(0, weight=1)
         self.state_message_label = ttk.Label(
             status_primary,
             textvariable=self.state_var,
-            font=("Segoe UI", 16, "bold"),
+            style="UiP.TLabel",
             justify="left",
             anchor="w",
         )
         self.state_message_label.grid(row=0, column=0, sticky="ew")
         self._bind_responsive_wrap(self.state_message_label, status_primary, min_wrap=260)
-        status_secondary = ttk.Frame(self.status_strip_card)
+        status_secondary = ttk.Frame(self.status_strip_card, style="UiB.TFrame")
         status_secondary.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(12, 0))
         status_secondary.columnconfigure(0, weight=1)
         self.device_status_label = ttk.Label(
             status_secondary,
             textvariable=self.device_status_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
         self.device_status_label.grid(row=0, column=0, sticky="ew")
         self._bind_responsive_wrap(self.device_status_label, status_secondary, min_wrap=220)
-        ttk.Label(self.status_strip_card, text="Профиль", bootstyle="secondary").grid(
+        ttk.Label(self.status_strip_card, text="Профиль", style="UiO.TLabel").grid(
             row=0, column=2, sticky="e"
         )
         ttk.Label(
             self.status_strip_card,
             textvariable=self.profile_var,
-            font=("Segoe UI", 10, "bold"),
+            style="UiN.TLabel",
         ).grid(row=1, column=2, sticky="e")
-        ttk.Label(self.status_strip_card, text="Режим", bootstyle="secondary").grid(
+        ttk.Label(self.status_strip_card, text="Режим", style="UiO.TLabel").grid(
             row=0, column=3, sticky="e"
         )
         ttk.Label(
             self.status_strip_card,
             textvariable=self.transport_mode_var,
-            font=("Segoe UI", 10, "bold"),
+            style="UiN.TLabel",
         ).grid(row=1, column=3, sticky="e")
 
-        summary_row = ttk.Frame(root)
-        summary_row.pack(fill="x", pady=(0, 12))
-        for column in range(4):
-            summary_row.columnconfigure(column, weight=1, uniform="summary")
+        main_paned = ttk.Panedwindow(root, orient="horizontal", bootstyle="info")
+        main_paned.pack(fill="both", expand=True)
+
+        left_panel = ttk.Frame(main_paned, padding=2, style="UiA.TFrame")
+        left_panel.columnconfigure(0, weight=1)
+        left_panel.rowconfigure(0, weight=1)
+        main_paned.add(left_panel, weight=4)
+
+        center_panel = ttk.Frame(main_paned, padding=2, style="UiA.TFrame")
+        center_panel.columnconfigure(0, weight=1)
+        center_panel.rowconfigure(0, weight=1)
+        main_paned.add(center_panel, weight=5)
+
+        right_panel = ttk.Frame(main_paned, padding=2, style="UiA.TFrame")
+        right_panel.columnconfigure(0, weight=1)
+        right_panel.rowconfigure(0, weight=1)
+        main_paned.add(right_panel, weight=5)
+
+        targets_card = ttk.Labelframe(
+            left_panel,
+            text="Найденные устройства",
+            padding=10,
+            style="UiE.TLabelframe",
+        )
+        targets_card.grid(row=0, column=0, sticky="nsew")
+        targets_card.rowconfigure(1, weight=1)
+        targets_card.columnconfigure(0, weight=1)
+        ttk.Label(targets_card, textvariable=self.scan_status_var, style="UiO.TLabel").grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
+        )
+        self.targets_tree = ttk.Treeview(
+            targets_card,
+            columns=("status", "state", "prompt", "version"),
+            show="tree headings",
+            height=16,
+            selectmode="browse",
+            style="UiR.Treeview",
+        )
+        self.targets_tree.heading("#0", text="Порт")
+        self.targets_tree.heading("status", text="Статус")
+        self.targets_tree.heading("state", text="Соединение")
+        self.targets_tree.heading("prompt", text="Prompt")
+        self.targets_tree.heading("version", text="Версия")
+        self.targets_tree.column("#0", width=110, stretch=False)
+        self.targets_tree.column("status", width=220)
+        self.targets_tree.column("state", width=110, stretch=False)
+        self.targets_tree.column("prompt", width=120, stretch=False)
+        self.targets_tree.column("version", width=120, stretch=False)
+        self.targets_tree.grid(row=1, column=0, sticky="nsew")
+        self.targets_tree.bind("<<TreeviewSelect>>", self._on_target_selected)
+        tree_scroll = ttk.Scrollbar(
+            targets_card, orient="vertical", command=self.targets_tree.yview
+        )
+        tree_scroll.grid(row=1, column=1, sticky="ns")
+        self.targets_tree.configure(yscrollcommand=tree_scroll.set)
+
+        center_stack = ttk.Panedwindow(center_panel, orient="vertical", bootstyle="secondary")
+        center_stack.grid(row=0, column=0, sticky="nsew")
+
+        workflow_card = ttk.Labelframe(
+            center_stack,
+            text="Текущий сеанс и действия",
+            padding=12,
+            style="UiD.TLabelframe",
+        )
+        workflow_card.columnconfigure(0, weight=1)
+
+        summary_grid = ttk.Frame(workflow_card)
+        summary_grid.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        for column in range(2):
+            summary_grid.columnconfigure(column, weight=1, uniform="summary")
         self._build_summary_card(
-            summary_row, 0, "Выбранный порт", self.port_var, self.manual_override_var
+            summary_grid,
+            0,
+            "Выбранный порт",
+            self.port_var,
+            self.manual_override_var,
+            row=0,
         )
         self._build_summary_card(
-            summary_row,
+            summary_grid,
             1,
             "Состояние соединения",
             self.connection_var,
             self.device_status_var,
+            row=0,
         )
-        self._build_summary_card(summary_row, 2, "Prompt", self.prompt_var, self.usb_var)
+        self._build_summary_card(summary_grid, 0, "Prompt", self.prompt_var, self.usb_var, row=1)
         self._build_summary_card(
-            summary_row, 3, "Версия / модель", self.current_fw_var, self.model_var
+            summary_grid,
+            1,
+            "Версия / модель",
+            self.current_fw_var,
+            self.model_var,
+            row=1,
         )
 
-        controls = ttk.Frame(root)
-        controls.pack(fill="x", pady=(0, 12))
+        controls = ttk.Frame(workflow_card)
+        controls.grid(row=1, column=0, sticky="ew")
         if self.demo_mode:
             controls.columnconfigure(0, weight=3, uniform="controls")
             controls.columnconfigure(1, weight=3, uniform="controls")
@@ -467,22 +765,26 @@ class CiscoAutoFlashDesktop:
             controls.columnconfigure(0, weight=3, uniform="controls")
             controls.columnconfigure(1, weight=4, uniform="controls")
 
-        firmware_card = ttk.Labelframe(controls, text="Образ прошивки", padding=12)
+        firmware_card = ttk.Labelframe(
+            controls, text="Образ прошивки", padding=12, style="UiD.TLabelframe"
+        )
         firmware_card.grid(row=0, column=0, sticky="nsew")
         ttk.Label(
             firmware_card,
             text="Имя tar-образа на USB-накопителе",
-            bootstyle="secondary",
+            style="UiO.TLabel",
         ).pack(anchor="w")
         ttk.Entry(firmware_card, textvariable=self.firmware_input_var).pack(fill="x", pady=(6, 0))
 
         if self.demo_mode:
-            demo_card = ttk.Labelframe(controls, text="Demo-сценарий", padding=12)
+            demo_card = ttk.Labelframe(
+                controls, text="Demo-сценарий", padding=12, style="UiD.TLabelframe"
+            )
             demo_card.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
             ttk.Label(
                 demo_card,
                 text="Dev-only проигрывание сценариев без оборудования",
-                bootstyle="secondary",
+                style="UiO.TLabel",
             ).pack(anchor="w")
             self.demo_selector = ttk.Combobox(
                 demo_card,
@@ -501,7 +803,7 @@ class CiscoAutoFlashDesktop:
                 button = ttk.Button(
                     buttons_frame,
                     text=scenario.display_name,
-                    bootstyle="secondary",
+                    style="UiY.TButton",
                     command=lambda scenario_name=scenario.name: self._on_demo_scenario_button(
                         scenario_name
                     ),
@@ -517,7 +819,7 @@ class CiscoAutoFlashDesktop:
             ttk.Label(
                 demo_card,
                 textvariable=self.demo_description_var,
-                bootstyle="secondary",
+                style="UiO.TLabel",
                 justify="left",
                 wraplength=320,
             ).pack(anchor="w")
@@ -528,7 +830,9 @@ class CiscoAutoFlashDesktop:
                 wraplength=320,
             ).pack(anchor="w", pady=(8, 0))
 
-        action_card = ttk.Labelframe(controls, text="Основные действия", padding=12)
+        action_card = ttk.Labelframe(
+            controls, text="Основные действия", padding=12, style="UiE.TLabelframe"
+        )
         action_card.grid(
             row=0,
             column=2 if self.demo_mode else 1,
@@ -541,41 +845,46 @@ class CiscoAutoFlashDesktop:
         self.scan_button = ttk.Button(
             action_card,
             text="Сканировать",
-            bootstyle="primary",
+            style="UiT.TButton",
             command=self._on_scan,
         )
         self.scan_button.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
         self.stage1_button = ttk.Button(
             action_card,
             text="Этап 1: Сброс",
-            bootstyle="warning",
+            style="UiW.TButton",
             command=self._on_stage1,
         )
         self.stage1_button.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
         self.stage2_button = ttk.Button(
             action_card,
             text="Этап 2: Установка",
-            bootstyle="info",
+            style="UiU.TButton",
             command=self._on_stage2,
         )
         self.stage2_button.grid(row=0, column=2, padx=4, pady=4, sticky="ew")
         self.stage3_button = ttk.Button(
             action_card,
             text="Этап 3: Проверка",
-            bootstyle="success",
+            style="UiV.TButton",
             command=self._on_stage3,
         )
         self.stage3_button.grid(row=0, column=3, padx=4, pady=4, sticky="ew")
         self.stop_button = ttk.Button(
             action_card,
             text="Стоп",
-            bootstyle="danger",
+            style="UiX.TButton",
             command=self._on_stop,
         )
         self.stop_button.grid(row=0, column=4, padx=4, pady=4, sticky="ew")
 
-        utility_card = ttk.Labelframe(root, text="Файлы и артефакты сессии", padding=12)
-        utility_card.pack(fill="x", pady=(0, 12))
+        utility_card = ttk.Labelframe(
+            workflow_card,
+            text="Файлы и артефакты сессии",
+            padding=12,
+            style="UiD.TLabelframe",
+        )
+        utility_card.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         for column in range(3):
             utility_card.columnconfigure(column, weight=1)
         utility_buttons = (
@@ -600,33 +909,18 @@ class CiscoAutoFlashDesktop:
             button = ttk.Button(
                 utility_card,
                 text=text,
-                bootstyle="secondary",
+                style="UiY.TButton",
                 command=command,
                 state=state,
             )
             button.grid(row=index // 3, column=index % 3, padx=4, pady=4, sticky="ew")
             setattr(self, attr_name, button)
 
-        paned = ttk.Panedwindow(root, orient="horizontal", bootstyle="info")
-        paned.pack(fill="both", expand=True)
-
-        left_panel = ttk.Frame(paned, padding=2)
-        left_panel.columnconfigure(0, weight=1)
-        left_panel.rowconfigure(0, weight=1)
-        paned.add(left_panel, weight=4)
-
-        right_panel = ttk.Frame(paned, padding=2)
-        right_panel.columnconfigure(0, weight=1)
-        right_panel.rowconfigure(0, weight=1)
-        paned.add(right_panel, weight=5)
-
-        left_stack = ttk.Panedwindow(left_panel, orient="vertical", bootstyle="secondary")
-        left_stack.grid(row=0, column=0, sticky="nsew")
-
         overview_card = ttk.Labelframe(
-            left_stack,
+            center_stack,
             text="Контекст сессии и железа",
             padding=12,
+            style="UiD.TLabelframe",
         )
         for column in (1, 3, 5):
             overview_card.columnconfigure(column, weight=1)
@@ -651,28 +945,27 @@ class CiscoAutoFlashDesktop:
         ttk.Separator(overview_card).grid(
             row=4, column=0, columnspan=6, sticky="ew", pady=(8, 6)
         )
-        self.operator_card = ttk.Frame(overview_card)
+        self.operator_card = ttk.Frame(overview_card, style="UiB.TFrame")
         self.operator_card.grid(row=5, column=0, columnspan=6, sticky="ew", pady=(2, 6))
         self.operator_card.columnconfigure(0, weight=1)
-        operator_header = ttk.Frame(self.operator_card)
+        operator_header = ttk.Frame(self.operator_card, style="UiB.TFrame")
         operator_header.pack(fill="x")
         ttk.Label(
             operator_header,
             textvariable=self.operator_title_var,
-            font=("Segoe UI", 11, "bold"),
+            style="UiN.TLabel",
         ).pack(side="left", anchor="w")
         self.operator_badge = ttk.Label(
             operator_header,
             textvariable=self.operator_severity_var,
-            bootstyle="info",
-            font=("Segoe UI", 9, "bold"),
+            style="UiQ.TLabel",
         )
         self.operator_badge.pack(side="right", anchor="e")
         self.operator_detail_label = ttk.Label(
             self.operator_card,
             textvariable=self.operator_detail_var,
             justify="left",
-            bootstyle="secondary",
+            style="UiO.TLabel",
             anchor="w",
         )
         self.operator_detail_label.pack(fill="x", anchor="w", pady=(4, 2))
@@ -682,49 +975,49 @@ class CiscoAutoFlashDesktop:
             textvariable=self.operator_next_step_var,
             justify="left",
             anchor="w",
-            bootstyle="secondary",
+            style="UiO.TLabel",
         )
         self.operator_next_step_label.pack(fill="x", anchor="w", pady=(2, 4))
         self._bind_responsive_wrap(self.operator_next_step_label, self.operator_card, min_wrap=260)
-        operator_meta = ttk.Frame(self.operator_card)
+        operator_meta = ttk.Frame(self.operator_card, style="UiB.TFrame")
         operator_meta.pack(fill="x", pady=(0, 4))
         operator_meta.columnconfigure(0, weight=1)
         operator_meta.columnconfigure(1, weight=1)
         ttk.Label(
             operator_meta,
             textvariable=self.manual_override_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             anchor="w",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             operator_meta,
             textvariable=self.uptime_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             anchor="w",
         ).grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         ttk.Separator(self.operator_card).pack(fill="x", pady=(2, 6))
-        progress_card = ttk.Frame(self.operator_card)
+        progress_card = ttk.Frame(self.operator_card, style="UiB.TFrame")
         progress_card.pack(fill="x")
         progress_card.columnconfigure(0, weight=1)
         ttk.Label(
             progress_card,
             textvariable=self.progress_stage_var,
-            font=("Segoe UI", 10, "bold"),
+            style="UiN.TLabel",
         ).pack(anchor="w")
         self.progress = ttk.Floodgauge(
             progress_card,
             value=0,
             maximum=100,
             text=self.progress_percent_var.get(),
-            bootstyle="info",
+            bootstyle="primary",
             thickness=22,
         )
         self.progress.pack(fill="x", pady=(6, 4))
         self.progress_meta_label = ttk.Label(
             progress_card,
             textvariable=self.progress_meta_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -736,52 +1029,19 @@ class CiscoAutoFlashDesktop:
                 "Полные пути, manifest и bundle доступны "
                 "в блоке артефактов и вкладке диагностики."
             ),
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         ).grid(row=6, column=0, columnspan=6, sticky="ew", pady=(6, 0))
+        center_stack.add(workflow_card, weight=3)
+        center_stack.add(overview_card, weight=4)
 
-        targets_card = ttk.Labelframe(left_stack, text="Найденные устройства", padding=10)
-        targets_card.rowconfigure(1, weight=1)
-        targets_card.columnconfigure(0, weight=1)
-        ttk.Label(targets_card, textvariable=self.scan_status_var, bootstyle="secondary").grid(
-            row=0, column=0, sticky="w", pady=(0, 8)
-        )
-        self.targets_tree = ttk.Treeview(
-            targets_card,
-            columns=("status", "state", "prompt", "version"),
-            show="tree headings",
-            height=10,
-            selectmode="browse",
-            bootstyle="info",
-        )
-        self.targets_tree.heading("#0", text="Порт")
-        self.targets_tree.heading("status", text="Статус")
-        self.targets_tree.heading("state", text="Соединение")
-        self.targets_tree.heading("prompt", text="Prompt")
-        self.targets_tree.heading("version", text="Версия")
-        self.targets_tree.column("#0", width=110, stretch=False)
-        self.targets_tree.column("status", width=220)
-        self.targets_tree.column("state", width=110, stretch=False)
-        self.targets_tree.column("prompt", width=120, stretch=False)
-        self.targets_tree.column("version", width=120, stretch=False)
-        self.targets_tree.grid(row=1, column=0, sticky="nsew")
-        self.targets_tree.bind("<<TreeviewSelect>>", self._on_target_selected)
-        tree_scroll = ttk.Scrollbar(
-            targets_card, orient="vertical", command=self.targets_tree.yview
-        )
-        tree_scroll.grid(row=1, column=1, sticky="ns")
-        self.targets_tree.configure(yscrollcommand=tree_scroll.set)
-
-        left_stack.add(targets_card, weight=5)
-        left_stack.add(overview_card, weight=3)
-
-        self.diagnostics_notebook = ttk.Notebook(right_panel, bootstyle="info")
+        self.diagnostics_notebook = ttk.Notebook(right_panel, style="UiS.TNotebook")
         self.diagnostics_notebook.grid(row=0, column=0, sticky="nsew")
 
-        log_tab = ttk.Frame(self.diagnostics_notebook, padding=10)
+        log_tab = ttk.Frame(self.diagnostics_notebook, padding=10, style="UiB.TFrame")
         self.diagnostics_notebook.add(log_tab, text="Журнал")
-        legend = ttk.Frame(log_tab)
+        legend = ttk.Frame(log_tab, style="UiB.TFrame")
         legend.pack(fill="x", pady=(0, 8))
         for label, style in (
             ("info", "secondary"),
@@ -794,7 +1054,7 @@ class CiscoAutoFlashDesktop:
         ttk.Label(
             legend,
             text="Журнал текущей операции, reboot/install и трасса этапов.",
-            bootstyle="secondary",
+            style="UiO.TLabel",
         ).pack(side="right")
         self.log_box = ScrolledText(
             log_tab,
@@ -805,24 +1065,26 @@ class CiscoAutoFlashDesktop:
         )
         self.log_box.pack(fill="both", expand=True)
         self.log_box.configure(
-            background="#0f172a",
-            foreground="#dbeafe",
-            insertbackground="#dbeafe",
+            background=self.palette["log_bg"],
+            foreground=self.palette["log_fg"],
+            insertbackground=self.palette["log_fg"],
         )
-        self.log_box.tag_config("info", foreground="#dbeafe")
-        self.log_box.tag_config("ok", foreground="#86efac")
-        self.log_box.tag_config("warn", foreground="#facc15")
-        self.log_box.tag_config("error", foreground="#fca5a5")
-        self.log_box.tag_config("debug", foreground="#93c5fd")
+        self.log_box.tag_config("info", foreground=self.palette["log_fg"])
+        self.log_box.tag_config("ok", foreground="#8dd9b5")
+        self.log_box.tag_config("warn", foreground="#ffd166")
+        self.log_box.tag_config("error", foreground="#ff96a3")
+        self.log_box.tag_config("debug", foreground="#6fd3ff")
 
-        artifacts_tab = ttk.Frame(self.diagnostics_notebook, padding=12)
+        artifacts_tab = ttk.Frame(
+            self.diagnostics_notebook, padding=12, style="UiB.TFrame"
+        )
         self.diagnostics_notebook.add(artifacts_tab, text="Артефакты сессии")
         artifacts_tab.columnconfigure(1, weight=1)
         artifacts_tab.columnconfigure(2, weight=1)
         self.artifacts_intro_label = ttk.Label(
             artifacts_tab,
             text="Здесь собраны все файлы текущей сессии и краткая подсказка, что в них искать.",
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -895,11 +1157,15 @@ class CiscoAutoFlashDesktop:
         ttk.Button(
             artifacts_tab,
             text="Открыть папку логов",
-            bootstyle="secondary",
+            style="UiY.TButton",
             command=self._open_logs_dir,
         ).grid(row=7, column=3, sticky="e", pady=(6, 0))
 
-        runbook_tab = ttk.Frame(self.diagnostics_notebook, padding=10)
+        runbook_tab = ttk.Frame(
+            self.diagnostics_notebook,
+            padding=10,
+            style="UiB.TFrame",
+        )
         self.diagnostics_notebook.add(runbook_tab, text="Памятка")
         self.diagnostics_notebook.bind("<<NotebookTabChanged>>", self._on_diagnostics_tab_changed)
         self.runbook_intro_label = ttk.Label(
@@ -908,7 +1174,7 @@ class CiscoAutoFlashDesktop:
                 "Краткая памятка загружается из docs/pre_hardware и служит опорой "
                 "перед реальным железом."
             ),
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -922,12 +1188,17 @@ class CiscoAutoFlashDesktop:
             borderwidth=0,
         )
         self.runbook_box.pack(fill="both", expand=True)
+        self.runbook_box.configure(
+            background=self.palette["surface"],
+            foreground=self.palette["text"],
+            insertbackground=self.palette["text"],
+        )
         self._set_text_widget(self.runbook_box, self._load_runbook_text(), readonly=True)
 
         self.footer_label = ttk.Label(
             root,
             textvariable=self.footer_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -941,14 +1212,21 @@ class CiscoAutoFlashDesktop:
         title: str,
         primary_var: tk.StringVar,
         secondary_var: tk.StringVar,
+        row: int = 0,
     ) -> None:
-        card = ttk.Labelframe(parent, text=title, padding=12)
-        card.grid(row=0, column=column, padx=(0 if column == 0 else 8, 0), sticky="nsew")
-        ttk.Label(card, textvariable=primary_var, font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        card = ttk.Labelframe(parent, text=title, padding=12, style="UiD.TLabelframe")
+        card.grid(
+            row=row,
+            column=column,
+            padx=(0 if column == 0 else 8, 0),
+            pady=(0 if row == 0 else 8, 0),
+            sticky="nsew",
+        )
+        ttk.Label(card, textvariable=primary_var, style="UiN.TLabel").pack(anchor="w")
         secondary_label = ttk.Label(
             card,
             textvariable=secondary_var,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -963,7 +1241,7 @@ class CiscoAutoFlashDesktop:
         title: str,
         value_var: tk.StringVar,
     ) -> None:
-        ttk.Label(parent, text=title, bootstyle="secondary").grid(
+        ttk.Label(parent, text=title, style="UiO.TLabel").grid(
             row=row,
             column=column,
             sticky="nw",
@@ -978,6 +1256,7 @@ class CiscoAutoFlashDesktop:
             textvariable=value_var,
             justify="left",
             anchor="w",
+            style="UiN.TLabel",
         )
         value_label.grid(row=0, column=0, sticky="ew")
         self._bind_responsive_wrap(value_label, value_cell, min_wrap=220)
@@ -1009,7 +1288,7 @@ class CiscoAutoFlashDesktop:
         description_label = ttk.Label(
             meta,
             text=description,
-            bootstyle="secondary",
+            style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
@@ -1018,7 +1297,7 @@ class CiscoAutoFlashDesktop:
         button = ttk.Button(
             parent,
             text=button_text,
-            bootstyle="secondary",
+            style="UiY.TButton",
             command=command,
             state="normal" if enabled else "disabled",
         )
@@ -1441,10 +1720,23 @@ class CiscoAutoFlashDesktop:
     def _apply_operator_style(self, severity: str) -> None:
         style = self._severity_bootstyle(severity)
         self.operator_severity_var.set(self._severity_label(severity))
-        if hasattr(self, "operator_card"):
-            self.operator_card.configure(bootstyle=style)
         if hasattr(self, "operator_badge"):
-            self.operator_badge.configure(bootstyle=style)
+            badge_map = {
+                "info": self.palette["accent"],
+                "warning": self.palette["warn"],
+                "danger": self.palette["danger"],
+                "success": self.palette["ok"],
+            }
+            fg_map = {
+                "info": self.palette["text"],
+                "warning": self.palette["text"],
+                "danger": self.palette["surface"],
+                "success": self.palette["surface"],
+            }
+            self.operator_badge.configure(
+                background=badge_map.get(style, self.palette["surface_muted"]),
+                foreground=fg_map.get(style, self.palette["primary"]),
+            )
 
     def _state_badge_text(self, state_name: str) -> str:
         mapping = {
@@ -1480,11 +1772,22 @@ class CiscoAutoFlashDesktop:
         style = self._state_bootstyle(state_name)
         self.state_badge_var.set(self._state_badge_text(state_name))
         if hasattr(self, "state_card"):
-            self.state_card.configure(bootstyle=style)
+            self.state_card.configure(style=self._state_card_style(state_name))
         if hasattr(self, "state_badge"):
-            self.state_badge.configure(bootstyle=style)
+            badge_map = {
+                "secondary": (self.palette["surface_muted"], self.palette["primary"]),
+                "info": (self.palette["accent"], self.palette["text"]),
+                "primary": (self.palette["primary"], self.palette["surface"]),
+                "warning": (self.palette["warn"], self.palette["text"]),
+                "success": (self.palette["ok"], self.palette["surface"]),
+                "danger": (self.palette["danger"], self.palette["surface"]),
+            }
+            background, foreground = badge_map.get(
+                style, (self.palette["surface_muted"], self.palette["primary"])
+            )
+            self.state_badge.configure(background=background, foreground=foreground)
         if hasattr(self, "status_strip_card"):
-            self.status_strip_card.configure(bootstyle=style)
+            self.status_strip_card.configure(style=self._state_card_style(state_name))
 
     def _on_scan(self) -> None:
         self._persist_settings()

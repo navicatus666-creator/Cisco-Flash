@@ -1,0 +1,45 @@
+name: Checks
+
+on:
+  push:
+    branches: ["main", "codex/**"]
+  pull_request:
+
+jobs:
+  python-checks:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install project and tooling
+        run: python -m pip install .[ssh,dev,build]
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Mypy
+        run: python -m mypy ciscoautoflash scripts main.py
+
+      - name: Bandit
+        run: python -m bandit -r ciscoautoflash
+
+      - name: Deptry
+        run: python -m deptry .
+
+      - name: Pip Audit
+        run: python -m pip_audit --progress-spinner off
+
+      - name: Import Linter
+        run: lint-imports
+
+      - name: Unittest
+        run: python -m unittest discover -s tests -v
+
+      - name: Build
+        run: python -m build .

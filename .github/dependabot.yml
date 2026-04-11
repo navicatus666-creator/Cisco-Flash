@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      runtime-dependencies:
+        patterns:
+          - "pyserial"
+          - "ttkbootstrap"
+          - "Pillow"
+          - "netmiko"
+      quality-tooling:
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "bandit"
+          - "deptry"
+          - "pip-audit"
+          - "vulture"
+          - "pytest"
+          - "types-pyserial"
+          - "import-linter"
+          - "pipdeptree"
+      build-tooling:
+        patterns:
+          - "build"
+          - "pyinstaller"
+          - "pyinstaller-hooks-contrib"

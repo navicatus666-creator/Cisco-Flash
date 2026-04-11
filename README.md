@@ -16,9 +16,10 @@ Current limits:
 ## Stack
 
 - Python 3.14
+- `Pillow` for runtime screenshots and image helpers
 - `ttkbootstrap` for the desktop UI
 - `pyserial` for Serial/USB transport
-- SSH/SCP backend stack: `Netmiko + Paramiko + ntc-templates`
+- SSH/SCP backend stack: `Netmiko` (with its transitively installed SSH dependencies)
 - Packaging: `PyInstaller` one-folder build (не в активном dev-цикле до hardware smoke)
 
 ## Run
@@ -91,9 +92,44 @@ python -m ruff check .
 python -m ruff format --check .
 python -m mypy ciscoautoflash
 python -m bandit -r ciscoautoflash
-pip-audit -r requirements.txt --progress-spinner off --timeout 10
+python -m deptry .
+lint-imports
+python -m pipdeptree --warn fail
+python -m pip_audit --progress-spinner off
 python -m vulture ciscoautoflash main.py tests vulture_whitelist.py
 ```
+
+## Dependency Workflow
+
+Source of truth:
+- `pyproject.toml`
+- `uv.lock`
+
+Recommended sync/install flow:
+
+```powershell
+uv lock
+uv sync --extra ssh --extra dev --extra build
+```
+
+Recommended dependency hygiene after changing versions:
+
+```powershell
+python -m deptry .
+lint-imports
+python -m pipdeptree --warn fail
+python -m pip_audit --progress-spinner off
+python -m unittest discover -s C:\PROJECT\tests -v
+python -m build C:\PROJECT
+```
+
+`requirements.txt` is kept only as a minimal compatibility bootstrap for runtime installs. Do not treat it as the primary dependency definition.
+
+## GitHub Automation
+
+The repo now includes:
+- [`C:\PROJECT\.github\dependabot.yml`](C:\PROJECT\.github\dependabot.yml) for weekly dependency PRs
+- [`C:\PROJECT\.github\workflows\checks.yml`](C:\PROJECT\.github\workflows\checks.yml) for Windows-based quality gates on push and pull request
 
 ## Build
 

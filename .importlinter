@@ -1,0 +1,32 @@
+[importlinter]
+root_package = ciscoautoflash
+include_external_packages = False
+
+[importlinter:contract:core-is-headless]
+name = Core stays headless
+type = forbidden
+source_modules =
+    ciscoautoflash.core
+forbidden_modules =
+    ciscoautoflash.ui
+    ciscoautoflash.devtools
+    ciscoautoflash.replay
+
+[importlinter:contract:profiles-stay-domain-only]
+name = Profiles stay domain-only
+type = forbidden
+source_modules =
+    ciscoautoflash.profiles
+forbidden_modules =
+    ciscoautoflash.ui
+    ciscoautoflash.devtools
+    ciscoautoflash.replay
+
+[importlinter:contract:replay-stays-out-of-ui]
+name = Replay stays out of UI and devtools
+type = forbidden
+source_modules =
+    ciscoautoflash.replay
+forbidden_modules =
+    ciscoautoflash.ui
+    ciscoautoflash.devtools
