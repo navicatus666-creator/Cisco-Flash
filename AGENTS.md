@@ -94,6 +94,8 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - The dashboard exposes `Open session folder` and `Export session bundle`; use the bundle as the primary diagnostic package after failures instead of hand-collecting files
 - Active Codex/MCP state currently lives in user-home paths under `C:\Users\MySQL\.codex\` and `C:\Users\MySQL\.memory\`; keep MCP caches and indexes out of `C:\PROJECT\` so repo scans stay clean
 - Operator/runtime artifacts must still stay under `%LOCALAPPDATA%\CiscoAutoFlash\`; do not redirect desktop-app session data into Codex or MCP storage paths
+- Supplemental Obsidian knowledge vault lives in `C:\PROJECT\OBSMEM\`; use it for long-form research, syntheses, and human-readable knowledge pages, but do not treat it as the source of truth over repo code/docs/tests
+- Durable implementation truth still goes into repo docs/code/tests first; mirror only the stable synthesis into `C:\PROJECT\OBSMEM\`, and update its `index.md` and `log.md` when that wiki gains meaningful new pages
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow
 - Primary first-switch runbook: `docs/pre_hardware/first_hardware_run.md`
 - Additional Cisco families are still planned later; do not assume they already exist in code unless verified
