@@ -1,5 +1,12 @@
 # CiscoAutoFlash
 
+[![CI Status](https://github.com/navicatus666-creator/Cisco-Flash/actions/workflows/checks.yml/badge.svg)](https://github.com/navicatus666-creator/Cisco-Flash/actions/workflows/checks.yml)
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Ruff](https://img.shields.io/badge/Lint-Ruff-D7FF64?logo=ruff&logoColor=black)](https://github.com/astral-sh/ruff)
+[![Bandit](https://img.shields.io/badge/Security-Bandit-F45D48)](https://bandit.readthedocs.io/)
+[![Mypy](https://img.shields.io/badge/Type%20Check-Mypy-2A6DB2)](https://mypy-lang.org/)
+[![UI ttkbootstrap](https://img.shields.io/badge/UI-ttkbootstrap-2772C8)](https://ttkbootstrap.readthedocs.io/)
+
 CiscoAutoFlash is a Windows desktop utility for Cisco switch maintenance.
 
 Current supported workflow:
@@ -125,11 +132,18 @@ python -m build C:\PROJECT
 
 `requirements.txt` is kept only as a minimal compatibility bootstrap for runtime installs. Do not treat it as the primary dependency definition.
 
+Pre-commit local activation:
+
+```powershell
+pre-commit install
+pre-commit run --all-files
+```
+
 ## GitHub Automation
 
 The repo now includes:
 - [`C:\PROJECT\.github\dependabot.yml`](C:\PROJECT\.github\dependabot.yml) for weekly dependency PRs
-- [`C:\PROJECT\.github\workflows\checks.yml`](C:\PROJECT\.github\workflows\checks.yml) for Windows-based quality gates on push and pull request
+- [`C:\PROJECT\.github\workflows\checks.yml`](C:\PROJECT\.github\workflows\checks.yml) for Windows-based quality gates on push to `main` and on pull request
 
 ## Build
 
