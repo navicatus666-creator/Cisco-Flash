@@ -35,6 +35,7 @@ from ciscoautoflash.core.events import AppEvent
 from ciscoautoflash.core.models import ConnectionTarget, DeviceSnapshot, ScanResult
 from ciscoautoflash.replay.adapter import DemoReplayController
 from ciscoautoflash.ui.app import (
+    _BRAND_COLORS,
     CiscoAutoFlashDesktop,
     _parse_geometry_size,
     _resolve_window_layout_contract,
@@ -220,29 +221,38 @@ class DummyWindow:
 
 
 class DummyNotebook:
-    def __init__(self) -> None:
-        self.current = "log"
-        self.labels = {
+    def __init__(
+        self,
+        labels: dict[str, str] | None = None,
+        *,
+        current: str | None = None,
+        tab_boxes: dict[str, tuple[int, int, int, int]] | None = None,
+    ) -> None:
+        self.labels = labels or {
             "log": "Журнал",
             "artifacts": "Артефакты сессии",
             "runbook": "Памятка",
         }
+        self.current = current or next(iter(self.labels))
         self.x = 640
         self.y = 480
         self.width = 480
         self.height = 240
-        self.tab_boxes = {
-            "log": (0, 0, 80, 24),
-            "artifacts": (80, 0, 140, 24),
-            "runbook": (220, 0, 90, 24),
-        }
+        if tab_boxes is None:
+            keys = list(self.labels)
+            tab_boxes = {
+                key: (index * 120, 0, 120, 24) for index, key in enumerate(keys)
+            }
+        self.tab_boxes = tab_boxes
 
     def select(self) -> str:
         return self.current
 
-    def tab(self, tab_id: str, option: str) -> str:
+    def tab(self, tab_id: str | int, option: str) -> str:
         if option != "text":
             raise KeyError(option)
+        if isinstance(tab_id, int):
+            tab_id = list(self.labels)[tab_id]
         return self.labels[tab_id]
 
     def tabs(self) -> tuple[str, ...]:
@@ -250,6 +260,19 @@ class DummyNotebook:
 
     def bbox(self, tab_id: str):
         return self.tab_boxes[tab_id]
+
+    def index(self, spec: str) -> int:
+        if spec == "end":
+            return len(self.labels)
+        if spec.startswith("@"):
+            x_text, _y_text = spec[1:].split(",", 1)
+            x_pos = int(x_text)
+            for idx, tab_id in enumerate(self.labels):
+                start_x, _start_y, width, _height = self.tab_boxes[tab_id]
+                if start_x <= x_pos < start_x + width:
+                    return idx
+            raise ValueError(spec)
+        return list(self.labels).index(spec)
 
     def winfo_rootx(self) -> int:
         return self.x
@@ -504,6 +527,12 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(min_size, (1366, 768))
         self.assertEqual(max_size, (1366, 768))
 
+    def test_brand_palette_keeps_light_shell_and_dark_log_contrast(self) -> None:
+        self.assertEqual(_BRAND_COLORS["primary"], "#0b5cab")
+        self.assertEqual(_BRAND_COLORS["log_bg"], "#10253a")
+        self.assertNotEqual(_BRAND_COLORS["canvas"], _BRAND_COLORS["log_bg"])
+        self.assertNotEqual(_BRAND_COLORS["surface"], _BRAND_COLORS["primary"])
+
     def test_handle_event_updates_device_snapshot_vars(self) -> None:
         app = self.make_app_shell()
         snapshot = DeviceSnapshot(
@@ -719,6 +748,31 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(app.scan_status_var.get(), "Найдено COM-целей: 1. Выбрана цель COM7.")
         self.assertIn("COM7", app.targets_tree.nodes)
         self.assertEqual(app.targets_tree.selection(), ("COM7",))
+
+    def test_notebook_tabs_payload_exposes_hybrid_diagnostics_structure(self) -> None:
+        app = self.make_app_shell()
+
+        payload = app._build_notebook_tabs_payload()
+
+        self.assertEqual(sorted(payload), ["Артефакты сессии", "Журнал", "Памятка"])
+        self.assertTrue(payload["Журнал"]["selected"])
+        self.assertIn("click_point", payload["Артефакты сессии"])
+
+    def test_workspace_tabs_payload_exposes_operator_split(self) -> None:
+        app = self.make_app_shell()
+        app.workspace_notebook = DummyNotebook(
+            {
+                "flash": "Прошивка",
+                "metrics": "Состояние и артефакты",
+            },
+            current="flash",
+        )
+
+        payload = app._build_workspace_tabs_payload()
+
+        self.assertEqual(sorted(payload), ["Прошивка", "Состояние и артефакты"])
+        self.assertTrue(payload["Прошивка"]["selected"])
+        self.assertIn("click_point", payload["Состояние и артефакты"])
 
     def test_selected_target_changed_updates_tree_and_persists(self) -> None:
         app = self.make_app_shell()
