@@ -13,7 +13,20 @@ def _write_page(path: Path, *, frontmatter: str, body: str) -> None:
     path.write_text(f"{frontmatter}\n{body}\n", encoding="utf-8")
 
 
-def _good_frontmatter(*, aliases: list[str], related: list[str], last_verified: str) -> str:
+def _write_repo_file(repo_root: Path, relative: str) -> str:
+    target = repo_root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# repo file\n", encoding="utf-8")
+    return str(target)
+
+
+def _good_frontmatter(
+    *,
+    repo_ref: str,
+    aliases: list[str],
+    related: list[str],
+    last_verified: str,
+) -> str:
     alias_lines = "\n".join(f"  - {item}" for item in aliases)
     related_lines = "\n".join(f"  - \"{item}\"" for item in related)
     return "\n".join(
@@ -23,7 +36,7 @@ def _good_frontmatter(*, aliases: list[str], related: list[str], last_verified: 
             "status: active",
             "source_of_truth: repo",
             "repo_refs:",
-            "  - C:\\PROJECT\\README.md",
+            f"  - {repo_ref}",
             "aliases:",
             alias_lines,
             "related:",
@@ -37,7 +50,10 @@ def _good_frontmatter(*, aliases: list[str], related: list[str], last_verified: 
 class ObsmemLintTests(unittest.TestCase):
     def test_lint_obsmem_passes_for_well_linked_vault(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
             vault = Path(temp_dir) / "OBSMEM"
+            readme_ref = _write_repo_file(repo_root, "README.md")
+            agents_ref = _write_repo_file(repo_root, "AGENTS.md")
             _write_page(
                 vault / "README.md",
                 frontmatter="\n".join(
@@ -47,7 +63,7 @@ class ObsmemLintTests(unittest.TestCase):
                         "status: active",
                         "source_of_truth: repo",
                         "repo_refs:",
-                        "  - C:\\PROJECT\\README.md",
+                        f"  - {readme_ref}",
                         "related:",
                         "  - \"[[CiscoAutoFlash]]\"",
                         "last_verified: 2026-04-12",
@@ -59,6 +75,7 @@ class ObsmemLintTests(unittest.TestCase):
             _write_page(
                 vault / "projects" / "CiscoAutoFlash.md",
                 frontmatter=_good_frontmatter(
+                    repo_ref=readme_ref,
                     aliases=["CiscoAutoFlash"],
                     related=["[[Knowledge_System_Model]]"],
                     last_verified="2026-04-12",
@@ -74,7 +91,7 @@ class ObsmemLintTests(unittest.TestCase):
                         "status: active",
                         "source_of_truth: repo",
                         "repo_refs:",
-                        "  - C:\\PROJECT\\AGENTS.md",
+                        f"  - {agents_ref}",
                         "aliases:",
                         "  - Knowledge System Model",
                         "related:",
@@ -98,10 +115,13 @@ class ObsmemLintTests(unittest.TestCase):
 
     def test_lint_obsmem_reports_errors_and_strict_exit(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
             vault = Path(temp_dir) / "OBSMEM"
+            valid_readme_ref = _write_repo_file(repo_root, "README.md")
             _write_page(
                 vault / "projects" / "CiscoAutoFlash.md",
                 frontmatter=_good_frontmatter(
+                    repo_ref=valid_readme_ref,
                     aliases=["CiscoAutoFlash"],
                     related=["[[Duplicate Topic]]"],
                     last_verified="2026-04-12",
@@ -137,7 +157,7 @@ class ObsmemLintTests(unittest.TestCase):
                         "status: active",
                         "source_of_truth: repo",
                         "repo_refs:",
-                        "  - C:\\PROJECT\\README.md",
+                        f"  - {valid_readme_ref}",
                         "aliases:",
                         "  - Duplicate Topic",
                         "related:",
@@ -157,7 +177,7 @@ class ObsmemLintTests(unittest.TestCase):
                         "status: active",
                         "source_of_truth: repo",
                         "repo_refs:",
-                        "  - C:\\PROJECT\\README.md",
+                        f"  - {valid_readme_ref}",
                         "related:",
                         "  - \"[[CiscoAutoFlash]]\"",
                         "last_verified: 2024-01-01",
@@ -199,7 +219,9 @@ class ObsmemLintTests(unittest.TestCase):
 
     def test_lint_obsmem_flags_missing_frontmatter_and_related_links(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / "repo"
             vault = Path(temp_dir) / "OBSMEM"
+            missing_ref = str(repo_root / "missing" / "bad.md")
             _write_page(
                 vault / "projects" / "Bad.md",
                 frontmatter="\n".join(
@@ -209,7 +231,7 @@ class ObsmemLintTests(unittest.TestCase):
                         "status: active",
                         "source_of_truth: repo",
                         "repo_refs:",
-                        "  - C:\\PROJECT\\missing\\bad.md",
+                        f"  - {missing_ref}",
                         "related: []",
                         "last_verified: 2026-04-12",
                         "---",
