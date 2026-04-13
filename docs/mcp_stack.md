@@ -44,6 +44,22 @@ source of the active MCP stack on this machine:
 - [CartographAI/mcp-server-codegraph](https://github.com/CartographAI/mcp-server-codegraph)
 - [thijse/MemoryVectorStore](https://github.com/thijse/MemoryVectorStore)
 
+## External Obsidian MCP references
+
+These are useful research inputs for the `OBSMEM` workflow, but they are not
+part of the active runtime stack on this machine:
+
+- [Obsidian forum discussion on MCP servers](https://forum.obsidian.md/t/obsidian-mcp-servers-experiences-and-recommendations/99936/5)
+- [bitbonsai/mcpvault](https://github.com/bitbonsai/mcpvault)
+- [MCPVault homepage](https://mcpvault.org/)
+
+Current project policy:
+- assimilate useful ideas such as test-vault-first experiments, quick-open
+  flows, and template-aware note handling;
+- do not connect a write-capable external Obsidian MCP directly to the main
+  `C:\PROJECT\OBSMEM` vault until it has been validated in a separate test
+  vault and documented in repo truth.
+
 ## Current operational notes
 
 - `context-mode`, `echovault`, `repo-map`, `code-graph`, and `vector-memory`

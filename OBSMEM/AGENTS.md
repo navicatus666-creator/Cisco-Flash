@@ -18,6 +18,8 @@ Rules:
 13. OBSMEM must not be the only place where implementation-relevant truth exists.
 14. Chronicler workflow: keep `mirrors/Current_Work.md` as the living short-form snapshot, keep `daily/` notes aligned with that snapshot, and record durable milestones in `log.md`.
 15. Chronicler outputs should preserve manual notes sections and keep `related`, `Read next`, and `last_verified` discipline intact.
+16. External Obsidian MCP plugins or servers must be tested in a separate test vault before they are allowed to write into the main `C:\PROJECT\OBSMEM` vault.
+17. Assimilate useful external Obsidian ideas into repo helpers, templates, and explicit policy pages first; do not add a second uncontrolled write path into the main vault.
 
 Expected structure:
 - `inbox/` — unsorted intake
@@ -58,3 +60,4 @@ Memory lint:
 4. Collapse duplicates when two pages cover the same durable concept.
 5. Add or update `mirrors/` pages when repo state changes materially.
 6. Keep `Current_Work` and `daily` pages aligned with the latest durable session summary.
+7. Keep Obsidian integration policy explicit: main vault stable, experimental vault separate, useful behavior promoted only after validation.

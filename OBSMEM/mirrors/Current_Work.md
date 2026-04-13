@@ -13,34 +13,34 @@ related:
   - "[[CiscoAutoFlash]]"
   - "[[Knowledge_System_Model]]"
   - "[[Project_Chronicler_Workflow]]"
-last_verified: 2026-04-13
+last_verified: 2026-04-14
 ---
 
 # Current Work
 
 ## Session now
-- Label: Infrastructure + OBSMEM chronicler
+- Label: Obsidian MCP assimilation
 - Branch: `main`
-- HEAD: `3e284fa2ca8d`
-- Commit: Make OBSMEM lint tests path-agnostic
-- Dirty files: 18
+- HEAD: `4ba028f08e24`
+- Commit: Add OBSMEM chronicler workflow and align MCP docs
+- Dirty files: 16
 - Focus areas: Devtools, Docs, OBSMEM, Project, Tests
 
 ## Dirty paths
 - `GENTS.md`
 - `OBSMEM/AGENTS.md`
 - `OBSMEM/README.md`
-- `OBSMEM/daily/README.md`
 - `OBSMEM/index.md`
-- `OBSMEM/mirrors/README.md`
-- `OBSMEM/projects/CiscoAutoFlash.md`
+- `OBSMEM/log.md`
+- `OBSMEM/mirrors/Current_Work.md`
 - `OBSMEM/templates/README.md`
+- `README.md`
 
 ## Helper health
 - `bootstrap`: `READY`
 - `memory_lint`: `PASS`
-- `session_close`: `MISSING`
-- `ui_smoke`: `MISSING`
+- `session_close`: `CLEAN`
+- `ui_smoke`: `READY`
 
 ## Recent wins and findings
 - No manual chronicler events yet.

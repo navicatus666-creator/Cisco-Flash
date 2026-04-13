@@ -39,10 +39,12 @@ last_verified: 2026-04-13
 - [[CiscoAutoFlash_Current_State]]
 - [[Current_Work]]
 - [[Project_Chronicler_Workflow]]
+- [[Obsidian_MCP_Integration_Policy]]
 
 ## Operational helpers
 - Repo bootstrap: `python C:\PROJECT\scripts\run_project_bootstrap.py`
 - OBSMEM lint: `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
+- Open canonical vault pages: `python C:\PROJECT\scripts\run_obsmem_open.py current-work|daily|log|index`
 - Session close analysis: `python C:\PROJECT\scripts\run_session_close.py`
 - UI smoke: `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 
@@ -52,9 +54,15 @@ last_verified: 2026-04-13
 - `log.md` stays the chronological backbone for important milestones and durable events.
 - Use the chronicler concept page for the exact writeback contract: [[Project_Chronicler_Workflow]].
 
+## Obsidian MCP experiments
+- Useful external Obsidian MCP ideas are tracked in [[Obsidian_MCP_Recommendations_2026-04-14]].
+- Main-vault policy is defined in [[Obsidian_MCP_Integration_Policy]].
+- Any write-capable Obsidian MCP plugin or server must be tested in a separate test vault before it is allowed anywhere near the main `OBSMEM` vault.
+
 These commands write reports into `C:\PROJECT\build\devtools\...`. They do not replace repo truth; they enforce the existing repo-first and promotion rules.
 
 ## Read next
 - [[index]]
 - [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]]
 - [[Current_Work]]
+- [[Obsidian_MCP_Integration_Policy]]

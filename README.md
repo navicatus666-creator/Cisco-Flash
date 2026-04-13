@@ -113,6 +113,7 @@ Fast operational helpers now live under `ciscoautoflash.devtools` with thin wrap
 ```powershell
 python C:\PROJECT\scripts\run_project_bootstrap.py
 python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM
+python C:\PROJECT\scripts\run_obsmem_open.py current-work
 python C:\PROJECT\scripts\run_obsmem_chronicler.py --once
 python C:\PROJECT\scripts\run_obsmem_chronicler.py --watch --interval 120 --session-label "UI work"
 python C:\PROJECT\scripts\run_obsmem_chronicler.py --event-type win --message "Fixed layout collision"
@@ -129,8 +130,10 @@ Artifacts are written under `build\devtools\...`:
 
 Notes:
 - `run_obsmem_lint.py --strict` fails on `error` findings.
+- `run_obsmem_open.py` is the quick-open bridge into Obsidian for `Current_Work`, today's daily note, `log`, and `index`.
 - `run_obsmem_chronicler.py --watch` is the intended background session companion. It keeps `OBSMEM\mirrors\Current_Work.md`, the current daily note, and runtime events aligned while you work.
 - Use manual chronicler events for durable wins, failures, discoveries, decisions, and next steps; implementation-relevant truth still has to go into repo files first.
+- External Obsidian MCP plugins/servers should be trialed in a separate test vault before any direct write path is considered for the main `OBSMEM` vault.
 - `run_session_close.py` is analysis-only by default; use `--write-obsmem-draft` or `--save-echovault` explicitly.
 - `run_ui_smoke.py` uses demo mode plus the app-level smoke env hooks and should be the default fast gate after UI edits.
 

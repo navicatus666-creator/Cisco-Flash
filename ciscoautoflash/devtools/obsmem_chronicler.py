@@ -69,7 +69,7 @@ def _iso_now() -> str:
 
 
 def _today_str() -> str:
-    return _now_utc().date().isoformat()
+    return datetime.now().date().isoformat()
 
 
 def _timestamp() -> str:

@@ -28,3 +28,9 @@
 - `OBSMEM` страницы mirrors и `Memory_Lint_Checklist` доведены до единого `related` / `Read next` формата.
 - Устранён дублирующий canonical topic между concept и decision-страницами `Knowledge System Model`.
 - Vault и repo docs теперь описывают helpers как operational layer поверх repo-first workflow.
+
+## [2026-04-14] obsidian | External MCP ideas assimilated safely
+- Добавлен `run_obsmem_open.py` как quick-open bridge для `Current_Work`, daily note, `log` и `index`.
+- Зафиксирована policy page `Obsidian_MCP_Integration_Policy` с правилом: write-capable Obsidian MCP plugins/servers сначала идут в отдельный test vault.
+- Добавлена source-summary страница по внешним Obsidian MCP рекомендациям и `MCPVault`.
+- Полезные идеи ассимилированы в текущий repo-first workflow без добавления второго live write-path в основной `OBSMEM`.

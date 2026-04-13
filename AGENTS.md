@@ -102,6 +102,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Infrastructure helpers now exist for this workflow:
   - `python C:\PROJECT\scripts\run_project_bootstrap.py`
   - `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
+  - `python C:\PROJECT\scripts\run_obsmem_open.py current-work|daily|log|index`
   - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --once`
   - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --watch --interval 120 --session-label "<focus>"`
   - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --event-type win|issue|discovery|decision|next-step --message "<note>"`
@@ -109,6 +110,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
   - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 - Treat `run_obsmem_chronicler.py --watch` as the preferred background OBSMEM companion during substantial sessions. It may update `Current_Work`, the active daily note, and its runtime event stream, but it does not replace repo-first writeback.
 - Use manual chronicler events to capture wins, failures, discoveries, decisions, and next steps worth remembering. If any of those events changes implementation behavior or workflow truth, promote that change back into repo docs/code/tests before treating the chronicler output as complete.
+- Useful ideas from external Obsidian MCP tools may be assimilated into repo helpers and OBSMEM policy, but any write-capable Obsidian MCP plugin/server must be evaluated in a separate test vault before it is allowed to touch the main `C:\PROJECT\OBSMEM` vault.
 - Current MCP upstream mapping on this machine:
   - `context-mode` -> `mksglu/context-mode@1.0.75`
   - `echovault` -> `mraza007/echovault@0.4.0`
