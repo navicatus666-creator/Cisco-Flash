@@ -11,7 +11,7 @@ repo_refs:
 related:
   - "[[CiscoAutoFlash]]"
   - "[[LLM_Wiki_Pattern]]"
-  - "[[Knowledge_System_Model]]"
+  - "[[decisions/Knowledge_System_Model|Knowledge_System_Model_Decision]]"
 last_verified: 2026-04-12
 ---
 
@@ -32,9 +32,9 @@ The decision page records the durable choice; this concept page is the stable na
 ## Related
 - Project: [[CiscoAutoFlash]]
 - Source pattern: [[LLM_Wiki_Pattern]]
-- Durable decision: [Knowledge System Model decision](C:\PROJECT\OBSMEM\decisions\Knowledge_System_Model.md)
+- Durable decision: [[decisions/Knowledge_System_Model|Knowledge_System_Model_Decision]]
 
 ## Read next
-- [Knowledge System Model decision](C:\PROJECT\OBSMEM\decisions\Knowledge_System_Model.md)
-- [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
-- [Memory Lint Checklist](C:\PROJECT\OBSMEM\analyses\Memory_Lint_Checklist.md)
+- [[decisions/Knowledge_System_Model|Knowledge_System_Model_Decision]]
+- [[CiscoAutoFlash]]
+- [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]]

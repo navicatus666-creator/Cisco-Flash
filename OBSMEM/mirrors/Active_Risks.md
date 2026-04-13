@@ -20,6 +20,7 @@ last_verified: 2026-04-12
 - UI still needs final spacing/padding polish under real operator usage.
 - Hidden SSH/SCP path exists in backend but is intentionally not exposed in UI yet.
 - Real hardware smoke remains the decisive gate for the serial-first operator flow.
+- `session_close` will keep flagging drift if repo/docs changes are not mirrored back into OBSMEM after substantial sessions.
 
 ## Handling rule
 - If a risk changes implementation or operator workflow, promote it back into repo docs/tests/code.
@@ -27,3 +28,8 @@ last_verified: 2026-04-12
 ## Related
 - Model: [[Knowledge_System_Model]]
 - Project: [[CiscoAutoFlash]]
+
+## Read next
+- [[Open_Architecture_Questions]]
+- [[Hardware_Smoke_Gate]]
+- [[CiscoAutoFlash_Current_State]]

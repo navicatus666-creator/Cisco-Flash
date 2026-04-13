@@ -106,6 +106,28 @@ python -m pip_audit --progress-spinner off
 python -m vulture ciscoautoflash main.py tests vulture_whitelist.py
 ```
 
+## Developer Helpers
+
+Fast operational helpers now live under `ciscoautoflash.devtools` with thin wrappers in `scripts/`.
+
+```powershell
+python C:\PROJECT\scripts\run_project_bootstrap.py
+python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM
+python C:\PROJECT\scripts\run_session_close.py
+python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500
+```
+
+Artifacts are written under `build\devtools\...`:
+- `bootstrap\...` — repo/runtime truth-gate snapshot
+- `memory_lint\...` — OBSMEM structure and drift report
+- `session_close\...` — close-readiness report and optional draft path
+- `ui_smoke\...` — demo-mode auto-close smoke run
+
+Notes:
+- `run_obsmem_lint.py --strict` fails on `error` findings.
+- `run_session_close.py` is analysis-only by default; use `--write-obsmem-draft` or `--save-echovault` explicitly.
+- `run_ui_smoke.py` uses demo mode plus the app-level smoke env hooks and should be the default fast gate after UI edits.
+
 ## Dependency Workflow
 
 Source of truth:

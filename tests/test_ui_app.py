@@ -443,6 +443,9 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         app.current_state_name = "IDLE"
         app._progress_percent_value = 0
         app._terminal_snapshot_state = None
+        app.ui_smoke_mode = False
+        app.ui_smoke_close_ms = 1500
+        app._ui_smoke_after_id = None
         app._demo_action_state = {
             "scan_enabled": False,
             "stage1_enabled": False,
@@ -1103,6 +1106,26 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertIn(first_handle, app.window.cancelled_after_ids)
         self.assertEqual(app.window.after_calls[-1][0], 500)
 
+    def test_schedule_ui_smoke_close_sets_after_handle(self) -> None:
+        app = self.make_app_shell()
+        app.ui_smoke_mode = True
+        app.ui_smoke_close_ms = 1800
+
+        app._schedule_ui_smoke_close()
+
+        self.assertEqual(app.window.after_calls[-1][0], 1800)
+        self.assertEqual(app._ui_smoke_after_id, app.window.after_calls[-1][2])
+
+    def test_on_ui_smoke_timeout_calls_on_close(self) -> None:
+        app = self.make_app_shell()
+        app._on_close = Mock()
+        app._ui_smoke_after_id = "after-1"
+
+        app._on_ui_smoke_timeout()
+
+        self.assertIsNone(app._ui_smoke_after_id)
+        app._on_close.assert_called_once_with()
+
     def test_handle_event_scan_results_schedules_hardware_day_refresh(self) -> None:
         app = self.make_app_shell()
         app._schedule_hardware_day_refresh = Mock()
@@ -1240,12 +1263,14 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
 
     def test_on_close_disposes_controller_and_window(self) -> None:
         app = self.make_app_shell()
+        app._ui_smoke_after_id = "after-1"
 
         app._on_close()
 
         app._persist_settings.assert_called_once_with()
         app.controller.dispose.assert_called_once_with()
         self.assertTrue(app.window.destroyed)
+        self.assertIn("after-1", app.window.cancelled_after_ids)
 
 
 if __name__ == "__main__":

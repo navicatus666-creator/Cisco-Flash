@@ -29,3 +29,8 @@ Keep OBSMEM navigable for both humans and agents.
 ## Use
 - Run this after several substantial sessions or after major architectural changes.
 - Update repo truth first when the lint reveals implementation drift.
+
+## Read next
+- [[Knowledge_System_Model]]
+- [[CiscoAutoFlash]]
+- [[mirrors/CiscoAutoFlash_Current_State|CiscoAutoFlash_Current_State]]

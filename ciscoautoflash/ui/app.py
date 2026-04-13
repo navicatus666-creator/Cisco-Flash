@@ -157,11 +157,14 @@ class CiscoAutoFlashDesktop:
         self.demo_mode = demo_mode
         self.demo_playback_delay_ms = max(1, _env_int("CISCOAUTOFLASH_DEMO_DELAY_MS", 70))
         self.auto_start_scan = _env_flag("CISCOAUTOFLASH_AUTO_START_SCAN", auto_start_scan)
+        self.ui_smoke_mode = _env_flag("CISCOAUTOFLASH_UI_SMOKE", False)
+        self.ui_smoke_close_ms = max(250, _env_int("CISCOAUTOFLASH_UI_SMOKE_CLOSE_MS", 1500))
         self._event_timeline: list[dict[str, Any]] = []
         self.operator_message_code = ""
         self.current_state_name = "IDLE"
         self._progress_percent_value = 0
         self._terminal_snapshot_state: str | None = None
+        self._ui_smoke_after_id: str | None = None
         base_config = config or AppConfig()
         if self.demo_mode:
             self.config = replace(base_config, runtime_root=(base_config.runtime_root / "demo"))
@@ -369,6 +372,7 @@ class CiscoAutoFlashDesktop:
         self.window.after(1000, self._tick_session_clock)
         if self.auto_start_scan:
             self.window.after(400, self.controller.scan_devices)
+        self._schedule_ui_smoke_close()
 
     def _enqueue_event(self, event: AppEvent) -> None:
         self.event_queue.put(event)
@@ -627,7 +631,7 @@ class CiscoAutoFlashDesktop:
         self._bind_responsive_wrap(self.state_message_label, status_primary, min_wrap=260)
         self.device_status_label = ttk.Label(
             status_primary,
-            textvariable=self.device_status_var,
+            textvariable=self.device_status_summary_var,
             style="UiO.TLabel",
             justify="left",
             anchor="w",
@@ -669,9 +673,9 @@ class CiscoAutoFlashDesktop:
 
         body = ttk.Frame(flash_workspace_tab, style="UiA.TFrame")
         body.pack(fill="both", expand=True)
-        body.columnconfigure(0, weight=4, minsize=390)
-        body.columnconfigure(1, weight=10, minsize=700)
-        body.columnconfigure(2, weight=2, minsize=240)
+        body.columnconfigure(0, weight=4, minsize=350)
+        body.columnconfigure(1, weight=12, minsize=760)
+        body.columnconfigure(2, weight=2, minsize=220)
         body.rowconfigure(0, weight=1)
 
         left_panel = ttk.Frame(body, padding=2, style="UiA.TFrame")
@@ -722,8 +726,8 @@ class CiscoAutoFlashDesktop:
         self.targets_tree.heading("status", text="Статус")
         self.targets_tree.heading("state", text="Соединение")
         self.targets_tree.column("#0", width=94, stretch=False)
-        self.targets_tree.column("status", width=220, stretch=True)
-        self.targets_tree.column("state", width=110, stretch=False)
+        self.targets_tree.column("status", width=180, stretch=True)
+        self.targets_tree.column("state", width=96, stretch=False)
         self.targets_tree.grid(row=1, column=0, sticky="nsew")
         self.targets_tree.bind("<<TreeviewSelect>>", self._on_target_selected)
         tree_scroll = ttk.Scrollbar(
@@ -734,7 +738,7 @@ class CiscoAutoFlashDesktop:
 
         selected_target_card = ttk.Labelframe(
             left_panel,
-            text="Выбранная цель",
+            text="Кратко по цели",
             padding=8,
             style="UiD.TLabelframe",
         )
@@ -748,16 +752,10 @@ class CiscoAutoFlashDesktop:
             selected_target_card, 0, 2, "Соединение", self.connection_var, min_wrap=120
         )
         self._build_preflight_value(
-            selected_target_card, 1, 0, "Prompt", self.prompt_var, min_wrap=120
+            selected_target_card, 1, 0, "Модель", self.model_var, min_wrap=120
         )
         self._build_preflight_value(
-            selected_target_card, 1, 2, "USB", self.usb_var, min_wrap=120
-        )
-        self._build_preflight_value(
-            selected_target_card, 2, 0, "Модель", self.model_var, min_wrap=120
-        )
-        self._build_preflight_value(
-            selected_target_card, 2, 2, "IOS", self.current_fw_var, min_wrap=120
+            selected_target_card, 1, 2, "IOS", self.current_fw_var, min_wrap=120
         )
 
         workflow_card = ttk.Labelframe(
@@ -805,8 +803,8 @@ class CiscoAutoFlashDesktop:
             1,
             1,
             "Модель / IOS",
-            self.current_fw_var,
             self.model_var,
+            self.current_fw_var,
         )
 
         controls = ttk.Frame(workflow_card, style="UiA.TFrame")
@@ -890,17 +888,18 @@ class CiscoAutoFlashDesktop:
 
         live_grid = ttk.Frame(workflow_card, style="UiA.TFrame")
         live_grid.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
-        live_grid.columnconfigure(0, weight=6)
+        live_grid.columnconfigure(0, weight=5)
         live_grid.columnconfigure(1, weight=4)
         live_grid.rowconfigure(0, weight=1)
+        live_grid.rowconfigure(1, weight=1)
 
         self.operator_card = ttk.Labelframe(
             live_grid,
-            text="Что происходит сейчас",
+            text="Главное сейчас",
             padding=8,
             style="UiD.TLabelframe",
         )
-        self.operator_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        self.operator_card.grid(row=0, column=0, columnspan=2, sticky="nsew", pady=(0, 8))
         self.operator_card.columnconfigure(0, weight=1)
         operator_header = ttk.Frame(self.operator_card, style="UiC.TFrame")
         operator_header.pack(fill="x")
@@ -927,7 +926,7 @@ class CiscoAutoFlashDesktop:
         ttk.Separator(self.operator_card).pack(fill="x", pady=(8, 8))
         ttk.Label(
             self.operator_card,
-            text="Что делать дальше",
+            text="Следующий шаг",
             style="UiAB.TLabel",
         ).pack(anchor="w")
         self.operator_next_step_label = ttk.Label(
@@ -939,38 +938,34 @@ class CiscoAutoFlashDesktop:
         )
         self.operator_next_step_label.pack(fill="x", anchor="w", pady=(4, 0))
         self._bind_responsive_wrap(self.operator_next_step_label, self.operator_card, min_wrap=280)
-        operator_meta = ttk.Frame(self.operator_card, style="UiC.TFrame")
-        operator_meta.pack(fill="x", pady=(10, 0))
-        operator_meta.columnconfigure(0, weight=1)
-        operator_meta.columnconfigure(1, weight=1)
-        ttk.Label(
-            operator_meta,
-            textvariable=self.current_stage_var,
-            style="UiO.TLabel",
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            operator_meta,
-            textvariable=self.last_scan_time_var,
-            style="UiO.TLabel",
-            anchor="w",
-        ).grid(row=0, column=1, sticky="w", padx=(12, 0))
-        operator_mode_meta = ttk.Frame(self.operator_card, style="UiC.TFrame")
-        operator_mode_meta.pack(fill="x", pady=(8, 0))
-        operator_mode_meta.columnconfigure(0, weight=1)
-        operator_mode_meta.columnconfigure(1, weight=1)
-        ttk.Label(
-            operator_mode_meta,
-            textvariable=self.manual_override_var,
-            style="UiO.TLabel",
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            operator_mode_meta,
-            textvariable=self.connection_var,
-            style="UiO.TLabel",
-            anchor="w",
-        ).grid(row=0, column=1, sticky="w", padx=(12, 0))
+
+        operation_context_card = ttk.Labelframe(
+            live_grid,
+            text="Контекст операции",
+            padding=8,
+            style="UiD.TLabelframe",
+        )
+        operation_context_card.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        for column in (1, 3):
+            operation_context_card.columnconfigure(column, weight=1)
+        self._build_preflight_value(
+            operation_context_card, 0, 0, "Этап", self.current_stage_var, min_wrap=150
+        )
+        self._build_preflight_value(
+            operation_context_card, 0, 2, "Последний scan", self.last_scan_time_var, min_wrap=150
+        )
+        self._build_preflight_value(
+            operation_context_card, 1, 0, "Выбор цели", self.manual_override_var, min_wrap=150
+        )
+        self._build_preflight_value(
+            operation_context_card, 1, 2, "Соединение", self.connection_var, min_wrap=150
+        )
+        self._build_preflight_value(
+            operation_context_card, 2, 0, "Prompt", self.prompt_var, min_wrap=150
+        )
+        self._build_preflight_value(
+            operation_context_card, 2, 2, "USB", self.usb_var, min_wrap=150
+        )
 
         status_side_card = ttk.Labelframe(
             live_grid,
@@ -978,7 +973,7 @@ class CiscoAutoFlashDesktop:
             padding=8,
             style="UiD.TLabelframe",
         )
-        status_side_card.grid(row=0, column=1, sticky="nsew")
+        status_side_card.grid(row=1, column=1, sticky="nsew")
         status_side_card.columnconfigure(0, weight=1)
         ttk.Label(
             status_side_card,
@@ -1021,39 +1016,41 @@ class CiscoAutoFlashDesktop:
         ttk.Label(progress_facts, text="IOS", style="UiAB.TLabel").grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Label(progress_facts, text="Flash", style="UiAB.TLabel").grid(
+        ttk.Label(progress_facts, text="Модель", style="UiAB.TLabel").grid(
             row=0, column=1, sticky="w", padx=(12, 0)
         )
         ttk.Label(progress_facts, textvariable=self.current_fw_var, style="UiAC.TLabel").grid(
             row=1, column=0, sticky="w"
         )
-        ttk.Label(progress_facts, textvariable=self.flash_var, style="UiAC.TLabel").grid(
+        ttk.Label(progress_facts, textvariable=self.model_var, style="UiAC.TLabel").grid(
             row=1, column=1, sticky="w", padx=(12, 0)
         )
-        ttk.Label(progress_facts, text="Uptime", style="UiAB.TLabel").grid(
+        ttk.Label(progress_facts, text="Flash", style="UiAB.TLabel").grid(
             row=2, column=0, sticky="w", pady=(8, 0)
         )
-        ttk.Label(progress_facts, text="USB", style="UiAB.TLabel").grid(
+        ttk.Label(progress_facts, text="Uptime", style="UiAB.TLabel").grid(
             row=2, column=1, sticky="w", padx=(12, 0), pady=(8, 0)
         )
-        ttk.Label(progress_facts, textvariable=self.uptime_var, style="UiAC.TLabel").grid(
+        ttk.Label(progress_facts, textvariable=self.flash_var, style="UiAC.TLabel").grid(
             row=3, column=0, sticky="w"
         )
-        ttk.Label(progress_facts, textvariable=self.usb_var, style="UiAC.TLabel").grid(
+        ttk.Label(progress_facts, textvariable=self.uptime_var, style="UiAC.TLabel").grid(
             row=3, column=1, sticky="w", padx=(12, 0)
         )
-        ttk.Label(progress_facts, text="Prompt", style="UiAB.TLabel").grid(
+        ttk.Label(progress_facts, text="USB", style="UiAB.TLabel").grid(
             row=4, column=0, sticky="w", pady=(8, 0)
         )
         ttk.Label(progress_facts, text="Статус", style="UiAB.TLabel").grid(
             row=4, column=1, sticky="w", padx=(12, 0), pady=(8, 0)
         )
-        ttk.Label(progress_facts, textvariable=self.prompt_var, style="UiAC.TLabel").grid(
+        ttk.Label(progress_facts, textvariable=self.usb_var, style="UiAC.TLabel").grid(
             row=5, column=0, sticky="w"
         )
-        ttk.Label(progress_facts, textvariable=self.device_status_var, style="UiAC.TLabel").grid(
-            row=5, column=1, sticky="w", padx=(12, 0)
-        )
+        ttk.Label(
+            progress_facts,
+            textvariable=self.device_status_summary_var,
+            style="UiAC.TLabel",
+        ).grid(row=5, column=1, sticky="w", padx=(12, 0))
 
         if self.demo_mode:
             demo_card = ttk.Labelframe(
@@ -2215,6 +2212,19 @@ class CiscoAutoFlashDesktop:
                 handle = None
         setattr(self, attr_name, None)
 
+    def _schedule_ui_smoke_close(self) -> None:
+        if not self.ui_smoke_mode:
+            return
+        self._cancel_window_after("_ui_smoke_after_id")
+        self._ui_smoke_after_id = self.window.after(
+            self.ui_smoke_close_ms,
+            self._on_ui_smoke_timeout,
+        )
+
+    def _on_ui_smoke_timeout(self) -> None:
+        self._ui_smoke_after_id = None
+        self._on_close()
+
     def _schedule_hardware_day_periodic_refresh(self) -> None:
         if self._hardware_day_refresh_closed:
             return
@@ -2607,6 +2617,7 @@ class CiscoAutoFlashDesktop:
 
     def _on_close(self) -> None:
         self._hardware_day_refresh_closed = True
+        self._cancel_window_after("_ui_smoke_after_id")
         self._cancel_window_after("_hardware_day_refresh_after_id")
         self._cancel_window_after("_hardware_day_periodic_after_id")
         self._persist_settings()

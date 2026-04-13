@@ -29,6 +29,12 @@
 ## Knowledge lint
 - [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]] — как проверять wiki на stale refs, дубликаты и сироты
 
+## Tooling
+- `python C:\PROJECT\scripts\run_project_bootstrap.py` — единый bootstrap truth-gate
+- `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM` — структурный lint vault
+- `python C:\PROJECT\scripts\run_session_close.py` — close-readiness и mirror-gap analysis
+- `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500` — быстрый smoke для demo UI
+
 ## Working Folders
 - [[inbox/README|inbox]] — входящие материалы
 - [[raw/README|raw]] — сырые источники

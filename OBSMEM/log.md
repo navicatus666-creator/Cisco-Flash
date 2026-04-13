@@ -22,3 +22,9 @@
 - Добавлены `related`-связи и `Read next` секции для основных project/concept/analysis/source pages.
 - Появились canonical hub pages для `Knowledge System Model` и `CiscoAutoFlash Current State`.
 - Добавлен `Memory Lint Checklist` как отдельная точка входа для проверки связности vault.
+
+## [2026-04-12] ops | Helper commands and lint discipline
+- Добавлены developer helper-команды для repo bootstrap, OBSMEM lint, session close и UI smoke.
+- `OBSMEM` страницы mirrors и `Memory_Lint_Checklist` доведены до единого `related` / `Read next` формата.
+- Устранён дублирующий canonical topic между concept и decision-страницами `Knowledge System Model`.
+- Vault и repo docs теперь описывают helpers как operational layer поверх repo-first workflow.

@@ -98,6 +98,13 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Durable implementation truth still goes into repo docs/code/tests first; mirror only the stable synthesis into `C:\PROJECT\OBSMEM\`, and update its `index.md` and `log.md` when that wiki gains meaningful new pages
 - Promotion rule: if knowledge changes project behavior, architecture contracts, test expectations, operator workflow, or implementation decisions, it must be written back into repo files; `OBSMEM` may keep the long-form reasoning, but it must not be the only place where implementation-relevant truth exists
 - Session close protocol: before ending a substantial session, update repo truth first when needed, then mirror durable synthesis into `C:\PROJECT\OBSMEM\`, then save a concise continuity checkpoint to `EchoVault`; do not leave the latest project truth only in `vector-memory`
+- Infrastructure helpers now exist for this workflow:
+  - `python C:\PROJECT\scripts\run_project_bootstrap.py`
+  - `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
+  - `python C:\PROJECT\scripts\run_session_close.py`
+  - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
+- Helper artifacts must stay under `build/devtools/`; they are developer reports, not operator runtime data
+- `run_session_close.py` is read-only by default; `--write-obsmem-draft` and `--save-echovault` are explicit opt-in paths
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow
 - Primary first-switch runbook: `docs/pre_hardware/first_hardware_run.md`
 - Additional Cisco families are still planned later; do not assume they already exist in code unless verified

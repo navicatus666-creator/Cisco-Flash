@@ -38,6 +38,14 @@ last_verified: 2026-04-12
 - [[Knowledge_System_Model]]
 - [[CiscoAutoFlash_Current_State]]
 
+## Operational helpers
+- Repo bootstrap: `python C:\PROJECT\scripts\run_project_bootstrap.py`
+- OBSMEM lint: `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
+- Session close analysis: `python C:\PROJECT\scripts\run_session_close.py`
+- UI smoke: `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
+
+These commands write reports into `C:\PROJECT\build\devtools\...`. They do not replace repo truth; they enforce the existing repo-first and promotion rules.
+
 ## Read next
 - [[index]]
 - [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]]

@@ -1,6 +1,8 @@
 ---
 type: decision
 status: active
+aliases:
+  - Knowledge System Model Decision
 source_of_truth: repo
 repo_refs:
   - C:\PROJECT\AGENTS.md
@@ -14,7 +16,7 @@ related:
 last_verified: 2026-04-12
 ---
 
-# Knowledge System Model
+# Knowledge System Model Decision
 
 ## Context
 `CiscoAutoFlash` now has several overlapping knowledge and memory layers:
@@ -72,5 +74,5 @@ Use for:
 - Pattern source: [[LLM_Wiki_Pattern]]
 
 ## Read next
-- [Concept hub](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
-- [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
+- [[Knowledge_System_Model]]
+- [[CiscoAutoFlash]]
