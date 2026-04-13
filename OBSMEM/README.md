@@ -9,7 +9,7 @@ related:
   - "[[CiscoAutoFlash]]"
   - "[[Knowledge_System_Model]]"
   - "[[CiscoAutoFlash_Current_State]]"
-last_verified: 2026-04-12
+last_verified: 2026-04-13
 ---
 
 # OBSMEM
@@ -37,6 +37,8 @@ last_verified: 2026-04-12
 - [[CiscoAutoFlash]]
 - [[Knowledge_System_Model]]
 - [[CiscoAutoFlash_Current_State]]
+- [[Current_Work]]
+- [[Project_Chronicler_Workflow]]
 
 ## Operational helpers
 - Repo bootstrap: `python C:\PROJECT\scripts\run_project_bootstrap.py`
@@ -44,8 +46,15 @@ last_verified: 2026-04-12
 - Session close analysis: `python C:\PROJECT\scripts\run_session_close.py`
 - UI smoke: `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 
+## Chronicler workflow
+- `Current_Work` is the living session snapshot that the chronicler keeps up to date.
+- `daily/` notes capture dated narrative from the same durable session summary.
+- `log.md` stays the chronological backbone for important milestones and durable events.
+- Use the chronicler concept page for the exact writeback contract: [[Project_Chronicler_Workflow]].
+
 These commands write reports into `C:\PROJECT\build\devtools\...`. They do not replace repo truth; they enforce the existing repo-first and promotion rules.
 
 ## Read next
 - [[index]]
 - [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]]
+- [[Current_Work]]

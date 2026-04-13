@@ -93,6 +93,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Each runtime session now has a dedicated folder under `%LOCALAPPDATA%\CiscoAutoFlash\sessions\<session_id>\` with `session_manifest_*.json` and on-demand `session_bundle_*.zip`
 - The dashboard exposes `Open session folder` and `Export session bundle`; use the bundle as the primary diagnostic package after failures instead of hand-collecting files
 - Active Codex/MCP state currently lives in user-home paths under `C:\Users\MySQL\.codex\` and `C:\Users\MySQL\.memory\`; keep MCP caches and indexes out of `C:\PROJECT\` so repo scans stay clean
+- Canonical MCP upstream map and current pins: `docs/mcp_stack.md`
 - Operator/runtime artifacts must still stay under `%LOCALAPPDATA%\CiscoAutoFlash\`; do not redirect desktop-app session data into Codex or MCP storage paths
 - Supplemental Obsidian knowledge vault lives in `C:\PROJECT\OBSMEM\`; use it for long-form research, syntheses, and human-readable knowledge pages, but do not treat it as the source of truth over repo code/docs/tests
 - Durable implementation truth still goes into repo docs/code/tests first; mirror only the stable synthesis into `C:\PROJECT\OBSMEM\`, and update its `index.md` and `log.md` when that wiki gains meaningful new pages
@@ -101,8 +102,26 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
 - Infrastructure helpers now exist for this workflow:
   - `python C:\PROJECT\scripts\run_project_bootstrap.py`
   - `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
+  - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --once`
+  - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --watch --interval 120 --session-label "<focus>"`
+  - `python C:\PROJECT\scripts\run_obsmem_chronicler.py --event-type win|issue|discovery|decision|next-step --message "<note>"`
   - `python C:\PROJECT\scripts\run_session_close.py`
   - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
+- Treat `run_obsmem_chronicler.py --watch` as the preferred background OBSMEM companion during substantial sessions. It may update `Current_Work`, the active daily note, and its runtime event stream, but it does not replace repo-first writeback.
+- Use manual chronicler events to capture wins, failures, discoveries, decisions, and next steps worth remembering. If any of those events changes implementation behavior or workflow truth, promote that change back into repo docs/code/tests before treating the chronicler output as complete.
+- Current MCP upstream mapping on this machine:
+  - `context-mode` -> `mksglu/context-mode@1.0.75`
+  - `echovault` -> `mraza007/echovault@0.4.0`
+  - `repo-map` -> `pdavis68/RepoMapper`
+  - `tree-sitter` -> `jgravelle/jcodemunch-mcp@1.41.0`
+  - `code-graph` -> `entrepeneur4lyf/code-graph-mcp@1.2.4`
+  - `vector-memory` -> `xsaven/vector-memory-mcp@1.10.0`
+- Additional optional MCPs on this machine:
+  - `fetch` -> `mcp-server-fetch@2025.4.7`
+  - `context7` -> hosted `mcp.context7.com`
+  - `exa` -> hosted `mcp.exa.ai`
+  - `sequential-thinking` -> `@modelcontextprotocol/server-sequential-thinking@2025.12.18`
+- Upstream freshness note: `jcodemunch-mcp` upstream may move faster than `uvx` resolution on this machine; keep it on the latest version that is verified to resolve through `uvx`, and treat bumps as controlled upgrades that require a Codex restart and full MCP re-check
 - Helper artifacts must stay under `build/devtools/`; they are developer reports, not operator runtime data
 - `run_session_close.py` is read-only by default; `--write-obsmem-draft` and `--save-echovault` are explicit opt-in paths
 - Pre-hardware validation artifacts live in `docs/pre_hardware/` and should be kept in sync with the refactored workflow

@@ -10,7 +10,7 @@ related:
   - "[[Active_Risks]]"
   - "[[Hardware_Smoke_Gate]]"
   - "[[Open_Architecture_Questions]]"
-last_verified: 2026-04-12
+last_verified: 2026-04-13
 ---
 
 # Mirrors
@@ -29,7 +29,9 @@ Do not duplicate full docs here. Keep pages compact and point back to repo files
 - [[Active_Risks]]
 - [[Open_Architecture_Questions]]
 - [[Hardware_Smoke_Gate]]
+- [[Current_Work]]
 
 ## Read next
 - [[CiscoAutoFlash]]
 - [[CiscoAutoFlash_Current_State]]
+- [[Project_Chronicler_Workflow]]

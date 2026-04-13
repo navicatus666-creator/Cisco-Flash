@@ -15,6 +15,7 @@
 
 ## Mirrors
 - [[mirrors/CiscoAutoFlash_Current_State|CiscoAutoFlash_Current_State mirror]] — короткая карта текущего repo-state
+- [[Current_Work]] — living short-form snapshot for the active session
 - [[Active_Risks]] — активные риски и ограничения
 - [[Open_Architecture_Questions]] — открытые архитектурные вопросы
 - [[Hardware_Smoke_Gate]] — краткий статус готовности к реальному железу
@@ -22,6 +23,7 @@
 ## Concepts
 - [[Operator_Console_UI]] — принципы UI/UX для плотной desktop-консоли
 - [[Session_Artifacts_Flow]] — как session folder, manifest и bundle используются в процессе
+- [[Project_Chronicler_Workflow]] — background OBSMEM chronicler workflow and writeback contract
 
 ## Sources
 - [[LLM_Wiki_Pattern]] — как использовать persistent wiki-layer без подмены source of truth репозитория
@@ -49,3 +51,4 @@
 - [[CiscoAutoFlash]]
 - [[Knowledge_System_Model]]
 - [[CiscoAutoFlash_Current_State]]
+- [[Current_Work]]

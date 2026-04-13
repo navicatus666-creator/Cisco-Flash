@@ -326,6 +326,26 @@ def _probe_code_graph(server_cfg: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _probe_repo_map(server_cfg: dict[str, Any]) -> dict[str, Any]:
+    command = Path(server_cfg["command"])
+    args = server_cfg.get("args", [])
+    script = args[0] if args else ""
+    help_result = _run_command(
+        [str(command), script, "--help"],
+        cwd=Path(server_cfg.get("cwd", PROJECT_ROOT)),
+        timeout=30,
+    )
+    ok = command.exists() and help_result["ok"]
+    return _status(
+        ok,
+        "repo-map probe succeeded" if ok else "repo-map probe failed",
+        command_exists=command.exists(),
+        script=script,
+        help_returncode=help_result["returncode"],
+        help_stderr=help_result["stderr"][:500],
+    )
+
+
 def _probe_github_mcp(server_cfg: dict[str, Any]) -> dict[str, Any]:
     token_env = server_cfg.get("bearer_token_env_var")
     token = os.environ.get(token_env, "") if token_env else ""
@@ -385,6 +405,7 @@ def _build_report() -> dict[str, Any]:
     servers = config.get("mcp_servers", {})
     echovault_cfg = servers["echovault"]
     vector_cfg = servers["vector-memory"]
+    repo_map_cfg = servers["repo-map"]
     tree_cfg = servers["tree-sitter"]
     code_graph_cfg = servers["code-graph"]
     github_cfg = servers["github-mcp"]
@@ -392,6 +413,7 @@ def _build_report() -> dict[str, Any]:
     binary_checks = {
         "echovault": _probe_executable(echovault_cfg.get("command")),
         "vector-memory": _probe_executable(vector_cfg.get("command")),
+        "repo-map": _probe_executable(repo_map_cfg.get("command")),
         "tree-sitter": _probe_executable(tree_cfg.get("command")),
         "code-graph": _probe_executable(code_graph_cfg.get("command")),
         "gh": _probe_executable(r"C:\Program Files\GitHub CLI\gh.exe"),
@@ -404,6 +426,7 @@ def _build_report() -> dict[str, Any]:
         "echovault_save_healthy": _probe_echovault_save(memory_exe, degraded=False),
         "echovault_save_degraded": _probe_echovault_save(memory_exe, degraded=True),
         "vector_memory": _probe_vector_memory(vector_cfg),
+        "repo_map": _probe_repo_map(repo_map_cfg),
         "tree_sitter": _probe_tree_sitter(tree_cfg),
         "code_graph": _probe_code_graph(code_graph_cfg),
         "github_mcp": _probe_github_mcp(github_cfg),
@@ -424,6 +447,7 @@ def _build_report() -> dict[str, Any]:
         "echovault_read",
         "echovault_save_healthy",
         "vector_memory",
+        "repo_map",
         "tree_sitter",
         "code_graph",
         "github_mcp",

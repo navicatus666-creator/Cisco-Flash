@@ -15,7 +15,7 @@ related:
   - "[[CiscoAutoFlash_Current_State]]"
   - "[[Hardware_Workflow]]"
   - "[[Operator_Console_UI]]"
-last_verified: 2026-04-12
+last_verified: 2026-04-13
 ---
 
 # CiscoAutoFlash
@@ -33,6 +33,7 @@ Desktop utility for Cisco 2960-X flashing over Serial/USB with a Russian-first o
 - UI/UX polishing for a one-screen operator console
 - table-first flashing workspace
 - metrics/artifacts workspace kept separate from live execution
+- OBSMEM chronicler workflow for current work, daily notes, and durable milestone capture
 
 ## Current Product Shape
 - Supported now:
@@ -52,6 +53,8 @@ Desktop utility for Cisco 2960-X flashing over Serial/USB with a Russian-first o
 - EchoVault = continuity between sessions
 - vector-memory = supplemental semantic recall
 - OBSMEM = long-form research and synthesis
+- Current_Work = living short-form session snapshot
+- Chronicler workflow = the OBSMEM process that keeps Current_Work and daily notes aligned
 
 ## Current Knowledge Model
 - Repo = truth
@@ -71,6 +74,7 @@ See also:
 ## Open Threads
 - Final polish of spacing/padding in the flash tab
 - Future hidden SSH/SCP exposure only after serial-first phase is stable
+- Chronicler writeback discipline: keep durable outcomes mirrored into the wiki without duplicating repo truth
 
 ## Related
 - Model: [[Knowledge System Model]]
@@ -81,3 +85,5 @@ See also:
 ## Read next
 - [CiscoAutoFlash Current State hub](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
 - [Knowledge System Model hub](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
+- [Current Work mirror](C:\PROJECT\OBSMEM\mirrors\Current_Work.md)
+- [Project Chronicler Workflow concept](C:\PROJECT\OBSMEM\concepts\Project_Chronicler_Workflow.md)

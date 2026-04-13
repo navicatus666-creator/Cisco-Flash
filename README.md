@@ -113,6 +113,9 @@ Fast operational helpers now live under `ciscoautoflash.devtools` with thin wrap
 ```powershell
 python C:\PROJECT\scripts\run_project_bootstrap.py
 python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM
+python C:\PROJECT\scripts\run_obsmem_chronicler.py --once
+python C:\PROJECT\scripts\run_obsmem_chronicler.py --watch --interval 120 --session-label "UI work"
+python C:\PROJECT\scripts\run_obsmem_chronicler.py --event-type win --message "Fixed layout collision"
 python C:\PROJECT\scripts\run_session_close.py
 python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500
 ```
@@ -120,11 +123,14 @@ python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500
 Artifacts are written under `build\devtools\...`:
 - `bootstrap\...` — repo/runtime truth-gate snapshot
 - `memory_lint\...` — OBSMEM structure and drift report
+- `obsmem_chronicler\...` — Current Work, daily-note, and event-stream sync reports
 - `session_close\...` — close-readiness report and optional draft path
 - `ui_smoke\...` — demo-mode auto-close smoke run
 
 Notes:
 - `run_obsmem_lint.py --strict` fails on `error` findings.
+- `run_obsmem_chronicler.py --watch` is the intended background session companion. It keeps `OBSMEM\mirrors\Current_Work.md`, the current daily note, and runtime events aligned while you work.
+- Use manual chronicler events for durable wins, failures, discoveries, decisions, and next steps; implementation-relevant truth still has to go into repo files first.
 - `run_session_close.py` is analysis-only by default; use `--write-obsmem-draft` or `--save-echovault` explicitly.
 - `run_ui_smoke.py` uses demo mode plus the app-level smoke env hooks and should be the default fast gate after UI edits.
 
@@ -213,6 +219,10 @@ C:\Users\MySQL\.memory\
 ```
 
 Keep MCP caches, indexes, and logs out of `C:\PROJECT\` so repository scans stay clean. This state is separate from operator runtime data in `%LOCALAPPDATA%\CiscoAutoFlash\`.
+
+Canonical MCP upstream map and pin status:
+- [`C:\PROJECT\docs\mcp_stack.md`](C:\PROJECT\docs\mcp_stack.md)
+- Hosted MCPs `context7`, `exa`, and `fetch` are optional on this machine. Enable them only for sessions that actually need external docs or web discovery.
 
 ## Pre-Hardware Docs
 

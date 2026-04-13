@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import subprocess  # nosec B404 - local orchestration helper for developer bootstrap
 import sys
@@ -13,6 +14,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_ROOT = PROJECT_ROOT / "build" / "devtools" / "bootstrap"
+DEFAULT_PROJECT_PYTHON = Path(r"C:\Python314\python.exe")
 
 
 @dataclass(slots=True)
@@ -96,13 +98,29 @@ def default_steps(python_exe: str) -> list[StepSpec]:
     ]
 
 
-def collect_runtime_info() -> dict[str, Any]:
+def resolve_python_executable(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    env_override = os.environ.get("CISCOAUTOFLASH_BOOTSTRAP_PYTHON", "").strip()
+    if env_override:
+        return env_override
+    if DEFAULT_PROJECT_PYTHON.exists():
+        return str(DEFAULT_PROJECT_PYTHON)
+    return sys.executable
+
+
+def collect_runtime_info(python_exe: str) -> dict[str, Any]:
     git_status = run_command(["git", "status", "--short"], cwd=PROJECT_ROOT, timeout=30)
     uv_version = run_command(["uv", "--version"], cwd=PROJECT_ROOT, timeout=30)
+    python_version = run_command([python_exe, "--version"], cwd=PROJECT_ROOT, timeout=30)
     return {
         "project_root": str(PROJECT_ROOT),
-        "python_executable": sys.executable,
-        "python_version": sys.version.splitlines()[0],
+        "python_executable": python_exe,
+        "python_version": (
+            python_version.stdout
+            or python_version.stderr
+            or sys.version.splitlines()[0]
+        ),
         "platform": platform.platform(),
         "started_at": _iso_now(),
         "git_dirty": bool(git_status.stdout.strip()),
@@ -134,8 +152,9 @@ def _write_step_log(output_dir: Path, spec: StepSpec, result: CommandResult) -> 
 
 def run_bootstrap(output_dir: Path, *, python_exe: str | None = None) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    steps = default_steps(python_exe or sys.executable)
-    runtime = collect_runtime_info()
+    resolved_python = resolve_python_executable(python_exe)
+    steps = default_steps(resolved_python)
+    runtime = collect_runtime_info(resolved_python)
     results: list[StepResult] = []
     failing_step = ""
     for spec in steps:
