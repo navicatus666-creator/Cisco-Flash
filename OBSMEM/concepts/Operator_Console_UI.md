@@ -46,5 +46,5 @@ Dense desktop console for operational work, not a marketing dashboard.
 - Decision context: [[Knowledge_System_Model]]
 
 ## Read next
-- [`C:\PROJECT\docs\ui\operator_dashboard_references.md`](C:\PROJECT\docs\ui\operator_dashboard_references.md)
-- [CiscoAutoFlash Current State](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
+- [[CiscoAutoFlash_Current_State|CiscoAutoFlash Current State]]
+- [[CiscoAutoFlash|CiscoAutoFlash]]

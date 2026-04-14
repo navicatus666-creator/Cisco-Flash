@@ -83,7 +83,7 @@ See also:
 - UI concept: [[Operator Console UI]]
 
 ## Read next
-- [CiscoAutoFlash Current State hub](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
-- [Knowledge System Model hub](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
-- [Current Work mirror](C:\PROJECT\OBSMEM\mirrors\Current_Work.md)
-- [Project Chronicler Workflow concept](C:\PROJECT\OBSMEM\concepts\Project_Chronicler_Workflow.md)
+- [[CiscoAutoFlash_Current_State|CiscoAutoFlash Current State]]
+- [[Knowledge_System_Model|Knowledge System Model]]
+- [[Current_Work|Current Work]]
+- [[Project_Chronicler_Workflow|Project Chronicler Workflow]]

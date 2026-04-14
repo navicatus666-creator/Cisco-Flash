@@ -110,6 +110,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
   - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 - Treat `run_obsmem_chronicler.py --watch` as the preferred background OBSMEM companion during substantial sessions. It may update `Current_Work`, the active daily note, and its runtime event stream, but it does not replace repo-first writeback.
 - Use manual chronicler events to capture wins, failures, discoveries, decisions, and next steps worth remembering. If any of those events changes implementation behavior or workflow truth, promote that change back into repo docs/code/tests before treating the chronicler output as complete.
+- Before trusting or closing on `Current_Work`, verify that it matches the live git branch, HEAD, commit subject, and dirty-file count; `run_session_close.py` now enforces that freshness check explicitly.
 - Useful ideas from external Obsidian MCP tools may be assimilated into repo helpers and OBSMEM policy, but any write-capable Obsidian MCP plugin/server must be evaluated in a separate test vault before it is allowed to touch the main `C:\PROJECT\OBSMEM` vault.
 - Current MCP upstream mapping on this machine:
   - `context-mode` -> `mksglu/context-mode@1.0.75`

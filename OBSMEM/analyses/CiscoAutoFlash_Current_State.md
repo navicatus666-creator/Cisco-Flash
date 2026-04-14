@@ -30,5 +30,5 @@ Canonical entrypoint for current project state snapshots.
 - Risks: [Active Risks](C:\PROJECT\OBSMEM\mirrors\Active_Risks.md)
 
 ## Read next
-- [CiscoAutoFlash Current State — 2026-04-12](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State_2026-04-12.md)
-- [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
+- [[CiscoAutoFlash_Current_State_2026-04-12|CiscoAutoFlash Current State — 2026-04-12]]
+- [[CiscoAutoFlash|CiscoAutoFlash]]

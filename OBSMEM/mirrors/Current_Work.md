@@ -19,27 +19,27 @@ last_verified: 2026-04-14
 # Current Work
 
 ## Session now
-- Label: Obsidian MCP assimilation
+- Label: Session protocol hardening
 - Branch: `main`
-- HEAD: `4ba028f08e24`
-- Commit: Add OBSMEM chronicler workflow and align MCP docs
-- Dirty files: 16
-- Focus areas: Devtools, Docs, OBSMEM, Project, Tests
+- HEAD: `f4afc5d55a04`
+- Commit: Assimilate Obsidian MCP ideas into OBSMEM workflow
+- Dirty files: 17
+- Focus areas: Devtools, OBSMEM, Project, Tests
 
 ## Dirty paths
 - `GENTS.md`
-- `OBSMEM/AGENTS.md`
-- `OBSMEM/README.md`
-- `OBSMEM/index.md`
-- `OBSMEM/log.md`
-- `OBSMEM/mirrors/Current_Work.md`
-- `OBSMEM/templates/README.md`
-- `README.md`
+- `OBSMEM/analyses/CiscoAutoFlash_Current_State.md`
+- `OBSMEM/analyses/CiscoAutoFlash_Current_State_2026-04-12.md`
+- `OBSMEM/concepts/Operator_Console_UI.md`
+- `OBSMEM/concepts/Project_Chronicler_Workflow.md`
+- `OBSMEM/concepts/Session_Artifacts_Flow.md`
+- `OBSMEM/daily/2026-04-14.md`
+- `OBSMEM/mirrors/Active_Risks.md`
 
 ## Helper health
 - `bootstrap`: `READY`
 - `memory_lint`: `PASS`
-- `session_close`: `CLEAN`
+- `session_close`: `ACTION_REQUIRED`
 - `ui_smoke`: `READY`
 
 ## Recent wins and findings

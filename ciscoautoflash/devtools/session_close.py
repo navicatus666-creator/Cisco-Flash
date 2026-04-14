@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import shutil
 import subprocess  # nosec B404 - local developer helper uses subprocess for truth gates
@@ -17,6 +18,12 @@ BUILD_ROOT = PROJECT_ROOT / "build" / "devtools" / "session_close"
 MIRROR_ROOT = OBSMEM_ROOT / "mirrors"
 INBOX_ROOT = OBSMEM_ROOT / "inbox"
 MEMORY_LINT_CHECKLIST = OBSMEM_ROOT / "analyses" / "Memory_Lint_Checklist.md"
+CURRENT_WORK_PATH = MIRROR_ROOT / "Current_Work.md"
+
+BRANCH_RE = re.compile(r"^- Branch: `([^`]+)`$", re.MULTILINE)
+HEAD_RE = re.compile(r"^- HEAD: `([^`]+)`$", re.MULTILINE)
+COMMIT_RE = re.compile(r"^- Commit: (.+)$", re.MULTILINE)
+DIRTY_COUNT_RE = re.compile(r"^- Dirty files: (\d+)$", re.MULTILINE)
 
 
 @dataclass(slots=True)
@@ -140,6 +147,111 @@ def _memory_lint_presence(obsmem_root: Path) -> dict[str, Any]:
             if present
             else "Memory_Lint_Checklist missing"
         ),
+    }
+
+
+def _collect_current_work_freshness(
+    project_root: Path,
+    obsmem_root: Path,
+    dirty_items: list[dict[str, str]],
+) -> dict[str, Any]:
+    current_work = obsmem_root / "mirrors" / "Current_Work.md"
+    repo_branch = _run_command(
+        ["git", "branch", "--show-current"],
+        cwd=project_root,
+        timeout=15,
+    )
+    repo_head = _run_command(
+        ["git", "rev-parse", "HEAD"],
+        cwd=project_root,
+        timeout=15,
+    )
+    repo_subject = _run_command(
+        ["git", "log", "-1", "--pretty=%s"],
+        cwd=project_root,
+        timeout=15,
+    )
+    repo_branch_name = repo_branch.stdout.strip()
+    repo_head_sha = repo_head.stdout.strip()
+    repo_subject_line = repo_subject.stdout.strip()
+    repo_dirty_count = len(dirty_items)
+
+    if (
+        repo_branch.returncode != 0
+        or repo_head.returncode != 0
+        or repo_subject.returncode != 0
+    ):
+        return {
+            "ok": False,
+            "summary": "git state probe failed for Current_Work freshness",
+            "path": str(current_work),
+            "present": current_work.exists(),
+            "branch": "",
+            "head": "",
+            "commit": "",
+            "dirty_count": None,
+            "expected_branch": repo_branch_name,
+            "expected_head": repo_head_sha,
+            "expected_commit": repo_subject_line,
+            "expected_dirty_count": repo_dirty_count,
+            "mismatches": ["git_probe_failed"],
+        }
+
+    if not current_work.exists():
+        return {
+            "ok": False,
+            "summary": "Current_Work mirror is missing",
+            "path": str(current_work),
+            "present": False,
+            "branch": "",
+            "head": "",
+            "commit": "",
+            "dirty_count": None,
+            "expected_branch": repo_branch_name,
+            "expected_head": repo_head_sha,
+            "expected_commit": repo_subject_line,
+            "expected_dirty_count": repo_dirty_count,
+            "mismatches": ["missing_file"],
+        }
+
+    text = current_work.read_text(encoding="utf-8", errors="replace")
+    branch_match = BRANCH_RE.search(text)
+    head_match = HEAD_RE.search(text)
+    commit_match = COMMIT_RE.search(text)
+    current_branch = branch_match.group(1).strip() if branch_match else ""
+    current_head = head_match.group(1).strip() if head_match else ""
+    current_commit = commit_match.group(1).strip() if commit_match else ""
+    dirty_match = DIRTY_COUNT_RE.search(text)
+    current_dirty_count = int(dirty_match.group(1)) if dirty_match else None
+
+    mismatches: list[str] = []
+    if current_branch != repo_branch_name:
+        mismatches.append("branch")
+    if not repo_head_sha.startswith(current_head):
+        mismatches.append("head")
+    if current_commit != repo_subject_line:
+        mismatches.append("commit")
+    if current_dirty_count != repo_dirty_count:
+        mismatches.append("dirty_count")
+
+    return {
+        "ok": not mismatches,
+        "summary": (
+            "Current_Work matches the live git state"
+            if not mismatches
+            else "Current_Work is stale against live git state"
+        ),
+        "path": str(current_work),
+        "present": True,
+        "branch": current_branch,
+        "head": current_head,
+        "commit": current_commit,
+        "dirty_count": current_dirty_count,
+        "expected_branch": repo_branch_name,
+        "expected_head": repo_head_sha,
+        "expected_commit": repo_subject_line,
+        "expected_dirty_count": repo_dirty_count,
+        "mismatches": mismatches,
     }
 
 
@@ -281,6 +393,10 @@ def _build_recommendations(summary: dict[str, Any]) -> list[str]:
         recommendations.append(
             "Run the local memory CLI health path and resolve continuity issues."
         )
+    if not summary["current_work_freshness"]["ok"]:
+        recommendations.append(
+            "Refresh OBSMEM/mirrors/Current_Work.md with the chronicler before closing."
+        )
     if not recommendations:
         recommendations.append("Session is clean enough to close.")
     return recommendations
@@ -299,12 +415,18 @@ def analyze_session_close(
     )
     memory_lint_checklist = _memory_lint_presence(obsmem_root)
     continuity = _check_continuity_readiness(project_root)
+    current_work_freshness = _collect_current_work_freshness(
+        project_root,
+        obsmem_root,
+        dirty_files["items"],
+    )
     ready = (
         dirty_files["ok"]
         and not dirty_files["items"]
         and not mirror_checks["gaps"]
         and memory_lint_checklist["present"]
         and continuity["ok"]
+        and current_work_freshness["ok"]
     )
     checks = [
         CheckResult(
@@ -352,6 +474,35 @@ def analyze_session_close(
                 "returncode": continuity["returncode"],
             },
         ),
+        CheckResult(
+            name="current_work_freshness",
+            ok=current_work_freshness["ok"],
+            severity="error",
+            summary=current_work_freshness["summary"],
+            details=[
+                f"path={current_work_freshness['path']}",
+                f"mismatches={', '.join(current_work_freshness['mismatches']) or 'none'}",
+                (
+                    f"expected branch/head/dirty={current_work_freshness['expected_branch']}"
+                    f"/{current_work_freshness['expected_head'][:12]}"
+                    f"/{current_work_freshness['expected_dirty_count']}"
+                ),
+                (
+                    f"current branch/head/dirty={current_work_freshness['branch'] or '—'}"
+                    f"/{current_work_freshness['head'] or '—'}"
+                    "/"
+                    + (
+                        str(current_work_freshness["dirty_count"])
+                        if current_work_freshness["dirty_count"] is not None
+                        else "—"
+                    )
+                ),
+            ],
+            data={
+                "path": current_work_freshness["path"],
+                "mismatches": current_work_freshness["mismatches"],
+            },
+        ),
     ]
     summary: dict[str, Any] = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -363,6 +514,7 @@ def analyze_session_close(
         "mirror_gaps": mirror_checks["gaps"],
         "memory_lint_checklist": memory_lint_checklist,
         "continuity": continuity,
+        "current_work_freshness": current_work_freshness,
         "checks": [asdict(check) for check in checks],
     }
     summary["recommendations"] = _build_recommendations(summary)
@@ -389,6 +541,10 @@ def _render_markdown(summary: dict[str, Any]) -> str:
         (
             "- Continuity readiness: "
             f"{'ready' if summary['continuity']['ok'] else 'not ready'}"
+        ),
+        (
+            "- Current_Work freshness: "
+            f"{'fresh' if summary['current_work_freshness']['ok'] else 'stale'}"
         ),
         "",
         "## Checks",

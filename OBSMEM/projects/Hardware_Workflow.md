@@ -66,5 +66,5 @@ python C:\PROJECT\scripts\run_hidden_ssh_check.py --host <switch-ip> --username 
 - Gate: [[Hardware_Smoke_Gate]]
 
 ## Read next
-- [Hardware Smoke Gate](C:\PROJECT\OBSMEM\mirrors\Hardware_Smoke_Gate.md)
-- [Session Artifacts Flow](C:\PROJECT\OBSMEM\concepts\Session_Artifacts_Flow.md)
+- [[Hardware_Smoke_Gate|Hardware Smoke Gate]]
+- [[Session_Artifacts_Flow|Session Artifacts Flow]]

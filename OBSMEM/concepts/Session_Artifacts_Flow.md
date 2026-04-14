@@ -51,5 +51,5 @@ This keeps post-run debugging deterministic and avoids losing time in ad hoc art
 - Gate summary: [[Hardware_Smoke_Gate]]
 
 ## Read next
-- [Hardware Workflow](C:\PROJECT\OBSMEM\projects\Hardware_Workflow.md)
-- [Hardware Smoke Gate](C:\PROJECT\OBSMEM\mirrors\Hardware_Smoke_Gate.md)
+- [[Hardware_Workflow|Hardware Workflow]]
+- [[Hardware_Smoke_Gate|Hardware Smoke Gate]]

@@ -12,7 +12,7 @@ related:
   - "[[Knowledge_System_Model]]"
   - "[[CiscoAutoFlash]]"
   - "[[Active_Risks]]"
-last_verified: 2026-04-12
+last_verified: 2026-04-14
 ---
 
 # Open Architecture Questions
@@ -22,6 +22,7 @@ last_verified: 2026-04-12
 - What is the final operator-grade layout for the flash workspace after real-device testing?
 - Which future Cisco families should be added after 2960-X is stable?
 - Should bootstrap/session-close helper outputs stay local-only forever, or should part of them later feed CI/reporting summaries?
+- Should `run_project_bootstrap.py` stay quality/runtime-only, or eventually gain an opt-in OBSMEM strict-lint mode for knowledge-heavy sessions?
 
 ## Rule
 - Keep speculative reasoning here.

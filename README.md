@@ -135,6 +135,7 @@ Notes:
 - Use manual chronicler events for durable wins, failures, discoveries, decisions, and next steps; implementation-relevant truth still has to go into repo files first.
 - External Obsidian MCP plugins/servers should be trialed in a separate test vault before any direct write path is considered for the main `OBSMEM` vault.
 - `run_session_close.py` is analysis-only by default; use `--write-obsmem-draft` or `--save-echovault` explicitly.
+- `run_session_close.py` now hard-checks `OBSMEM\mirrors\Current_Work.md` against the live git branch, HEAD, commit subject, and dirty-file count. If `Current_Work` is stale, refresh it with the chronicler before treating the session as closable.
 - `run_ui_smoke.py` uses demo mode plus the app-level smoke env hooks and should be the default fast gate after UI edits.
 
 ## Dependency Workflow

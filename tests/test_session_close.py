@@ -114,6 +114,25 @@ class SessionCloseTests(unittest.TestCase):
                         "returncode": 0,
                     },
                 ),
+                patch.object(
+                    session_close,
+                    "_collect_current_work_freshness",
+                    return_value={
+                        "ok": True,
+                        "summary": "Current_Work matches the live git state",
+                        "path": str(root / "OBSMEM" / "mirrors" / "Current_Work.md"),
+                        "present": True,
+                        "branch": "main",
+                        "head": "abc123def456",
+                        "commit": "Some commit",
+                        "dirty_count": 0,
+                        "expected_branch": "main",
+                        "expected_head": "abc123def4567890",
+                        "expected_commit": "Some commit",
+                        "expected_dirty_count": 0,
+                        "mismatches": [],
+                    },
+                ),
             ):
                 exit_code = session_close.main([])
 
@@ -126,7 +145,7 @@ class SessionCloseTests(unittest.TestCase):
             self.assertTrue(summary_md.exists())
             summary = json.loads(summary_json.read_text(encoding="utf-8"))
             self.assertEqual("CLEAN", summary["status"])
-            self.assertEqual(4, len(summary["checks"]))
+            self.assertEqual(5, len(summary["checks"]))
             self.assertIn("Session Close", summary_md.read_text(encoding="utf-8"))
 
     def test_main_writes_obsmem_draft_and_calls_memory_save(self) -> None:
@@ -183,6 +202,25 @@ class SessionCloseTests(unittest.TestCase):
                         "stdout": "pointer",
                         "stderr": "",
                         "returncode": 0,
+                    },
+                ),
+                patch.object(
+                    session_close,
+                    "_collect_current_work_freshness",
+                    return_value={
+                        "ok": True,
+                        "summary": "Current_Work matches the live git state",
+                        "path": str(root / "OBSMEM" / "mirrors" / "Current_Work.md"),
+                        "present": True,
+                        "branch": "main",
+                        "head": "abc123def456",
+                        "commit": "Some commit",
+                        "dirty_count": 0,
+                        "expected_branch": "main",
+                        "expected_head": "abc123def4567890",
+                        "expected_commit": "Some commit",
+                        "expected_dirty_count": 0,
+                        "mismatches": [],
                     },
                 ),
                 patch.object(
@@ -286,6 +324,25 @@ class SessionCloseTests(unittest.TestCase):
                         "returncode": 127,
                     },
                 ),
+                patch.object(
+                    session_close,
+                    "_collect_current_work_freshness",
+                    return_value={
+                        "ok": False,
+                        "summary": "Current_Work is stale against live git state",
+                        "path": str(root / "OBSMEM" / "mirrors" / "Current_Work.md"),
+                        "present": True,
+                        "branch": "main",
+                        "head": "oldsha123456",
+                        "commit": "Old commit",
+                        "dirty_count": 0,
+                        "expected_branch": "main",
+                        "expected_head": "newsha1234567890",
+                        "expected_commit": "New commit",
+                        "expected_dirty_count": 1,
+                        "mismatches": ["head", "commit", "dirty_count"],
+                    },
+                ),
             ):
                 exit_code = session_close.main([])
 
@@ -296,6 +353,50 @@ class SessionCloseTests(unittest.TestCase):
             self.assertEqual("ACTION_REQUIRED", summary["status"])
             self.assertTrue(summary["mirror_gaps"])
             self.assertTrue(summary["recommendations"])
+            self.assertIn(
+                "Refresh OBSMEM/mirrors/Current_Work.md with the chronicler before closing.",
+                summary["recommendations"],
+            )
+
+    def test_collect_current_work_freshness_detects_stale_head(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _make_repo_layout(root)
+            current_work = root / "OBSMEM" / "mirrors" / "Current_Work.md"
+            current_work.write_text(
+                "\n".join(
+                    [
+                        "# Current Work",
+                        "",
+                        "## Session now",
+                        "- Label: Test",
+                        "- Branch: `main`",
+                        "- HEAD: `old123456789`",
+                        "- Commit: Old commit",
+                        "- Dirty files: 0",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            responses = iter(
+                [
+                    session_close.CommandResult(0, "main", ""),
+                    session_close.CommandResult(0, "new1234567890abcd", ""),
+                    session_close.CommandResult(0, "New commit", ""),
+                ]
+            )
+
+            def fake_run(args: list[str], *, cwd: Path | None = None, timeout: int = 30):
+                return next(responses)
+
+            with patch.object(session_close, "_run_command", side_effect=fake_run):
+                freshness = session_close._collect_current_work_freshness(root, root / "OBSMEM", [])
+
+            self.assertFalse(freshness["ok"])
+            self.assertIn("head", freshness["mismatches"])
+            self.assertIn("commit", freshness["mismatches"])
 
 
 if __name__ == "__main__":

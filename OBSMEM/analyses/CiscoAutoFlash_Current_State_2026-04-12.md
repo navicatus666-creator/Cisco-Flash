@@ -84,6 +84,6 @@ UI/UX still needs final polish in spacing, density, and visual hierarchy, but st
 - Model: [[Knowledge System Model]]
 
 ## Read next
-- [CiscoAutoFlash Current State hub](C:\PROJECT\OBSMEM\analyses\CiscoAutoFlash_Current_State.md)
-- [Hardware Workflow](C:\PROJECT\OBSMEM\projects\Hardware_Workflow.md)
-- [Active Risks](C:\PROJECT\OBSMEM\mirrors\Active_Risks.md)
+- [[CiscoAutoFlash_Current_State|CiscoAutoFlash Current State]]
+- [[Hardware_Workflow|Hardware Workflow]]
+- [[Active_Risks|Active Risks]]

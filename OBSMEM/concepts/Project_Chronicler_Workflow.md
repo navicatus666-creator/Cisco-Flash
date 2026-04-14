@@ -69,6 +69,7 @@ The chronicler is the OBSMEM maintenance workflow that keeps the wiki current wh
 - Keep daily notes aligned with the same session summary.
 - Append durable milestones to `log.md`.
 - Update `index.md` when a new durable page or hub is added.
+- Refresh `Current_Work` after meaningful git transitions; `run_session_close.py` treats stale branch/HEAD/commit/dirty-count data as a close blocker.
 
 ## Related
 - [[Current_Work]]

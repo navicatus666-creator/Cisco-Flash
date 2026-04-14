@@ -50,6 +50,6 @@ last_verified: 2026-04-12
 - Model: [[Knowledge_System_Model]]
 
 ## Read next
-- [CiscoAutoFlash project page](C:\PROJECT\OBSMEM\projects\CiscoAutoFlash.md)
-- [Knowledge System Model](C:\PROJECT\OBSMEM\concepts\Knowledge_System_Model.md)
-- [OBSMEM index](C:\PROJECT\OBSMEM\index.md)
+- [[CiscoAutoFlash|CiscoAutoFlash]]
+- [[Knowledge_System_Model|Knowledge System Model]]
+- [[index]]

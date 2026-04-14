@@ -12,7 +12,7 @@ related:
   - "[[CiscoAutoFlash]]"
   - "[[Knowledge_System_Model]]"
   - "[[CiscoAutoFlash_Current_State]]"
-last_verified: 2026-04-12
+last_verified: 2026-04-14
 ---
 
 # CiscoAutoFlash Current State Mirror
@@ -28,6 +28,8 @@ last_verified: 2026-04-12
 - Hidden SSH/SCP backend remains non-operator-facing.
 - Developer helper layer now includes bootstrap, OBSMEM lint, session close, and UI smoke commands under `scripts/`.
 - Repo-quality and helper validation are green after the infrastructure helper pass.
+- `session_close` now hard-checks `Current_Work` freshness against live git state.
+- OBSMEM navigation has been tightened around canonical wiki-links in major hub pages.
 
 ## Notes
 - Use this page as the short repo-state bridge.
