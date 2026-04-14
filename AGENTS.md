@@ -112,6 +112,7 @@ Search results can flood context. Use `mcp__context-mode__ctx_execute(language: 
   - `python C:\PROJECT\scripts\run_session_close.py`
   - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 - Treat `run_obsmem_chronicler.py --watch` as the preferred background OBSMEM companion during substantial sessions. It may update `Current_Work`, the active daily note, and its runtime event stream, but it does not replace repo-first writeback.
+- `Current_Work` is a local live OBSMEM mirror, not durable repo truth. Keep it fresh for navigation and session-close checks, but do not treat it as a tracked contract page.
 - Use manual chronicler events to capture wins, failures, discoveries, decisions, and next steps worth remembering. If any of those events changes implementation behavior or workflow truth, promote that change back into repo docs/code/tests before treating the chronicler output as complete.
 - For high-stakes decisions, use the Explorer -> Evidence Pack -> Blind Judge pattern instead of collapsing investigation and judgment into one opaque step. `run_evidence_pack.py` gathers structured facts; `run_blind_judge.py` reads only that pack and returns the verdict layer.
 - Format policy for that workflow: `JSON` stays canonical for tooling, Markdown stays human-readable, and `TOON` is only the prompt-facing compression format for homogeneous evidence arrays.

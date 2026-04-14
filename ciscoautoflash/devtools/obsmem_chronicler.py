@@ -563,6 +563,7 @@ def _write_outputs(
     snapshot: dict[str, Any],
     events: list[dict[str, Any]],
     session_label: str,
+    write_daily_note: bool = True,
 ) -> dict[str, str]:
     current_work = vault_root / "mirrors" / "Current_Work.md"
     note_date = _today_str()
@@ -571,16 +572,18 @@ def _write_outputs(
         current_work,
         _render_current_work(snapshot, events, session_label=session_label),
     )
-    daily_changed = _write_text_if_changed(
-        daily_note,
-        _render_daily_note(
-            note_date,
-            snapshot,
-            events,
-            existing_text=_read_text(daily_note),
-            session_label=session_label,
-        ),
-    )
+    daily_changed = False
+    if write_daily_note:
+        daily_changed = _write_text_if_changed(
+            daily_note,
+            _render_daily_note(
+                note_date,
+                snapshot,
+                events,
+                existing_text=_read_text(daily_note),
+                session_label=session_label,
+            ),
+        )
     return {
         "current_work": str(current_work),
         "daily_note": str(daily_note),
@@ -623,6 +626,7 @@ def run_snapshot(
         snapshot=snapshot,
         events=events,
         session_label=session_label or state.get("session_label", ""),
+        write_daily_note=False,
     )
     state.update(
         {

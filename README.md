@@ -136,6 +136,7 @@ Artifacts are written under `build\devtools\...`:
 Notes:
 - `run_obsmem_lint.py --strict` fails on `error` findings.
 - `run_obsmem_open.py` is the quick-open bridge into Obsidian for `Current_Work`, today's daily note, `log`, and `index`.
+- `Current_Work` is a local live mirror inside the vault, not durable repo truth. It is intentionally gitignored so post-commit refreshes do not dirty the repo by themselves.
 - `run_obsmem_chronicler.py --watch` is the intended background session companion. It keeps `OBSMEM\mirrors\Current_Work.md`, the current daily note, and runtime events aligned while you work.
 - Use manual chronicler events for durable wins, failures, discoveries, decisions, and next steps; implementation-relevant truth still has to go into repo files first.
 - External Obsidian MCP plugins/servers should be trialed in a separate test vault before any direct write path is considered for the main `OBSMEM` vault.

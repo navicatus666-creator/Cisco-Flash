@@ -39,7 +39,7 @@ The chronicler is the OBSMEM maintenance workflow that keeps the wiki current wh
 - durable milestones worth preserving
 
 ## Outputs
-- `[[Current_Work]]`
+- `[[Current_Work]]` as a local live mirror
 - `daily/YYYY-MM-DD.md`
 - `log.md` for durable milestones
 - updated hub pages when the session changes project understanding
@@ -65,11 +65,12 @@ The chronicler is the OBSMEM maintenance workflow that keeps the wiki current wh
 - scattering one-off notes that do not link back to the hubs
 
 ## Writeback contract
-- Keep `Current_Work` concise and current.
-- Keep daily notes aligned with the same session summary.
+- Keep `Current_Work` concise and current as a local live mirror.
+- Keep daily notes aligned with durable session events, not every snapshot refresh.
 - Append durable milestones to `log.md`.
 - Update `index.md` when a new durable page or hub is added.
 - Refresh `Current_Work` after meaningful git transitions; `run_session_close.py` treats stale branch/HEAD/commit/dirty-count data as a close blocker.
+- `Current_Work` is gitignored on purpose so post-commit refresh does not force a new repo diff by itself.
 
 ## Related
 - [[Current_Work]]

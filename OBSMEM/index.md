@@ -15,7 +15,7 @@
 
 ## Mirrors
 - [[mirrors/CiscoAutoFlash_Current_State|CiscoAutoFlash_Current_State mirror]] — короткая карта текущего repo-state
-- [[Current_Work]] — living short-form snapshot for the active session
+- [[Current_Work]] — local live snapshot for the active session
 - [[Active_Risks]] — активные риски и ограничения
 - [[Open_Architecture_Questions]] — открытые архитектурные вопросы
 - [[Hardware_Smoke_Gate]] — краткий статус готовности к реальному железу

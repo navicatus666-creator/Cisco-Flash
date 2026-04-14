@@ -39,7 +39,7 @@ def _fake_run_command(
 
 
 class ObsmemChroniclerTests(unittest.TestCase):
-    def test_run_snapshot_writes_current_work_and_daily_note(self) -> None:
+    def test_run_snapshot_writes_current_work_without_dirtying_daily_note(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             vault = _make_vault(root)
@@ -73,10 +73,9 @@ class ObsmemChroniclerTests(unittest.TestCase):
             current_work = vault / "mirrors" / "Current_Work.md"
             daily_note = vault / "daily" / f"{obsmem_chronicler._today_str()}.md"
             self.assertTrue(current_work.exists())
-            self.assertTrue(daily_note.exists())
             self.assertIn("UI polish", current_work.read_text(encoding="utf-8"))
             self.assertIn("Current Work", current_work.read_text(encoding="utf-8"))
-            self.assertIn("Victories", daily_note.read_text(encoding="utf-8"))
+            self.assertFalse(daily_note.exists())
             self.assertTrue(state_path.exists())
 
     def test_run_manual_event_appends_log_and_preserves_manual_notes(self) -> None:

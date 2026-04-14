@@ -51,7 +51,8 @@ last_verified: 2026-04-13
 - UI smoke: `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 
 ## Chronicler workflow
-- `Current_Work` is the living session snapshot that the chronicler keeps up to date.
+- `Current_Work` is the living local session snapshot that the chronicler keeps up to date.
+- `Current_Work` is intentionally gitignored so post-commit refreshes do not dirty repo truth.
 - `daily/` notes capture dated narrative from the same durable session summary.
 - `log.md` stays the chronological backbone for important milestones and durable events.
 - Use the chronicler concept page for the exact writeback contract: [[Project_Chronicler_Workflow]].

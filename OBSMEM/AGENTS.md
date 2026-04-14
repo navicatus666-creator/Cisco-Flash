@@ -16,7 +16,7 @@ Rules:
 11. When the question is about implementation truth, read repo files first and only then consult OBSMEM.
 12. Promotion rule: if knowledge changes project behavior, architecture contracts, test expectations, operator workflow, or implementation decisions, write it back into repo files; keep only the long-form reasoning here.
 13. OBSMEM must not be the only place where implementation-relevant truth exists.
-14. Chronicler workflow: keep `mirrors/Current_Work.md` as the living short-form snapshot, keep `daily/` notes aligned with that snapshot, and record durable milestones in `log.md`.
+14. Chronicler workflow: keep `mirrors/Current_Work.md` as the living local short-form snapshot, keep `daily/` notes aligned with durable session events, and record durable milestones in `log.md`.
 15. Chronicler outputs should preserve manual notes sections and keep `related`, `Read next`, and `last_verified` discipline intact.
 16. External Obsidian MCP plugins or servers must be tested in a separate test vault before they are allowed to write into the main `C:\PROJECT\OBSMEM` vault.
 17. Assimilate useful external Obsidian ideas into repo helpers, templates, and explicit policy pages first; do not add a second uncontrolled write path into the main vault.
@@ -59,6 +59,6 @@ Memory lint:
 3. Mark superseded decisions explicitly.
 4. Collapse duplicates when two pages cover the same durable concept.
 5. Add or update `mirrors/` pages when repo state changes materially.
-6. Keep `Current_Work` and `daily` pages aligned with the latest durable session summary.
+6. Keep `Current_Work` fresh as a local live mirror and keep `daily` pages aligned with the latest durable session summary.
 7. Keep Obsidian integration policy explicit: main vault stable, experimental vault separate, useful behavior promoted only after validation.
 8. For high-stakes verdicts, prefer the Explorer -> Evidence Pack -> Blind Judge workflow over single-loop judgment; keep JSON canonical and TOON prompt-facing only.
