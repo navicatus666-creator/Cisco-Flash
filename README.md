@@ -108,43 +108,18 @@ python -m vulture ciscoautoflash main.py tests vulture_whitelist.py
 
 ## Developer Helpers
 
-Fast operational helpers now live under `ciscoautoflash.devtools` with thin wrappers in `scripts/`.
+Public project-side helper scripts:
 
 ```powershell
-python C:\PROJECT\scripts\run_project_bootstrap.py
-python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM
-python C:\PROJECT\scripts\run_obsmem_open.py current-work
-python C:\PROJECT\scripts\run_obsmem_chronicler.py --once
-python C:\PROJECT\scripts\run_obsmem_chronicler.py --watch --interval 120 --session-label "UI work"
-python C:\PROJECT\scripts\run_obsmem_chronicler.py --event-type win --message "Fixed layout collision"
-python C:\PROJECT\scripts\run_evidence_pack.py
-python C:\PROJECT\scripts\run_evidence_pack.py --task-type repo-health
-python C:\PROJECT\scripts\run_blind_judge.py
-python C:\PROJECT\scripts\run_session_close.py
+python C:\PROJECT\scripts\pre_hardware_preflight.py
+python C:\PROJECT\scripts\pre_hardware_preflight.py --rebuild-bundle
+python C:\PROJECT\scripts\pre_hardware_preflight.py --hardware-day-rehearsal
 python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500
+python C:\PROJECT\scripts\run_hidden_ssh_check.py --host <switch-ip> --username <user> --password <password> --secret <enable-secret>
+python C:\PROJECT\scripts\triage_session_return.py "<path-to-session_bundle.zip-or-session-folder>" --output-dir C:\PROJECT\triage_out
 ```
 
-Artifacts are written under `build\devtools\...`:
-- `bootstrap\...` — repo/runtime truth-gate snapshot
-- `memory_lint\...` — OBSMEM structure and drift report
-- `obsmem_chronicler\...` — Current Work, daily-note, and event-stream sync reports
-- `evidence_pack\...` — structured Explorer facts in JSON/Markdown/TOON
-- `blind_judge\...` — blind verdicts derived only from evidence packs
-- `session_close\...` — close-readiness report and optional draft path
-- `ui_smoke\...` — demo-mode auto-close smoke run
-
-Notes:
-- `run_obsmem_lint.py --strict` fails on `error` findings.
-- `run_obsmem_open.py` is the quick-open bridge into Obsidian for `Current_Work`, today's daily note, `log`, and `index`.
-- `Current_Work` is a local live mirror inside the vault, not durable repo truth. It is intentionally gitignored so post-commit refreshes do not dirty the repo by themselves.
-- `run_obsmem_chronicler.py --watch` is the intended background session companion. It keeps `OBSMEM\mirrors\Current_Work.md`, the current daily note, and runtime events aligned while you work.
-- Use manual chronicler events for durable wins, failures, discoveries, decisions, and next steps; implementation-relevant truth still has to go into repo files first.
-- External Obsidian MCP plugins/servers should be trialed in a separate test vault before any direct write path is considered for the main `OBSMEM` vault.
-- `run_evidence_pack.py` is the Explorer-side helper for high-stakes decisions. It keeps `JSON` canonical, writes a human-readable Markdown summary, and emits `TOON` only as prompt-facing compression.
-- `run_blind_judge.py` reads only the evidence pack and returns a separate verdict layer; use it when you want to separate evidence gathering from final judgment.
-- `run_session_close.py` is analysis-only by default; use `--write-obsmem-draft` or `--save-echovault` explicitly.
-- `run_session_close.py` now hard-checks `OBSMEM\mirrors\Current_Work.md` against the live git branch, HEAD, commit subject, and dirty-file count. If `Current_Work` is stale, refresh it with the chronicler before treating the session as closable.
-- `run_ui_smoke.py` uses demo mode plus the app-level smoke env hooks and should be the default fast gate after UI edits.
+These helpers are for product validation, smoke checks, hidden SSH verification, and returned-artifact triage. Additional private maintainer tooling may exist locally, but it is intentionally not part of the public repository.
 
 ## Dependency Workflow
 
@@ -220,21 +195,6 @@ Expected runtime contents:
 - `settings\settings.json`
 
 This keeps packaged builds writable on Windows and avoids writing operator data back into the repo root.
-
-## Developer MCP State
-
-Active Codex/MCP state currently lives under user-home paths:
-
-```text
-C:\Users\MySQL\.codex\
-C:\Users\MySQL\.memory\
-```
-
-Keep MCP caches, indexes, and logs out of `C:\PROJECT\` so repository scans stay clean. This state is separate from operator runtime data in `%LOCALAPPDATA%\CiscoAutoFlash\`.
-
-Canonical MCP upstream map and pin status:
-- [`C:\PROJECT\docs\mcp_stack.md`](C:\PROJECT\docs\mcp_stack.md)
-- Hosted MCPs `context7`, `exa`, and `fetch` are optional on this machine. Enable them only for sessions that actually need external docs or web discovery.
 
 ## Pre-Hardware Docs
 

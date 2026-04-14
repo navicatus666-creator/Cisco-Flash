@@ -39,6 +39,37 @@ venv/
 .vscode/
 .idea/
 
+# Private local operator/Codex kitchen
+AGENTS.md
+OBSMEM/
+docs/mcp_stack.md
+docs/evidence_workflow.md
+scripts/check_mcp_runtime.py
+scripts/run_mcp_healthcheck.py
+scripts/run_project_bootstrap.py
+scripts/run_obsmem_chronicler.py
+scripts/run_obsmem_lint.py
+scripts/run_obsmem_open.py
+scripts/run_evidence_pack.py
+scripts/run_blind_judge.py
+scripts/run_session_close.py
+ciscoautoflash/devtools/blind_judge.py
+ciscoautoflash/devtools/evidence_pack.py
+ciscoautoflash/devtools/mcp_runtime_health.py
+ciscoautoflash/devtools/obsmem_chronicler.py
+ciscoautoflash/devtools/obsmem_lint.py
+ciscoautoflash/devtools/obsmem_open.py
+ciscoautoflash/devtools/project_bootstrap.py
+ciscoautoflash/devtools/session_close.py
+tests/test_blind_judge.py
+tests/test_evidence_pack.py
+tests/test_mcp_runtime_health.py
+tests/test_obsmem_chronicler.py
+tests/test_obsmem_lint.py
+tests/test_obsmem_open.py
+tests/test_project_bootstrap.py
+tests/test_session_close.py
+
 # OS files
 Thumbs.db
 Desktop.ini

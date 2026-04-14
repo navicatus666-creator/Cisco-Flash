@@ -46,10 +46,6 @@ def _default_steps() -> list[tuple[str, list[str]]]:
     python_exe = sys.executable
     return [
         (
-            "check_mcp_runtime",
-            [python_exe, str(PROJECT_ROOT / "scripts" / "check_mcp_runtime.py")],
-        ),
-        (
             "unittest",
             [
                 python_exe,
