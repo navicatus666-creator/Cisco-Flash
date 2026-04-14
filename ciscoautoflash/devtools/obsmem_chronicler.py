@@ -107,7 +107,11 @@ def _run_command(
         timeout=timeout,
         check=False,
     )
-    return completed.returncode, (completed.stdout or "").strip(), (completed.stderr or "").strip()
+    return (
+        completed.returncode,
+        (completed.stdout or "").rstrip("\r\n"),
+        (completed.stderr or "").rstrip("\r\n"),
+    )
 
 
 def _load_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
@@ -207,6 +211,23 @@ def _focus_areas(dirty_items: list[dict[str, str]]) -> list[str]:
     return sorted({_focus_area_for_path(item["path"]) for item in dirty_items})
 
 
+def _chronicler_managed_paths() -> set[str]:
+    return {
+        "OBSMEM/mirrors/Current_Work.md",
+        "OBSMEM/log.md",
+        f"OBSMEM/daily/{_today_str()}.md",
+    }
+
+
+def _display_dirty_items(dirty_items: list[dict[str, str]]) -> list[dict[str, str]]:
+    managed = _chronicler_managed_paths()
+    return [
+        item
+        for item in dirty_items
+        if item["path"].replace("\\", "/") not in managed
+    ]
+
+
 def _latest_helper_summary(helper_root: Path) -> dict[str, Any] | None:
     if not helper_root.exists():
         return None
@@ -262,12 +283,15 @@ def _summarize_helper_statuses(statuses: dict[str, dict[str, Any]]) -> str:
 
 def _snapshot_payload(project_root: Path) -> dict[str, Any]:
     repo = _repo_state(project_root)
+    display_dirty_items = _display_dirty_items(repo["dirty_items"])
     return {
         "created_at": _iso_now(),
         "repo": repo,
-        "focus_areas": _focus_areas(repo["dirty_items"]),
+        "display_dirty_items": display_dirty_items,
+        "display_dirty_count": len(display_dirty_items),
+        "focus_areas": _focus_areas(display_dirty_items),
         "helper_statuses": _helper_statuses(),
-        "short_dirty_files": _short_dirty_files(repo["dirty_items"]),
+        "short_dirty_files": _short_dirty_files(display_dirty_items),
     }
 
 
@@ -275,7 +299,7 @@ def _snapshot_hash(snapshot: dict[str, Any]) -> str:
     stable_payload = {
         "branch": snapshot["repo"]["branch"],
         "head_sha": snapshot["repo"]["head_sha"],
-        "dirty": [(item["status"], item["path"]) for item in snapshot["repo"]["dirty_items"]],
+        "dirty": [(item["status"], item["path"]) for item in snapshot["display_dirty_items"]],
         "helpers": {
             name: payload["status"]
             for name, payload in sorted(snapshot["helper_statuses"].items())
@@ -345,7 +369,7 @@ def _render_current_work(
             f"- Branch: `{repo['branch']}`",
             f"- HEAD: `{repo['head_sha'][:12]}`",
             f"- Commit: {repo['head_subject']}",
-            f"- Dirty files: {repo['dirty_count']}",
+            f"- Dirty files: {snapshot['display_dirty_count']}",
             f"- Focus areas: {', '.join(focus)}",
             "",
             "## Dirty paths",
@@ -406,7 +430,7 @@ def _render_daily_note(
     ]
     dirty_lines = [
         f"- `{item['status'].strip()}` `{item['path']}`"
-        for item in repo["dirty_items"][:12]
+        for item in snapshot["display_dirty_items"][:12]
     ] or ["- clean"]
 
     def _section(title: str, items: list[str], empty: str) -> list[str]:
@@ -588,7 +612,7 @@ def run_snapshot(
             event_type="snapshot",
             session_id=session_id,
             details={
-                "dirty_count": snapshot["repo"]["dirty_count"],
+                "dirty_count": snapshot["display_dirty_count"],
                 "head_sha": snapshot["repo"]["head_sha"],
                 "focus_areas": snapshot["focus_areas"],
             },

@@ -21,20 +21,20 @@ last_verified: 2026-04-14
 ## Session now
 - Label: Session protocol hardening
 - Branch: `main`
-- HEAD: `f4afc5d55a04`
-- Commit: Assimilate Obsidian MCP ideas into OBSMEM workflow
-- Dirty files: 17
-- Focus areas: Devtools, OBSMEM, Project, Tests
+- HEAD: `ee95182b87d7`
+- Commit: Harden OBSMEM session protocol and refresh mirrors
+- Dirty files: 19
+- Focus areas: Devtools, Docs, OBSMEM, Project, Tests
 
 ## Dirty paths
-- `GENTS.md`
-- `OBSMEM/analyses/CiscoAutoFlash_Current_State.md`
-- `OBSMEM/analyses/CiscoAutoFlash_Current_State_2026-04-12.md`
-- `OBSMEM/concepts/Operator_Console_UI.md`
-- `OBSMEM/concepts/Project_Chronicler_Workflow.md`
-- `OBSMEM/concepts/Session_Artifacts_Flow.md`
-- `OBSMEM/daily/2026-04-14.md`
+- `AGENTS.md`
+- `OBSMEM/AGENTS.md`
+- `OBSMEM/README.md`
+- `OBSMEM/index.md`
 - `OBSMEM/mirrors/Active_Risks.md`
+- `OBSMEM/mirrors/CiscoAutoFlash_Current_State.md`
+- `OBSMEM/mirrors/Open_Architecture_Questions.md`
+- `README.md`
 
 ## Helper health
 - `bootstrap`: `READY`

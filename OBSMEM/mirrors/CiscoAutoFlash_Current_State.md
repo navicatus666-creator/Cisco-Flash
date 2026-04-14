@@ -27,8 +27,12 @@ last_verified: 2026-04-14
 - Serial-first hardware workflow.
 - Hidden SSH/SCP backend remains non-operator-facing.
 - Developer helper layer now includes bootstrap, OBSMEM lint, session close, and UI smoke commands under `scripts/`.
+- High-stakes workflow now also has standalone `run_evidence_pack.py` and `run_blind_judge.py` helpers.
+- Evidence artifacts stay canonical in JSON/Markdown, with TOON used only as prompt-facing structured compression.
+- Repo rules, root README, and OBSMEM policy were updated together for the new Explorer -> Evidence Pack -> Blind Judge helper layer.
 - Repo-quality and helper validation are green after the infrastructure helper pass.
 - `session_close` now hard-checks `Current_Work` freshness against live git state.
+- `blind_judge` now resolves its default input through `build/devtools/evidence_pack/latest_summary.json` instead of guessing by folder order.
 - OBSMEM navigation has been tightened around canonical wiki-links in major hub pages.
 
 ## Notes

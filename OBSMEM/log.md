@@ -34,3 +34,8 @@
 - Зафиксирована policy page `Obsidian_MCP_Integration_Policy` с правилом: write-capable Obsidian MCP plugins/servers сначала идут в отдельный test vault.
 - Добавлена source-summary страница по внешним Obsidian MCP рекомендациям и `MCPVault`.
 - Полезные идеи ассимилированы в текущий repo-first workflow без добавления второго live write-path в основной `OBSMEM`.
+
+## [2026-04-14] evidence | Explorer and blind-judge layer added
+- Добавлены `run_evidence_pack.py` и `run_blind_judge.py` как новый high-stakes helper-слой поверх existing devtools.
+- `JSON` оставлен каноническим helper-форматом, а `TOON` добавлен только как prompt-facing compression для однородных evidence sections.
+- В `OBSMEM` добавлена concept page `Explorer_Blind_Judge_Workflow` и index/tooling navigation обновлён под новый workflow.

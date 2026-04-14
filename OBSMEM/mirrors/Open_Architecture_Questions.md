@@ -23,6 +23,10 @@ last_verified: 2026-04-14
 - Which future Cisco families should be added after 2960-X is stable?
 - Should bootstrap/session-close helper outputs stay local-only forever, or should part of them later feed CI/reporting summaries?
 - Should `run_project_bootstrap.py` stay quality/runtime-only, or eventually gain an opt-in OBSMEM strict-lint mode for knowledge-heavy sessions?
+- When should the standalone `evidence_pack` and `blind_judge` helpers be integrated into `session_close`, hardware triage, or PR-review flows?
+- Which parts of the evidence pack should stay JSON-only, and which should expose TOON by default for LLM-facing review steps?
+- Should helper-produced freshness logic compare against raw git dirtiness or a normalized repo view that excludes chronicler-managed mirror files?
+- Should repo health and mirror freshness eventually get one shared verdict contract instead of separate helper summaries plus blind-judge review?
 
 ## Rule
 - Keep speculative reasoning here.

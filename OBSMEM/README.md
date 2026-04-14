@@ -45,6 +45,8 @@ last_verified: 2026-04-13
 - Repo bootstrap: `python C:\PROJECT\scripts\run_project_bootstrap.py`
 - OBSMEM lint: `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM`
 - Open canonical vault pages: `python C:\PROJECT\scripts\run_obsmem_open.py current-work|daily|log|index`
+- Evidence pack: `python C:\PROJECT\scripts\run_evidence_pack.py`
+- Blind judge: `python C:\PROJECT\scripts\run_blind_judge.py`
 - Session close analysis: `python C:\PROJECT\scripts\run_session_close.py`
 - UI smoke: `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500`
 
@@ -53,6 +55,7 @@ last_verified: 2026-04-13
 - `daily/` notes capture dated narrative from the same durable session summary.
 - `log.md` stays the chronological backbone for important milestones and durable events.
 - Use the chronicler concept page for the exact writeback contract: [[Project_Chronicler_Workflow]].
+- For high-stakes verdicts, use the separate evidence/judge layer summarized in [[Explorer_Blind_Judge_Workflow]].
 
 ## Obsidian MCP experiments
 - Useful external Obsidian MCP ideas are tracked in [[Obsidian_MCP_Recommendations_2026-04-14]].
@@ -65,4 +68,5 @@ These commands write reports into `C:\PROJECT\build\devtools\...`. They do not r
 - [[index]]
 - [[analyses/Memory_Lint_Checklist|Memory_Lint_Checklist]]
 - [[Current_Work]]
+- [[Explorer_Blind_Judge_Workflow]]
 - [[Obsidian_MCP_Integration_Policy]]

@@ -83,8 +83,8 @@ def _run_command(
     )
     return CommandResult(
         returncode=completed.returncode,
-        stdout=(completed.stdout or "").strip(),
-        stderr=(completed.stderr or "").strip(),
+        stdout=(completed.stdout or "").rstrip("\r\n"),
+        stderr=(completed.stderr or "").rstrip("\r\n"),
     )
 
 
@@ -174,7 +174,19 @@ def _collect_current_work_freshness(
     repo_branch_name = repo_branch.stdout.strip()
     repo_head_sha = repo_head.stdout.strip()
     repo_subject_line = repo_subject.stdout.strip()
-    repo_dirty_count = len(dirty_items)
+    daily_note_path = obsmem_root / "daily" / f"{datetime.now().date().isoformat()}.md"
+    chronicler_managed = {
+        "OBSMEM/mirrors/Current_Work.md",
+        "OBSMEM/log.md",
+        str(daily_note_path.relative_to(project_root)).replace("\\", "/"),
+    }
+    repo_dirty_count = len(
+        [
+            item
+            for item in dirty_items
+            if item["path"].replace("\\", "/") not in chronicler_managed
+        ]
+    )
 
     if (
         repo_branch.returncode != 0

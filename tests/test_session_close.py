@@ -27,6 +27,65 @@ def _make_repo_layout(root: Path) -> None:
 
 
 class SessionCloseTests(unittest.TestCase):
+    def test_collect_current_work_freshness_ignores_chronicler_managed_dirty_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _make_repo_layout(root)
+            current_work = root / "OBSMEM" / "mirrors" / "Current_Work.md"
+            today = session_close.datetime.now().date().isoformat()
+            current_work.write_text(
+                "\n".join(
+                    [
+                        "# Current Work",
+                        "",
+                        "## Session now",
+                        "- Branch: `main`",
+                        "- HEAD: `abc123def456`",
+                        "- Commit: Some commit",
+                        "- Dirty files: 1",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            dirty_items = [
+                {
+                    "status": " M",
+                    "path": "README.md",
+                    "old_path": "",
+                    "raw": " M README.md",
+                },
+                {
+                    "status": " M",
+                    "path": "OBSMEM/mirrors/Current_Work.md",
+                    "old_path": "",
+                    "raw": " M OBSMEM/mirrors/Current_Work.md",
+                },
+                {
+                    "status": " M",
+                    "path": f"OBSMEM/daily/{today}.md",
+                    "old_path": "",
+                    "raw": f" M OBSMEM/daily/{today}.md",
+                },
+            ]
+
+            with patch.object(
+                session_close,
+                "_run_command",
+                side_effect=[
+                    session_close.CommandResult(0, "main", ""),
+                    session_close.CommandResult(0, "abc123def4567890", ""),
+                    session_close.CommandResult(0, "Some commit", ""),
+                ],
+            ):
+                result = session_close._collect_current_work_freshness(
+                    root,
+                    root / "OBSMEM",
+                    dirty_items,
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(1, result["expected_dirty_count"])
+
     def test_collect_obsmem_mirror_checks_ignores_dirty_mirror_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

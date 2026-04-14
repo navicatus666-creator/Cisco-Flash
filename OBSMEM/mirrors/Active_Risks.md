@@ -22,6 +22,9 @@ last_verified: 2026-04-14
 - Real hardware smoke remains the decisive gate for the serial-first operator flow.
 - `session_close` will keep flagging drift if repo/docs changes are not mirrored back into OBSMEM after substantial sessions.
 - `Current_Work` remains freshness-sensitive and must be refreshed after meaningful git transitions, not trusted blindly.
+- Explorer-only reasoning is still a bias risk for RCA and close-readiness until the new evidence/judge helpers are wired into broader workflows.
+- Chronicler/self-maintained OBSMEM files can create false freshness noise if repo-state comparison does not normalize them consistently.
+- Rule/docs drift remains a real risk whenever AGENTS/README evolve faster than the short mirror pages that explain them.
 
 ## Handling rule
 - If a risk changes implementation or operator workflow, promote it back into repo docs/tests/code.

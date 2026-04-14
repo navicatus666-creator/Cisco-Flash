@@ -24,6 +24,7 @@
 - [[Operator_Console_UI]] — принципы UI/UX для плотной desktop-консоли
 - [[Session_Artifacts_Flow]] — как session folder, manifest и bundle используются в процессе
 - [[Project_Chronicler_Workflow]] — background OBSMEM chronicler workflow and writeback contract
+- [[Explorer_Blind_Judge_Workflow]] — high-stakes Explorer -> Evidence Pack -> Blind Judge workflow
 - [[Obsidian_MCP_Integration_Policy]] — policy for external Obsidian MCP experiments and quick-open flow
 
 ## Sources
@@ -37,6 +38,8 @@
 - `python C:\PROJECT\scripts\run_project_bootstrap.py` — единый bootstrap truth-gate
 - `python C:\PROJECT\scripts\run_obsmem_lint.py --vault C:\PROJECT\OBSMEM` — структурный lint vault
 - `python C:\PROJECT\scripts\run_obsmem_open.py current-work|daily|log|index` — quick-open helper for canonical OBSMEM pages
+- `python C:\PROJECT\scripts\run_evidence_pack.py` — structured Explorer facts for high-stakes decisions
+- `python C:\PROJECT\scripts\run_blind_judge.py` — blind verdict layer that consumes only the evidence pack
 - `python C:\PROJECT\scripts\run_session_close.py` — close-readiness и mirror-gap analysis
 - `python C:\PROJECT\scripts\run_ui_smoke.py --close-ms 1500` — быстрый smoke для demo UI
 
@@ -55,4 +58,5 @@
 - [[Knowledge_System_Model]]
 - [[CiscoAutoFlash_Current_State]]
 - [[Current_Work]]
+- [[Explorer_Blind_Judge_Workflow]]
 - [[Obsidian_MCP_Integration_Policy]]

@@ -61,3 +61,4 @@ Memory lint:
 5. Add or update `mirrors/` pages when repo state changes materially.
 6. Keep `Current_Work` and `daily` pages aligned with the latest durable session summary.
 7. Keep Obsidian integration policy explicit: main vault stable, experimental vault separate, useful behavior promoted only after validation.
+8. For high-stakes verdicts, prefer the Explorer -> Evidence Pack -> Blind Judge workflow over single-loop judgment; keep JSON canonical and TOON prompt-facing only.
