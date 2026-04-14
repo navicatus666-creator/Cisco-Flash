@@ -6,15 +6,29 @@
 [![Bandit](https://img.shields.io/badge/Security-Bandit-F45D48)](https://bandit.readthedocs.io/)
 [![Mypy](https://img.shields.io/badge/Type%20Check-Mypy-2A6DB2)](https://mypy-lang.org/)
 [![UI ttkbootstrap](https://img.shields.io/badge/UI-ttkbootstrap-2772C8)](https://ttkbootstrap.readthedocs.io/)
+[![Last Commit](https://img.shields.io/github/last-commit/navicatus666-creator/Cisco-Flash)](https://github.com/navicatus666-creator/Cisco-Flash/commits/main)
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)
+![Device](https://img.shields.io/badge/Device-Cisco%202960--X-1BA0D7)
+![Workflow](https://img.shields.io/badge/Workflow-Serial%2FUSB-6A5ACD)
+![Transport](https://img.shields.io/badge/Transport-SSH%20backend%20internal-555555)
+![Demo](https://img.shields.io/badge/Demo-Available-2E8B57)
+![Status](https://img.shields.io/badge/Status-Pre--hardware-orange)
 
-CiscoAutoFlash is a Windows desktop utility for Cisco switch maintenance.
+CiscoAutoFlash is a Windows-first desktop utility for Cisco switch maintenance.
+The current public target is a Cisco 2960-X operator workflow over Serial/USB,
+with a Russian-first ttkbootstrap dashboard, replay-driven demo mode, session
+artifacts, and a hidden SSH/SCP backend prepared for later expansion.
 
-Current supported workflow:
+## Current Public Scope
+
 - Cisco Catalyst 2960-X
 - Serial/USB path
 - Stage 1 reset, Stage 2 USB install, Stage 3 verification/report
+- Session folder + bundle export under `%LOCALAPPDATA%\CiscoAutoFlash\`
+- Replay/demo path for pre-hardware dry-runs
 
-Current limits:
+## Current Limits
+
 - The refactored app under `ciscoautoflash/` is the active codebase.
 - `CiscoAutoFlash_GUI_Clean.py` is legacy reference only.
 - Backend-only SSH/SCP transport is integration-ready (`Netmiko`-based), but the desktop UI is still serial-first in V1.
@@ -30,6 +44,8 @@ Current limits:
 - Packaging: `PyInstaller` one-folder build (не в активном dev-цикле до hardware smoke)
 
 ## Run
+
+Source run:
 
 ```powershell
 python C:\PROJECT\main.py
@@ -162,8 +178,7 @@ The repo now includes:
 
 ## Build
 
-Build оставлен в репозитории, но до hardware smoke не является частью повседневного цикла.
-
+Build remains in the repo, but it is not part of the everyday loop before hardware smoke.
 
 Install build dependencies:
 
