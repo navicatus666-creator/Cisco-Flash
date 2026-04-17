@@ -37,6 +37,7 @@ from ciscoautoflash.replay.adapter import DemoReplayController
 from ciscoautoflash.ui.app import (
     _BRAND_COLORS,
     CiscoAutoFlashDesktop,
+    _resolve_metrics_workspace_contract,
     _parse_geometry_size,
     _resolve_window_layout_contract,
 )
@@ -842,6 +843,15 @@ class CiscoAutoFlashDesktopSmokeTests(unittest.TestCase):
         self.assertEqual(sorted(payload), ["Прошивка", "Состояние и артефакты"])
         self.assertTrue(payload["Прошивка"]["selected"])
         self.assertIn("click_point", payload["Состояние и артефакты"])
+
+    def test_metrics_workspace_contract_promotes_diagnostics_to_full_width_bottom_row(self) -> None:
+        contract = _resolve_metrics_workspace_contract()
+
+        self.assertEqual(contract["column_weights"], (3, 2))
+        self.assertEqual(contract["row_weights"], (0, 1))
+        self.assertEqual(contract["status_grid"], {"row": 0, "column": 0, "columnspan": 1})
+        self.assertEqual(contract["artifacts_grid"], {"row": 0, "column": 1, "columnspan": 1})
+        self.assertEqual(contract["diagnostics_grid"], {"row": 1, "column": 0, "columnspan": 2})
 
     def test_selected_target_changed_updates_tree_and_persists(self) -> None:
         app = self.make_app_shell()
