@@ -37,8 +37,8 @@ from ciscoautoflash.replay.adapter import DemoReplayController
 from ciscoautoflash.ui.app import (
     _BRAND_COLORS,
     CiscoAutoFlashDesktop,
-    _resolve_metrics_workspace_contract,
     _parse_geometry_size,
+    _resolve_metrics_workspace_contract,
     _resolve_window_layout_contract,
 )
 
