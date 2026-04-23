@@ -32,6 +32,7 @@ Local preflight now explicitly includes:
 - Optional final pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --rebuild-bundle`
 - Hardware-day rehearsal pass: `python C:\PROJECT\scripts\pre_hardware_preflight.py --hardware-day-rehearsal`
 - The dashboard now mirrors this through the read-only `Подготовка к железу` block: latest local gate, console/USB snapshot, Ethernet state, and the exact live-run / bring-back path.
+- Bluetooth serial ports may be listed by Windows, but they are not valid Cisco console paths and must not make the hardware-day rehearsal green.
 
 ## Before connecting the switch
 
@@ -73,7 +74,7 @@ Local preflight now explicitly includes:
 6. Confirm the selected target is correct in summary cards and preflight.
 7. Confirm the `Подготовка к железу` block shows:
    - a green local gate
-   - at least one visible console path
+   - at least one non-Bluetooth console candidate
    - the expected serial-first live-run and bring-back flow
 8. Confirm the operator card shows a concrete next step.
 9. If the wrong target is selected, switch to the correct COM port manually before any stage.

@@ -88,6 +88,55 @@ class HardwareDayTests(unittest.TestCase):
         self.assertEqual(snapshot["console"]["recommended_primary"], "COM7")
         self.assertEqual(snapshot["network"]["ethernet_up"], ["Ethernet"])
 
+    def test_build_connection_snapshot_ignores_bluetooth_com_ports(self) -> None:
+        ports = [
+            SimpleNamespace(
+                device="COM3",
+                description="Standard Serial over Bluetooth link",
+                manufacturer="Microsoft",
+                product="",
+                hwid="BTHENUM\\{00001101-0000-1000-8000-00805F9B34FB}",
+                vid=None,
+                pid=None,
+                serial_number="",
+                location="",
+            ),
+            SimpleNamespace(
+                device="COM4",
+                description="Стандартный последовательный порт по соединению Bluetooth",
+                manufacturer="Microsoft",
+                product="",
+                hwid="BTHENUM\\LOCALMFG",
+                vid=None,
+                pid=None,
+                serial_number="",
+                location="",
+            ),
+        ]
+
+        with (
+            patch("ciscoautoflash.devtools.hardware_day.sys.platform", "win32"),
+            patch(
+                "ciscoautoflash.devtools.hardware_day.list_ports.comports",
+                return_value=ports,
+            ),
+            patch(
+                "ciscoautoflash.devtools.hardware_day.subprocess.run",
+                return_value=CompletedProcess(
+                    args=["powershell"],
+                    returncode=0,
+                    stdout="[]",
+                    stderr="",
+                ),
+            ),
+        ):
+            snapshot = hardware_day.build_connection_snapshot()
+
+        self.assertFalse(snapshot["console"]["ready"])
+        self.assertEqual(snapshot["console"]["recommended_primary"], "")
+        self.assertEqual(snapshot["console"]["ignored_bluetooth_ports"], ["COM3", "COM4"])
+        self.assertEqual(snapshot["console"]["console_candidates"], [])
+
     def test_assess_hardware_day_readiness_requires_green_gate_and_console(self) -> None:
         snapshot = {
             "console": {"ready": False, "recommended_primary": "", "items": []},
@@ -105,6 +154,48 @@ class HardwareDayTests(unittest.TestCase):
         self.assertTrue(
             any("console path" in step for step in result["next_steps"])
         )
+
+    def test_describe_connection_snapshot_reports_no_ethernet_up(self) -> None:
+        snapshot = {
+            "console": {"items": []},
+            "network": {
+                "available": True,
+                "ethernet_present": True,
+                "ethernet_up": [],
+                "ethernet_disconnected": ["Ethernet 2"],
+            },
+            "ping": {"attempted": False},
+            "ssh_probe": {"attempted": False},
+        }
+
+        described = hardware_day.describe_connection_snapshot(snapshot)
+
+        self.assertEqual(
+            described["ethernet"],
+            "Ethernet up: нет. Disconnected: Ethernet 2.",
+        )
+
+    def test_assess_hardware_day_readiness_reports_ignored_bluetooth_ports(self) -> None:
+        snapshot = {
+            "console": {
+                "ready": False,
+                "recommended_primary": "",
+                "items": [{"device": "COM3"}],
+                "ignored_bluetooth_ports": ["COM3"],
+            },
+            "network": {"ethernet_up": []},
+            "ping": {"attempted": False},
+            "ssh_probe": {"attempted": False},
+        }
+
+        result = hardware_day.assess_hardware_day_readiness(
+            preflight_status="READY",
+            snapshot=snapshot,
+        )
+
+        self.assertEqual(result["status"], "NOT_READY")
+        self.assertTrue(any("Bluetooth COM" in step for step in result["next_steps"]))
+
 
     def test_load_latest_preflight_summary_picks_newest_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

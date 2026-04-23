@@ -80,6 +80,7 @@ These risks are expected to remain open until the first real switch run:
 - session artifact actions point to the wrong paths
 - the selected target cannot be trusted after scan
 - the firmware tar name or USB path is still uncertain
+- the only visible COM ports are Bluetooth serial ports instead of a real USB/RJ-45 Cisco console path
 
 ## Handoff to the first hardware run
 

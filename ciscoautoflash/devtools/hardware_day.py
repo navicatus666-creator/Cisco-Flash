@@ -20,6 +20,7 @@ WIFI_TOKENS = ("wi-fi", "wifi", "wireless", "wlan")
 VIRTUAL_TOKENS = ("bluetooth", "virtual", "loopback", "vpn", "hyper-v", "vmware", "tap")
 USB_TOKENS = ("usb", "uart", "serial")
 CISCO_TOKENS = ("cisco", "console")
+BLUETOOTH_TOKENS = ("bluetooth", "bthenum", "rfcomm")
 SYSTEM_ROOT = Path(os.environ.get("SystemRoot", r"C:\Windows"))
 POWERSHELL_EXE = str(
     SYSTEM_ROOT / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
@@ -89,6 +90,10 @@ def _normalize_console_port(port: object) -> dict[str, Any]:
     product = str(getattr(port, "product", "") or "")
     hwid = str(getattr(port, "hwid", "") or "")
     combined = _combined_text(device, description, manufacturer, product, hwid)
+    is_bluetooth = any(token in combined for token in BLUETOOTH_TOKENS)
+    is_usb = any(token in combined for token in USB_TOKENS)
+    looks_like_cisco_console = any(token in combined for token in CISCO_TOKENS)
+    is_console_candidate = (is_usb or looks_like_cisco_console) and not is_bluetooth
     return {
         "device": device,
         "description": description,
@@ -99,8 +104,10 @@ def _normalize_console_port(port: object) -> dict[str, Any]:
         "pid": getattr(port, "pid", None),
         "serial_number": str(getattr(port, "serial_number", "") or ""),
         "location": str(getattr(port, "location", "") or ""),
-        "is_usb": any(token in combined for token in USB_TOKENS),
-        "looks_like_cisco_console": any(token in combined for token in CISCO_TOKENS),
+        "is_usb": is_usb,
+        "is_bluetooth": is_bluetooth,
+        "looks_like_cisco_console": looks_like_cisco_console,
+        "is_console_candidate": is_console_candidate,
     }
 
 
@@ -109,23 +116,33 @@ def _collect_console_ports() -> dict[str, Any]:
         (_normalize_console_port(port) for port in list_ports.comports()),
         key=lambda item: item["device"],
     )
-    usb_candidates = [item["device"] for item in items if item["is_usb"]]
+    usb_candidates = [
+        item["device"] for item in items if item["is_usb"] and not item["is_bluetooth"]
+    ]
     cisco_candidates = [
-        item["device"] for item in items if item["looks_like_cisco_console"]
+        item["device"]
+        for item in items
+        if item["looks_like_cisco_console"] and not item["is_bluetooth"]
+    ]
+    console_candidates = [
+        item["device"] for item in items if item["is_console_candidate"]
+    ]
+    ignored_bluetooth_ports = [
+        item["device"] for item in items if item["is_bluetooth"]
     ]
     recommended_primary = ""
-    for candidates in (cisco_candidates, usb_candidates):
+    for candidates in (cisco_candidates, usb_candidates, console_candidates):
         if candidates:
             recommended_primary = candidates[0]
             break
-    if not recommended_primary and items:
-        recommended_primary = str(items[0]["device"])
     return {
         "items": items,
         "total_ports": len(items),
-        "ready": bool(items),
+        "ready": bool(console_candidates),
         "usb_candidates": usb_candidates,
         "cisco_candidates": cisco_candidates,
+        "console_candidates": console_candidates,
+        "ignored_bluetooth_ports": ignored_bluetooth_ports,
         "recommended_primary": recommended_primary,
     }
 
@@ -330,6 +347,12 @@ def describe_connection_snapshot(snapshot: dict[str, Any]) -> dict[str, str]:
     ssh_probe = snapshot.get("ssh_probe", {})
     console_items = console.get("items", []) if isinstance(console, dict) else []
     usb_candidates = console.get("usb_candidates", []) if isinstance(console, dict) else []
+    console_candidates = (
+        console.get("console_candidates", []) if isinstance(console, dict) else []
+    )
+    ignored_bluetooth = (
+        console.get("ignored_bluetooth_ports", []) if isinstance(console, dict) else []
+    )
     recommended_primary = (
         str(console.get("recommended_primary", "")) if isinstance(console, dict) else ""
     )
@@ -346,7 +369,20 @@ def describe_connection_snapshot(snapshot: dict[str, Any]) -> dict[str, str]:
             else ""
         )
         usb_note = f" USB-кандидаты: {', '.join(usb_candidates)}." if usb_candidates else ""
-        console_text = f"Видно COM: {ports}.{candidate_note}{usb_note}".strip()
+        ignored_note = (
+            f" Bluetooth COM проигнорированы: {', '.join(ignored_bluetooth)}."
+            if ignored_bluetooth
+            else ""
+        )
+        if console_candidates:
+            console_text = (
+                f"Видно COM: {ports}.{candidate_note}{usb_note}{ignored_note}"
+            ).strip()
+        else:
+            console_text = (
+                f"Видно COM: {ports}, но console-кандидатов нет.{ignored_note} "
+                "Подключите USB-Serial console adapter."
+            ).strip()
 
     if not isinstance(network, dict) or not network.get("available", False):
         ethernet_text = (
@@ -359,9 +395,11 @@ def describe_connection_snapshot(snapshot: dict[str, Any]) -> dict[str, str]:
     else:
         up = network.get("ethernet_up", [])
         down = network.get("ethernet_disconnected", [])
+        up_text = ", ".join(up) if up else "нет"
+        down_text = ", ".join(down) if down else "нет"
         ethernet_text = (
-            f"Ethernet up: {', '.join(up)}. "
-            f"Disconnected: {', '.join(down) if down else 'нет'}."
+            f"Ethernet up: {up_text}. "
+            f"Disconnected: {down_text}."
         )
 
     if not isinstance(ssh_probe, dict) or not ssh_probe.get("host"):
@@ -460,6 +498,13 @@ def assess_hardware_day_readiness(
         next_steps.append(
             "Подключите один основной console path и убедитесь, что Windows видит его как COM-порт."
         )
+        if isinstance(console, dict) and console.get("ignored_bluetooth_ports"):
+            ignored = ", ".join(
+                str(port) for port in console["ignored_bluetooth_ports"]
+            )
+            next_steps.append(
+                f"Bluetooth COM-порты ({ignored}) не считаются Cisco console path."
+            )
     else:
         recommended = str(console.get("recommended_primary", "") or "")
         if recommended:
