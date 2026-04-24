@@ -147,11 +147,12 @@ def _resolve_window_layout_contract(
 
 def _resolve_metrics_workspace_contract() -> dict[str, object]:
     return {
-        "column_weights": (3, 2),
-        "row_weights": (0, 1),
+        "column_weights": (3, 3, 4),
+        "column_minsizes": (360, 420, 520),
+        "row_weights": (1,),
         "status_grid": {"row": 0, "column": 0, "columnspan": 1},
         "artifacts_grid": {"row": 0, "column": 1, "columnspan": 1},
-        "diagnostics_grid": {"row": 1, "column": 0, "columnspan": 2},
+        "diagnostics_grid": {"row": 0, "column": 2, "columnspan": 1},
     }
 
 
@@ -725,7 +726,7 @@ class CiscoAutoFlashDesktop:
         )
         self.targets_tree.heading("#0", text="Порт")
         self.targets_tree.heading("status", text="Статус")
-        self.targets_tree.heading("state", text="Соединение")
+        self.targets_tree.heading("state", text="Связь")
         self.targets_tree.column("#0", width=94, stretch=False)
         self.targets_tree.column("status", width=180, stretch=True)
         self.targets_tree.column("state", width=96, stretch=False)
@@ -793,16 +794,20 @@ class CiscoAutoFlashDesktop:
 
         controls = ttk.Frame(workflow_card, style="UiA.TFrame")
         controls.grid(row=1, column=0, sticky="ew")
-        controls.columnconfigure(1, weight=1)
-        controls.columnconfigure(4, weight=1)
+        controls.columnconfigure(0, weight=3 if self.demo_mode else 1)
+        if self.demo_mode:
+            controls.columnconfigure(1, weight=2)
 
         action_strip = ttk.Frame(controls, padding=(10, 8), style="UiAA.TFrame")
-        action_strip.grid(row=0, column=0, sticky="ew")
+        action_strip.grid(
+            row=0,
+            column=0,
+            sticky="new",
+            padx=(0, 10) if self.demo_mode else 0,
+        )
         action_strip.columnconfigure(1, weight=1)
-        action_strip.columnconfigure(3, minsize=16)
-        action_strip.columnconfigure(8, weight=1)
         ttk.Label(action_strip, text="Сканирование и этапы", style="UiAB.TLabel").grid(
-            row=0, column=0, columnspan=9, sticky="w", pady=(0, 6)
+            row=0, column=0, columnspan=5, sticky="w", pady=(0, 6)
         )
         ttk.Label(action_strip, text="Firmware", style="UiAB.TLabel").grid(
             row=1, column=0, sticky="w", padx=(0, 8)
@@ -817,8 +822,8 @@ class CiscoAutoFlashDesktop:
             command=self._on_scan,
         )
         self.scan_button.grid(row=1, column=2, sticky="ew")
-        ttk.Label(action_strip, text="Этапы", style="UiAB.TLabel").grid(
-            row=1, column=4, sticky="w", padx=(10, 8)
+        ttk.Label(action_strip, text="Этапы прошивки", style="UiAB.TLabel").grid(
+            row=2, column=0, sticky="w", padx=(0, 8), pady=(8, 0)
         )
         self.stage1_button = ttk.Button(
             action_strip,
@@ -826,28 +831,28 @@ class CiscoAutoFlashDesktop:
             style="UiW.TButton",
             command=self._on_stage1,
         )
-        self.stage1_button.grid(row=1, column=5, padx=(0, 4), sticky="ew")
+        self.stage1_button.grid(row=2, column=1, padx=(0, 4), pady=(8, 0), sticky="ew")
         self.stage2_button = ttk.Button(
             action_strip,
             text="Этап 2",
             style="UiU.TButton",
             command=self._on_stage2,
         )
-        self.stage2_button.grid(row=1, column=6, padx=4, sticky="ew")
+        self.stage2_button.grid(row=2, column=2, padx=4, pady=(8, 0), sticky="ew")
         self.stage3_button = ttk.Button(
             action_strip,
             text="Этап 3",
             style="UiV.TButton",
             command=self._on_stage3,
         )
-        self.stage3_button.grid(row=1, column=7, padx=(4, 4), sticky="ew")
+        self.stage3_button.grid(row=2, column=3, padx=4, pady=(8, 0), sticky="ew")
         self.stop_button = ttk.Button(
             action_strip,
             text="Стоп",
             style="UiX.TButton",
             command=self._on_stop,
         )
-        self.stop_button.grid(row=1, column=8, sticky="ew")
+        self.stop_button.grid(row=2, column=4, padx=(4, 0), pady=(8, 0), sticky="ew")
         stage_hint_label = ttk.Label(
             action_strip,
             text="Порядок: scan -> 1 -> 2 -> 3.",
@@ -855,7 +860,7 @@ class CiscoAutoFlashDesktop:
             justify="left",
             anchor="w",
         )
-        stage_hint_label.grid(row=2, column=0, columnspan=9, sticky="ew", pady=(6, 0))
+        stage_hint_label.grid(row=3, column=0, columnspan=5, sticky="ew", pady=(6, 0))
         self._bind_responsive_wrap(stage_hint_label, action_strip, min_wrap=320)
 
         live_grid = ttk.Frame(workflow_card, style="UiA.TFrame")
@@ -1018,7 +1023,7 @@ class CiscoAutoFlashDesktop:
             demo_card = ttk.Labelframe(
                 controls, text="Demo-сценарий", padding=10, style="UiD.TLabelframe"
             )
-            demo_card.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+            demo_card.grid(row=0, column=1, sticky="nsew")
             ttk.Label(
                 demo_card,
                 text="Dev-only проигрывание сценариев без оборудования",
@@ -1035,8 +1040,9 @@ class CiscoAutoFlashDesktop:
             self.demo_scenario_buttons: dict[str, ttk.Button] = {}
             buttons_frame = ttk.Frame(demo_card)
             buttons_frame.pack(fill="x", pady=(0, 8))
-            buttons_frame.columnconfigure(0, weight=1)
-            buttons_frame.columnconfigure(1, weight=1)
+            demo_button_columns = 3
+            for column in range(demo_button_columns):
+                buttons_frame.columnconfigure(column, weight=1)
             for index, scenario in enumerate(self.demo_scenarios_by_name.values()):
                 button = ttk.Button(
                     buttons_frame,
@@ -1047,8 +1053,8 @@ class CiscoAutoFlashDesktop:
                     ),
                 )
                 button.grid(
-                    row=index // 2,
-                    column=index % 2,
+                    row=index // demo_button_columns,
+                    column=index % demo_button_columns,
                     padx=4,
                     pady=4,
                     sticky="ew",
@@ -1071,12 +1077,14 @@ class CiscoAutoFlashDesktop:
         metrics_body = ttk.Frame(metrics_workspace_tab, style="UiA.TFrame")
         metrics_body.pack(fill="both", expand=True)
         metrics_contract = _resolve_metrics_workspace_contract()
-        column_weights = cast(tuple[int, int], metrics_contract["column_weights"])
-        row_weights = cast(tuple[int, int], metrics_contract["row_weights"])
-        metrics_body.columnconfigure(0, weight=column_weights[0], minsize=720)
-        metrics_body.columnconfigure(1, weight=column_weights[1], minsize=480)
-        metrics_body.rowconfigure(0, weight=row_weights[0])
-        metrics_body.rowconfigure(1, weight=row_weights[1])
+        column_weights = cast(tuple[int, ...], metrics_contract["column_weights"])
+        column_minsizes = cast(tuple[int, ...], metrics_contract["column_minsizes"])
+        row_weights = cast(tuple[int, ...], metrics_contract["row_weights"])
+        for column, weight in enumerate(column_weights):
+            minsize = column_minsizes[column] if column < len(column_minsizes) else 1
+            metrics_body.columnconfigure(column, weight=weight, minsize=minsize)
+        for row, weight in enumerate(row_weights):
+            metrics_body.rowconfigure(row, weight=weight)
 
         status_stack = ttk.Frame(metrics_body, style="UiA.TFrame")
         status_grid = cast(dict[str, int], metrics_contract["status_grid"])
@@ -1086,7 +1094,6 @@ class CiscoAutoFlashDesktop:
             columnspan=status_grid["columnspan"],
             sticky="nsew",
             padx=(0, 10),
-            pady=(0, 10),
         )
         status_stack.columnconfigure(0, weight=1)
         status_stack.rowconfigure(0, weight=1)
@@ -1104,7 +1111,7 @@ class CiscoAutoFlashDesktop:
             column=artifacts_grid["column"],
             columnspan=artifacts_grid["columnspan"],
             sticky="nsew",
-            pady=(0, 10),
+            padx=(0, 10),
         )
         utility_card.columnconfigure(1, weight=1)
         utility_card.columnconfigure(2, weight=1)
@@ -1480,33 +1487,38 @@ class CiscoAutoFlashDesktop:
         button_attr: str | None = None,
         enabled: bool = True,
     ) -> ttk.Button:
-        ttk.Label(parent, text=title, font=("Segoe UI", 10, "bold")).grid(
-            row=row, column=0, sticky="nw", padx=(0, 10), pady=(0, 10)
+        row_card = ttk.Frame(parent, padding=(8, 6), style="UiC.TFrame")
+        row_card.grid(row=row, column=0, columnspan=4, sticky="ew", pady=(0, 8))
+        row_card.columnconfigure(0, weight=1)
+        header = ttk.Frame(row_card, style="UiC.TFrame")
+        header.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        header.columnconfigure(1, weight=1)
+        ttk.Label(header, text=title, font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, sticky="w"
         )
-        entry = ttk.Entry(parent, textvariable=path_var)
-        entry.grid(row=row, column=1, sticky="ew", pady=(0, 10))
+        ttk.Label(header, textvariable=status_var, font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=1, sticky="e"
+        )
+        entry = ttk.Entry(row_card, textvariable=path_var)
+        entry.grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(4, 4))
         entry.configure(state="readonly")
-        meta = ttk.Frame(parent)
-        meta.grid(row=row, column=2, sticky="new", padx=(12, 10), pady=(0, 10))
-        meta.columnconfigure(0, weight=1)
-        ttk.Label(meta, textvariable=status_var, font=("Segoe UI", 9, "bold")).pack(anchor="w")
         description_label = ttk.Label(
-            meta,
+            row_card,
             text=description,
             style="UiO.TLabel",
             justify="left",
             anchor="w",
         )
-        description_label.pack(fill="x", anchor="w", pady=(2, 0))
-        self._bind_responsive_wrap(description_label, meta, min_wrap=200)
+        description_label.grid(row=2, column=0, sticky="ew", padx=(0, 10))
+        self._bind_responsive_wrap(description_label, row_card, min_wrap=220)
         button = ttk.Button(
-            parent,
+            row_card,
             text=button_text,
             style="UiY.TButton",
             command=command,
             state="normal" if enabled else "disabled",
         )
-        button.grid(row=row, column=3, sticky="e", pady=(0, 10))
+        button.grid(row=0, column=1, rowspan=3, sticky="e")
         if button_attr:
             setattr(self, button_attr, button)
         return button
