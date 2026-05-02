@@ -1,5 +1,9 @@
 # Portable Build Smoke Checklist
 
+This checklist is optional for the current serial-first hardware path. Use it
+only when portable/release work explicitly resumes or when a field bundle is
+being tested.
+
 ## Launch
 - Start the carry bundle launcher or `dist/CiscoAutoFlash/CiscoAutoFlash.exe`.
 - Confirm the window opens without Python console noise or import errors.

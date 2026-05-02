@@ -10,16 +10,17 @@ Validate the refactored Serial/USB workflow from source:
 - `Этап 2: Установка`
 - `Этап 3: Проверка`
 
-Preferred execution path on the work PC is the portable carry bundle:
-
-```powershell
-C:\PROJECT\Возьму С Собой\Запустить CiscoAutoFlash.bat
-```
-
-If the field PC is unavailable and you are running on the dev machine instead, source run is still valid:
+Current preferred execution path is the source run on the dev machine:
 
 ```powershell
 python C:\PROJECT\main.py
+```
+
+The portable carry bundle path is optional and not part of the default next
+hardware step until portable/release work resumes:
+
+```powershell
+C:\PROJECT\Возьму С Собой\Запустить CiscoAutoFlash.bat
 ```
 
 ## Pre-run gate

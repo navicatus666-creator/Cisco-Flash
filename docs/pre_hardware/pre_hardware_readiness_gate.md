@@ -8,10 +8,11 @@ This gate is only for the current v1 path:
 - Cisco 2960-X
 - Serial/USB workflow
 - execution via either:
-  - source run `python C:\PROJECT\main.py`
-  - the portable carry bundle on the field PC
+  - primary: source run `python C:\PROJECT\main.py`
+  - optional later: portable carry bundle on the field PC
 
-Do not treat this gate as release approval or SSH feature approval.
+Do not treat this gate as release approval, portable-build approval, or SSH
+feature approval.
 
 ## Software gate
 

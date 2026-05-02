@@ -1,3 +1,5 @@
+# Compatibility-only runtime bootstrap.
+# Dependency source of truth is pyproject.toml + uv.lock.
 Pillow>=12.2
 pyserial>=3.5
 ttkbootstrap>=1.20
